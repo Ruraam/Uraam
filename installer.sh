@@ -153,7 +153,7 @@ prompt_msg="Latest release found. Do you want to download and install it? [y/N]:
 fi
 
 printf "\n%b" "${YELLOW}[?] ${prompt_msg}${NC}"
-read-r confirm
+read -r confirm
 
 if [[ ! "$confirm" =~ ^[yY]$ ]]; then
 printf "%b\n" "${BLUE}---------------------------------------${NC}"
@@ -176,9 +176,9 @@ curl -L -o "$tmp_dir/uraam-termux.deb" "$TERMUX_DEB_URL"
 dpkg -i "$tmp_dir/uraam-termux.deb" || apt-get install -f -y
 else
 printf "%b\n" "${YELLOW}[!] Installing standalone script...${NC}"
-SCRIPT_URL=$(echo "$RELEASE_DATA" | jq-r '.assets[] | select(.name == "uraam.sh" or .name == "uraam")| .browser_download_url' | head -n 1)
+SCRIPT_URL=$(echo "$RELEASE_DATA" | jq -r '.assets[] | select(.name == "uraam.sh" or .name == "uraam")| .browser_download_url' | head -n 1)
 [ -z "$SCRIPT_URL" ] || [ "$SCRIPT_URL" = "null" ] && SCRIPT_URL="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/uraam.sh"
-curl-L -o "$PREFIX/bin/uraam" "$SCRIPT_URL"
+curl -L -o "$PREFIX/bin/uraam" "$SCRIPT_URL"
 chmod +x "$PREFIX/bin/uraam"
 fi
 else
@@ -196,7 +196,7 @@ if [ "$debian_choice" = "1" ]; then
 printf "%b\n" "${CYAN}[*] Searching .deb package in release...${NC}"
 PC_DEB_URL=$(echo "$RELEASE_DATA" | jq -r '.assets[] | select(.name | endswith(".deb")) | select(.name | contains("termux") | not) | .browser_download_url' | head -n 1)
 
-if [ -n "$PC_DEB_URL" ] && [ "$PC_DEB_URL" != "null" ]; then
+if [ -n "$PC_DEB_URL" ] && [ "$PC_DEB_URL" ! = "null" ]; then
 printf "%b\n" "${GREEN}[+] Found Debian package:$(basename "$PC_DEB_URL")${NC}"
 curl -L -o "$tmp_dir/uraam-pc.deb" "$PC_DEB_URL"
 sudo dpkg -i "$tmp_dir/uraam-pc.deb" || sudo apt-get install -f -y
