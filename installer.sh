@@ -129,7 +129,7 @@ fi
 
 fetch_release() {
 printf "%b\n""${CYAN}[*] Fetching latest release info from GitHub...${NC}"
-RELEASE_DATA=$(curl-sL "$API_URL")
+RELEASE_DATA=$(curl -sL "$API_URL")
 LATEST_TAG=$(echo "$RELEASE_DATA" | jq -r '.tag_name // empty')
 
 if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
