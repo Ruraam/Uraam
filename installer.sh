@@ -27,7 +27,7 @@ YELLOW='\033[0;33m'
 NC='\033[0m'
 
 INSTALL_DIR="${INSTALL_DIR:-$HOME/Uraam}"
-REPO_URL="https://github.com/Ruvyrom/Uraam"
+REPO_URL="https://github.com/Uraam/Uraam"
 BRANCH="${BRANCH:-main}"
 
 cleanup() {
