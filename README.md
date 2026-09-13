@@ -135,8 +135,7 @@ curl -sL "$DEB_URL" -o /tmp/uraam.deb && sudo apt install -y /tmp/uraam.deb && r
 ### 📱 Termux (DEB Package)
 One-line download and installation for Termux on Android:
 ```bash
-DEB_URL=$(curl -s https://api.github.com/repos/Ruvyrom/Uraam/releases/latest | grep -o '"browser_download_url": "[^"]*uraam-termux[^"]*"' | cut -d '"' -f 4)
-curl -sL "$DEB_URL" -o $PREFIX/tmp/uraam.deb && pkg install -y $PREFIX/tmp/uraam.deb && rm -f $PREFIX/tmp/uraam.deb
+mkdir -p "$PREFIX/tmp" && curl -s https://api.github.com/repos/Ruvyrom/Uraam/releases/latest | grep "browser_download_url.uraam-termux.\.deb" | cut -d '"' -f 4 | xargs curl -sL -o "$PREFIX/tmp/uraam.deb" && apt install -y "$PREFIX/tmp/uraam.deb" && rm -f "$PREFIX/tmp/uraam.deb"
 ```
 
 **You can also downlaod latest DEB files from [Releases Page](https://github.com/Ruvyrom/Uraam/releases)**
