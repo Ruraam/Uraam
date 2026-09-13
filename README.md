@@ -100,7 +100,7 @@ or
 | Apps | `Apps/` | Place APKs to batch-install | $HOME/.local/share/uraam/Apps
 | backup-restore | `Configs/backup-restore/` | Exported application lists & restore points | $HOME/.local/share/uraam/backup-restore
 
-## ⚡ Quick &Direct Installation
+## ⚡ Quick & Direct Installation
 
 ### 📦 Universal 1-Line Installer (Recommended)
 Automatically detects your environment and installs Uraam on **Termux, Linux, macOS, or WSL**:
