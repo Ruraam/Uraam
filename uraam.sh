@@ -62,6 +62,21 @@ EOF
 echo -e "${NC}"
 }
 
+is_installed_via_deb() {
+local package_name="${1:-uraam-debian}"
+if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; then
+return 1
+fi
+if command -v dpkg-query >/dev/null 2>&1; then
+local package_status
+package_status=$(dpkg-query -W -f='${Status}' "$package_name" 2>/dev/null)
+if [[ "$package_status" == *"install ok installed"* ]]; then
+return 0
+fi
+fi
+return 1
+}
+
 ensure_adb() {
 if command -v adb >/dev/null; then
 printf "${GREEN}[✓] ADB is already installed and ready to use.${NC}\n"
@@ -76,6 +91,8 @@ y|Y)
 printf "${GREEN}[+] Attempting automatic installation...${NC}\n"
 if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]] && command -v pkg >/dev/null; then
 pkg install -y android-tools
+elif is_installed_via_deb; then
+sudo apt install -y adb
 elif command -v apt-get >/dev/null; then
 sudo apt-get update && sudo apt-get install -y adb
 elif command -v pacman >/dev/null; then
@@ -111,7 +128,10 @@ case "$choice" in
 y|Y)
 printf "%b\n" "${GREEN}[+] Attempting automatic installation...${NC}"
 
-if command -v pkg >/dev/null; then
+if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]] && command -v pkg >/dev/null; then
+pkg install -y jq
+elif is_installed_via_deb; then
+sudo apt install -y jq
 pkg install -y jq
 elif command -v apt-get >/dev/null; then
 sudo apt-get update && sudo apt-get install -y jq
@@ -158,21 +178,6 @@ CURRENT_MODEL="$(cat /sys/devices/virtual/dmi/id/sys_vendor 2>/dev/null) $(cat /
 else
 CURRENT_MODEL=""
 fi
-}
-
-is_installed_via_deb() {
-local package_name="${1:-uraam-debian}"
-if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; then
-return 1
-fi
-if command -v dpkg-query >/dev/null 2>&1; then
-local package_status
-package_status=$(dpkg-query -W -f='${Status}' "$package_name" 2>/dev/null)
-if [[ "$package_status" == *"install ok installed"* ]]; then
-return 0
-fi
-fi
-return 1
 }
 
 detect_backend_status() {
