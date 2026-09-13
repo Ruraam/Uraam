@@ -115,7 +115,7 @@ printf "%b\n" "${YELLOW}[!] Installing required core tools: ${missing_deps[*]}${
 if [ "$IS_TERMUX" = true ]; then
 pkg update -y && pkg install -y "${missing_deps[@]}"
 elif command -v apt-get >/dev/null 2>&1; then
-sudo apt-get update&& sudo apt-get install -y "${missing_deps[@]}"
+sudo apt-get update && sudo apt-get install -y "${missing_deps[@]}"
 elif command -v pacman >/dev/null 2>&1; then
 sudo pacman -Sy --noconfirm "${missing_deps[@]}"
 elif command -v dnf >/dev/null 2>&1; then
