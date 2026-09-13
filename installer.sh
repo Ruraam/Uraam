@@ -7,6 +7,7 @@
 set -eo pipefail
 
 show_logo() {
+clear
 echo -e "${PURPLE}"
 cat << 'EOF'
 ::| ::|::::::\ ::::\  ::::\ ::::::|
@@ -30,42 +31,30 @@ INSTALL_DIR="${INSTALL_DIR:-$HOME/Uraam}"
 REPO_URL="https://github.com/Uraam/Uraam"
 BRANCH="${BRANCH:-main}"
 
+tem_set_storage() {
 if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; then
 if [ ! -d "$HOME/storage" ]; then
 echo "Storage permission required for backups..."
 termux-setup-storage
 fi
-fi
-
-cleanup() {
-printf "%b\n" "${BLUE}------------------------------------------${NC}"
-printf "%b\n" "${CYAN}[*] Cleaning up...${NC}"
-rm -rf "$INSTALL_DIR/assets" "$INSTALL_DIR/installer.sh"
 }
 
-clear
-show_logo
-echo -e "${BLUE}==========================================${NC}"
-echo -e "${CYAN}URAAM RUVOMAIN ADB APP-MANAGER | INSTALLER${NC}"
-echo -e "${BLUE}==========================================${NC}"
-printf "%b\n" "${CYAN}WELCOME TO URAAM INSTALLER!${NC}"
-printf "%b\n" "${BLUE}------------------------------------------${NC}"
-printf "%b\n" "${CYAN}This installer will:${NC}"
-printf "%b\n" "${WHITE} • Download URAAM from official repo${NC}"
-printf "%b\n" "${WHITE} • Auto-install git if missing${NC}"
-printf "%b\n" "${WHITE} • Setup files into ~/Uraam${NC}"
-printf "%b\n" "${WHITE} • Expose 'uraam' command in PATH${NC}"
-printf "%b\n" "${BLUE}------------------------------------------${NC}"
+is_installed_via_deb() {
+local package_name="${1:-uraam-debian}"
+if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; then
+return 1
+fi
+if command -v dpkg-query >/dev/null 2>&1; then
+local package_status
+package_status=$(dpkg-query -W -f='${Status}' "$package_name" 2>/dev/null)
+if [[ "$package_status" == *"install ok installed"* ]]; then
+return 0
+fi
+fi
+return 1
+}
 
-read -p "Do you want to start the installation of URAAM? (y/n) : " choice
-
-case "$choice" in
-y|Y)
-clear
-show_logo
-printf "%b\n" "${BLUE}------------------------------------------${NC}"
-printf "%b\n" "${CYAN}[*] Checking prerequisites...${NC}"
-
+ensure_git() {
 if ! command -v git >/dev/null 2>&1; then
 printf "${YELLOW}[!] Git is missing. Attempting automatic installation...${NC}\n"
 if command -v pkg >/dev/null 2>&1; then
@@ -86,6 +75,63 @@ fi
 fi
 printf "%b\n" "${GREEN}[✓] Git is ready.${NC}"
 sleep 3
+}
+
+ensure_jq() {
+if command -v jq >/dev/null; then
+printf "${GREEN}[✓] JQ is already installed and ready to use.${NC}\n"
+return 0
+fi
+
+printf "${RED}[!] JQ is not detected on your system.${NC}\n"
+read -p "Do you want to install JQ now? (y/n) : " choice
+
+case "$choice" in
+y|Y)
+printf "%b\n" "${GREEN}[+] Attempting automatic installation...${NC}"
+
+if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]] && command -v pkg >/dev/null; then
+pkg install -y jq
+elif is_installed_via_deb; then
+sudo apt install -y jq
+elif command -v apt-get >/dev/null; then
+sudo apt-get update && sudo apt-get install -y jq
+elif command -v pacman >/dev/null; then
+sudo pacman -S --noconfirm jq
+elif command -v dnf >/dev/null; then
+sudo dnf install -y jq
+elif command -v brew >/dev/null; then
+brew install jq
+else
+printf "%b\n" "${RED}[!] Package manager not supported. Please install JQ manually.${NC}" >&2
+read -rp "Press [Enter] to return to main menu..."
+return 1
+fi
+;;
+*)
+printf "%b\n" "${YELLOW}[-] Installation cancelled. JQ is required for the project to work properly.${NC}"
+return 1
+;;
+esac
+}
+
+direct_install() {
+show_logo
+printf "%b\n" "${BLUE}------------------------------------------${NC}"
+printf "%b\n" "${CYAN}=== URAAM v4.4.1 Direct Installer ===${NC}"
+printf "%b\n" "${BLUE}------------------------------------------${NC}"
+printf "%b\n" "${CYAN}This installer will:${NC}"
+printf "%b\n" "${WHITE} • Download URAAM from official repo${NC}"
+printf "%b\n" "${WHITE} • Auto-install git if missing${NC}"
+printf "%b\n" "${WHITE} • Setup files into ~/Uraam${NC}"
+printf "%b\n" "${WHITE} • Expose 'uraam' command in PATH${NC}"
+printf "%b\n" "${BLUE}------------------------------------------${NC}"
+
+read -p "Do you want to start the installation of URAAM? (y/n) : " choice
+
+case "$choice" in
+y|Y)
+show_logo
 
 printf "%b\n" "${BLUE}--------------------------------------------${NC}"
 if [ -d "$INSTALL_DIR/.git" ]; then
@@ -181,6 +227,7 @@ printf "%b\n" "${YELLOW}[!] Could not detect shell RC file. Please add manually:
 printf "%b\n" "${YELLOW}    %s${NC}\n" "$EXPORT_LINE"
 fi
 fi
+}
 
 cleanup
 printf "%b\n" "${BLUE}============================================${NC}"
@@ -199,3 +246,192 @@ printf "%b\n" "${RED}[!] Invalid choice. Installation canceled.${NC}\n"
 exit 1
 ;;
 esac
+}
+
+debian_deb_installer() {
+show_logo
+printf "%b\n" "${BLUE}------------------------------------------${NC}"
+printf "%b\n" "${CYAN}=== URAAM v4.4.2 Direct DEB installer ===${NC}"
+printf "%b\n" "${BLUE}------------------------------------------${NC}"
+printf "%b\n" "${CYAN}This installer will:${NC}"
+printf "%b\n" "${WHITE} • Download UTAAM DEB from official repo${NC}"
+printf "%b\n" "${WHITE} • Auto-install git if missing${NC}"
+printf "%b\n" "${WHITE} • Setup files into HOMR/.local/share/uraam${NC}"
+printf "%b\n" "${WHITE} • Add URAAM in system menu by .desktop file${NC}"
+printf "%b\n" "${BLUE}------------------------------------------${NC}"
+
+read -p "Do you want to start the installation of URAAM? (y/n) : " choice
+
+case "$choice" in
+y|Y)
+show_logo
+printf "%b\n" "${BLUE}------------------------------------------${NC}"
+
+printf "%b\n" "${CYAN}[*] Debian detected.${NC}"
+printf "%b\n" "${CYAN}[*] Checking for Latest DEB Release on GitHub...${NC}"
+
+local api_url
+if [[ "$REPO_URL" == *"api.github.com"* ]]; then
+api_url="${REPO_URL%/}/releases/latest"
+else
+local repo_path
+repo_path=$(echo "$REPO_URL" | sed -E 's#^https?://github.com/##; s#/$##; s#\.git$##')
+api_url="https://api.github.com/repos/${repo_path}/releases/latest"
+fi
+
+local release_json
+release_json=$(curl -sSL \
+-H "Accept: application/vnd.github+json" \
+-H "User-Agent: URAAM-Updater" \
+"$api_url")
+
+local latest_tag
+latest_tag=$(echo "$release_json" | jq -r '.tag_name // empty' 2>/dev/null | tr -d '\r')
+
+if [ -z "$latest_tag" ]; then
+local error_message
+error_message=$(echo "$release_json" | jq -r '.message // empty' 2>/dev/null)
+
+printf "%b\n" "${BLUE}---------------------------------------${NC}"
+printf "%b\n" "${RED}[X] Error: Unable to fetch release info from GitHub.${NC}"
+        
+if [ -n "$error_message" ]; then
+printf "%b\n" "${RED}[X] GitHub API response: ${error_message}${NC}"
+fi
+        
+read -rp "Press Enter to return to main menu"
+return 1
+fi
+
+local remote_ver="${latest_tag#v}"
+
+local local_ver
+local_ver=$(dpkg-query -W -f='${Version}' uraam 2>/dev/null | tr -d '\r')
+if [ -z "$local_ver" ]; then
+local_ver=$(dpkg-query -W -f='${Version}' uraam-debian 2>/dev/null | tr -d '\r')
+fi
+local_ver="${local_ver#v}"
+
+printf "%b\n" "${YELLOW}Current version:${NC} ${local_ver}"
+printf "%b\n" "${GREEN}Latest version:${NC} ${remote_ver}"
+
+if [ "$local_ver" = "$remote_ver" ]; then
+printf "%b\n" "${BLUE}---------------------------------------${NC}"
+printf "\n%b\n" "${GREEN}[✓] URAAM is already up to date!${NC}"
+read -rp "Press [Enter] to return to menu..."
+return 0
+fi
+
+local deb_url
+deb_url=$(echo "$release_json" | jq -r '.assets[] | select(.name | test("uraam-debian*\\.deb$")) | .browser_download_url' | head -n1)
+
+if [ -z "$deb_url" ] || [ "$deb_url" = "null" ]; then
+printf "%b\n" "${BLUE}---------------------------------------${NC}"
+printf "\n%b\n" "${RED}[!] New version found (${latest_tag}), but no .deb asset is available.${NC}"
+read -rp "Press [Enter] to return to menu..."
+return 1
+fi
+
+local action_label prompt_msg
+
+if is_installed_via_deb; then
+action_label="Update"
+prompt_msg="A new update is available. Do you want to download and install it? [y/N]: "
+else
+action_label="Installation"
+prompt_msg="Latest release found. Do you want to download and install it? [y/N]: "
+fi
+
+printf "\n%b" "${YELLOW}[?] ${prompt_msg}${NC}"
+read -r confirm
+
+if [[ ! "$confirm" =~ ^[yY]$]]; then
+printf "%b\n" "${BLUE}---------------------------------------${NC}"
+printf "%b\n" "${RED}[X] ${action_label} canceled.${NC}"
+read -rp "PressEnter to return to main menu..."
+return 0
+fi
+
+local tmp_deb="/tmp/uraam-debian_${remote_ver}_all.deb"
+
+printf "\n%b\n" "${CYAN}[*] Downloading: ${deb_url}${NC}"
+if ! curl -L --progress-bar -o "$tmp_deb" "$deb_url"; then
+printf "%b\n" "${BLUE}---------------------------------------${NC}"
+printf "%b\n" "${RED}[X] Download failed.${NC}"
+rm -f "$tmp_deb"
+read -rp "Press Enter to return to main menu"
+return 1
+fi
+
+printf "\n%b\n" "${CYAN}[*] Installing package (sudo required)...${NC}"
+if sudo apt-get install -y "$tmp_deb"; then
+rm -f "$tmp_deb"
+printf "\n%b\n" "${GREEN}[✓] URAAM successfully updated to ${latest_tag}!${NC}"
+printf "%b\n" "${BLUE}---------------------------------------${NC}"
+printf "%b\n" "${YELLOW}[!] Please restart URAAM to apply changes.${NC}"
+exit 0
+else
+printf "%b\n" "${BLUE}---------------------------------------${NC}"
+printf "\n%b\n" "${RED}[X] Installation failed.${NC}"
+rm -f "$tmp_deb"
+read -rp "Press Enter to return to main menu"
+return 1
+fi
+}
+
+cleanup() {
+printf "%b\n" "${BLUE}------------------------------------------${NC}"
+printf "%b\n" "${CYAN}[*] Cleaning up...${NC}"
+rm -rf "$INSTALL_DIR/assets" "$INSTALL_DIR/installer.sh"
+}
+
+show_main_menu() {
+show_logo
+printf "%b\n" "${BLUE}------------------------------------------${NC}"
+printf "%b\n" "${CYAN}=== URAAM v4.4.1 Installer ===${NC}"
+printf "%b\n" "${BLUE}------------------------------------------${NC}"
+printf "%b\n" "${CYAN}Welcome to URAAM installer!${NC}"
+printf "%b\n" "${BLUE}------------------------------------------${NC}"
+echo -e "   [d] ${CYAN}Direct Installation${NC} ${YELLOW}(For all system)${NC}"
+echo -e "   [i] ${CYAN}Deb Package Installation${NC}" 
+echo -e "           ${YELLOW}(Download and install .deb for Debian only))${NC}"
+echo -e "${BLUE}--------------------${NC} [e] Exit" ${BLUE}------${NC}
+} 
+
+handle_menu_choice() {
+local choice="$1"
+case "$choice" in
+d|D)
+clear
+printf "%b\n" "${CYAN}[*] Checking prerequisites...${NC}"
+ensure_git || return 1
+direct_install
+;;
+i|I)
+clear
+printf "%b\n" "${CYAN}[*] Checking prerequisites...${NC}"
+ensure_git || return 1
+ensure_jq || return 1
+debian_deb_installer
+;;
+e|E)
+printf "%b\n" "${GREEN}Goodbye!${NC}"
+exit 0
+;;
+*)
+printf "%b\n" "${RED}[X] Invalid option!${NC}"
+sleep 1
+;;
+esac
+}
+
+main() {
+while true; do
+term_set_storage
+show_main_menu
+read -rp "Enter choice: " user_choice
+handle_menu_choice "$user_choice"
+done
+}
+
+main
