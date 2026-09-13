@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# URAAM - Universal Ruvomain ADB App-Manager v4.4.1
+# URAAM - Universal Ruvomain ADB App-Manager v4.4.2
 #
 SOURCE="${BASH_SOURCE[0]}"
 while [ -h "$SOURCE" ]; do
