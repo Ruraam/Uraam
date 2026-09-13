@@ -4,10 +4,6 @@
 
 <div align="center" style="background-color: #151B22; display: inline-block">
 <img src="assets/uraam_logo.jpg" width="200">
-<br>
-<strong>[URAAM]-Universal Ruvomain ADB App-Manager</strong>
-<em><br>Debloat, Restore, Backup list [json files] and APK Installer</strong><br>
-<strong>For ALL Android devices and compatible with root, Shiziku rish and wireless ADB in Termux & Linux, MacOS, WSL</strong></em>
 </div>
 
 &nbsp;
@@ -29,34 +25,21 @@
 <img src="https://img.shields.io/badge/ License GPLv3-black?style=for-the-badge&color=151B22" alt="License"height="25">
 </p>
 
-<div>
-<p>
-<strong>
-The UNIVERSAL RUVOMAIN ADB APP-MANAGER (URAAM) is a shell ADB/Shizuku toolkit.
-    
-* Fully compatible with Canta/UAD lists, you can safely disable/uninstall bloatware or unwanted apps, restore uninstalled apps, backup configurations into structured JSON packages lists and batch-install personal APKs across any Android device without requiring root access..
+# URAAM - Universal Ruvomain ADB App Manager</p>
 
-* Compatible with all Android phones without needing root access via ADB. It’s designed to be safe, clean, and keep your device integrity intact.
+URAAM is a lightweight, fully open-source Bash toolkit that lets you safely **debloat**, **disable**, **backup** and **restore** Android applications.
 
-* Replaces heavy middleware with a native, audited Bash + jq pipeline & minimale dependencies (git, adb, jq} 
+- Works on **Termux** (Wireless ADB / Shizuku / Root)
+- Works on **Linux, macOS and WSL** via ADB
+- Compatible with **Canta** and **UAD** JSON lists
+- Minimal dependencies (`adb`, `jq`, `git`)
+- Transparent and auditable (pure Bash)
 
-* Works on Termux with Wireless ADB, Shizuku & Root, Linux: Debian, Arch, & Fedora based distribution; MacOS & WSL.
-
-* Shizuku compatible, Uraam provide a wireless ADB + Shizuku moduls for automatic connection in Termux. You can also use Shizuku or root on Termux for debloat, restore & install.
-
-* Easy one-command for install URAAM automtically with installer script or DEB packages for Debian based distribution and Termux.
-
-* Provide a one-click self-update option for script download from Github repository and Debian package, download from Github Latest Release. (Termux DEB auto-update coming soon...).</em> 
-</p>
-<p>
-<em>« I'm not imposing anything on you: I provide infrastructure, you bring your data, and you execute code that you can read. »</em>
-</p>
-</div>
+Designed to be simple, fast, and respectful of your device integrity.
 
 | <div align="center">Termux</div> <div align="center"><img src="/assets/Termux-Icon.webp"></div> | <img src="assets/uraam-termux.jpg" width="200"> | <img src="assets/uraam-wireless.jpg" width="200"> || <div align="center">Debian</div> <div align="center"><img src="/assets/debian_logo.png" width="150"></div> | <div align="center"><img src="assets/debupdate.png" width="400"></div> |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 || <div align="center">Dashboard</div> | <div align="center">Wireless ADB</div> || | Uraam DEB Update |
-
 
 > **🚀 Latest Updates:**
 > * ***v4.4.1***
