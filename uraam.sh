@@ -1134,7 +1134,7 @@ echo -e "   [b] ${CYAN}Backup${NC} ${YELLOW}(Export Apps List)${NC}"
 echo -e "   [r] ${CYAN}Restore${NC} ${YELLOW}(Revert/Reinstall Apps)${NC}"
 echo -e "   [w] ${CYAN}Wireless Menu${NC} ${YELLOW}(Pair & Connect)${NC}" 
 echo -e "   [u] ${CYAN}Update URAAM${NC} ${YELLOW}(Search/install update from Github)${NC}"
-echo -e "${BLUE}--------------------------------------------${NC} [e] Exit ${BLUE}------${NC}"
+echo -e "${BLUE}------------------------------------------${NC} [e] Exit ${BLUE}-----${NC}"
 }
 
 handle_menu_choice() {
