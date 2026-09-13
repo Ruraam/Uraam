@@ -234,6 +234,7 @@ return 1
 }
 
 require_backend() {
+show_logo
 ensure_jq || return 1
 
 if ! detect_backend_status; then
@@ -1079,11 +1080,11 @@ printf "%b\n" "Choose your wireless ADB connection mode"
 echo -e "a) ${CYAN}Standard Wireless ADB${NC}"
 
 if ! is_installed_via_deb; then
-echo -e "   [s] ${CYAN}Starts Shizuku and enables Wireless ADB${NC} ${YELLOW}(Recommended)${NC}"
+echo -e "   s) ${CYAN}Starts Shizuku and enables Wireless ADB${NC} ${YELLOW}(Recommended)${NC}"
 fi
 
-echo -e "   [r] ${CYAN}Return to Dashboard${NC}"
-echo -e "   [e] ${CYAN}Exit${NC}"
+echo -e "   r) ${CYAN}Return to Dashboard${NC}"
+echo -e "   e) ${CYAN}Exit${NC}"
 
 printf "%b\n" "${BLUE}--------------------------------------------------${NC}"
 printf "%b\n" "Select an option:"
