@@ -132,7 +132,6 @@ if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]] && command -v pkg >/dev/n
 pkg install -y jq
 elif is_installed_via_deb; then
 sudo apt install -y jq
-pkg install -y jq
 elif command -v apt-get >/dev/null; then
 sudo apt-get update && sudo apt-get install -y jq
 elif command -v pacman >/dev/null; then
