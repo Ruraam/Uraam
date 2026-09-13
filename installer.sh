@@ -190,7 +190,6 @@ curl -fsSL -o "$PREFIX/bin/uraam" "$SCRIPT_URL"
 chmod +x "$PREFIX/bin/uraam"
 fi
 else
-
 local debian_choice="2"
 if is_debian_like; then
 printf "\n%b\n" "${YELLOW}[?] Debian/Ubuntu environment detected. Choose installation method:${NC}"
