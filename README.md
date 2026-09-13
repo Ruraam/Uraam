@@ -105,20 +105,20 @@ or
 ### 📦 Universal 1-Line Installer (Recommended)
 Automatically detects your environment and installs Uraam on **Termux, Linux, macOS, or WSL**:
 ```bash
-bash <(command -v curl >/dev/null && curl -fsSL https://raw.githubusercontent.com/Ruvyrom/Uraam/main/installer.sh || wget -qO- https://raw.githubusercontent.com/Ruvyrom/Uraam/main/installer.sh)
+bash <(command -v curl >/dev/null && curl -fsSL https://raw.githubusercontent.com/Uraam/Uraam/main/installer.sh || wget -qO- https://raw.githubusercontent.com/Ruvyrom/Uraam/main/installer.sh)
 ```
 
 ### 🐧 Debian / Ubuntu / Mint / Kali (DEB Package)
 One-line download and installation of the latest `.deb` package via `apt`:
 ```bash
-DEB_URL=$(curl -s https://api.github.com/repos/Ruvyrom/Uraam/releases/latest | grep -o '"browser_download_url": "[^"]*uraam-debian[^"]*"' | cut -d '"' -f 4)
+DEB_URL=$(curl -s https://api.github.com/repos/Uraam/Uraam/releases/latest | grep -o '"browser_download_url": "[^"]*uraam-debian[^"]*"' | cut -d '"' -f 4)
 curl -sL "$DEB_URL" -o /tmp/uraam.deb && sudo apt install -y /tmp/uraam.deb && rm -f /tmp/uraam.deb
 ```
 
 ### 📱 Termux (DEB Package)
 One-line download and installation for Termux on Android:
 ```bash
-mkdir -p "$PREFIX/tmp" && curl -s https://api.github.com/repos/Ruvyrom/Uraam/releases/latest | grep "browser_download_url.uraam-termux.\.deb" | cut -d '"' -f 4 | xargs curl -sL -o "$PREFIX/tmp/uraam.deb" && apt install -y "$PREFIX/tmp/uraam.deb" && rm -f "$PREFIX/tmp/uraam.deb"
+mkdir -p "$PREFIX/tmp" && curl -s https://api.github.com/repos/Uraam/Uraam/releases/latest | grep "browser_download_url.uraam-termux.\.deb" | cut -d '"' -f 4 | xargs curl -sL -o "$PREFIX/tmp/uraam.deb" && apt install -y "$PREFIX/tmp/uraam.deb" && rm -f "$PREFIX/tmp/uraam.deb"
 ```
 
 **You can also downlaod latest DEB files from [Releases Page](https://github.com/Ruvyrom/Uraam/releases)**
@@ -228,11 +228,9 @@ To gain a deeper understanding of the technical and operational aspects of the p
 ---
 ### 👥 Credits
 
-*   Package definitions and safe removal classifications adapted from [Universal Android Debloater Next Generation (UAD-NG)](https://github.com/Universal-Debloater-Alliance/universal-android-debloater-next-generation).
-*   "100% Bash Parser for JSON" - thanks to [smmoosavi](https://github.com/smmoosavi/json-walk) for json-walk.
+*   Package definitions and safe removal classifications adapted from **[Universal Android Debloater Next Generation (UAD-NG)](https://github.com/Universal-Debloater-Alliance/universal-android-debloater-next-generation).**
 *   Thanks to [Dyokism](https://github.com/dyokism) for code contribution.
-*   **Validation:** Rigorous cross-verification with [Willie_169](https://github.com/Willie169) and OneUI 8.0 JSON config file.
-*   **Community Testing:** Special thanks to @ric69 for empirical field-testing of Tier 1 stability.
+*   Big thanks to **[Dyokism](https://github.com/dyokism)**, **[Willie_169](https://github.com/Willie169)**, and for **community** testing and JSON presets.
 
 ---
 ## ✅ Current Status:
