@@ -1130,10 +1130,7 @@ echo " 2. Install APK(s) ${YELLOW}(Batch APK Install)${NC}"
 echo " 3. Backup ${YELLOW}(Export Apps List)${NC}"
 echo " 4. Restore ${YELLOW}(Revert/Reinstall Apps)${NC}"
 echo " 5. Wireless Menu ${YELLOW}(Pair & Connect)${NC}" 
-
-if ! is_installed_via_deb; then
-echo "s. Start / Setup Shizuku"
-fi
+echo " 6. Update URAAM ${YELLOW}(Search/install update from Github)${NC}"
 
 echo " 0. Exit"
 printf "%b\n" "${BLUE}--------------------------------------------------------${NC}"
@@ -1160,6 +1157,9 @@ uram_restore
 ;;
 5)
 wireless_menu
+;;
+6)
+update_uraam
 ;;
 0)
 printf "%b\n" "${GREEN}Goodbye!${NC}"
