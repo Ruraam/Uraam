@@ -1153,7 +1153,7 @@ uraam_backup
 ;;
 4)
 require_backend || return 1
-uram_restore
+uraam_restore
 ;;
 5)
 wireless_menu
