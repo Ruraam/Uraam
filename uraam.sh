@@ -62,6 +62,15 @@ EOF
 echo -e "${NC}"
 }
 
+term_set_storage() {
+if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; then
+if [ ! -d "$HOME/storage" ]; then
+echo "Storage permission required for backups..."
+termux-setup-storage
+fi
+fi
+}
+
 is_installed_via_deb() {
 local package_name="${1:-uraam-debian}"
 if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; then
@@ -1125,15 +1134,6 @@ echo -e "\n${RED}[!] Invalid option.${NC} Please try again."
 sleep 1
 ;;
 esac
-}
-
-term_set_storage() {
-if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; then
-if [ ! -d "$HOME/storage" ]; then
-echo "Storage permission required for backups..."
-termux-setup-storage
-fi
-fi
 }
 
 show_main_menu() {
