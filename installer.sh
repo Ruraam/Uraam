@@ -254,7 +254,7 @@ fi
 
 echo -e "${YELLOW}Please choose an option:${NC}"
 echo -e "  ${CYAN}${install_label}${NC}"
-echo -e "${CYAN}2) Uninstall URAAM${NC}"
+echo -e "  ${CYAN}2) Uninstall URAAM${NC}"
 echo -e "  ${CYAN}0) Exit${NC}"
 echo ""
 read -rp "Enter choice [0-2]: " choice
