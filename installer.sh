@@ -17,7 +17,7 @@ PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-CURRENT_VERSION="4.3"
+CURRENT_VERSION="4.4.1"
 
 REPO_OWNER="Uraam"
 REPO_NAME="Uraam"
@@ -34,7 +34,7 @@ return1
 
 is_installed_via_deb() {
 local package_name="${1:-uraam-debian}"
-if [ -n "$PREFIX" ] &&[[ "$PREFIX" == *com.termux* ]]; then
+if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; then
 return 1
 fi
 if command -v dpkg-query >/dev/null 2>&1; then
@@ -60,10 +60,10 @@ tbrand=$(getprop ro.product.manufacturer 2>/dev/null || echo "")
 tmodel=$(getprop ro.product.model 2>/dev/null || echo "")
 tandroid_ver=$(getprop ro.build.version.release 2>/dev/null || echo "")
 
-if[ -n "$brand" ]; then
+if [ -n "$brand" ]; then
 [ -n "$android_ver" ] && ver_suffix=" (Android ${android_ver})"
 CURRENT_MODEL="${brand^} ${model}${ver_suffix}"
-elif[ -n "$tbrand" ]; then
+elif [ -n "$tbrand" ]; then
 [ -n "$tandroid_ver" ] && ver_suffix=" (Android ${tandroid_ver})"
 CURRENT_MODEL="${tbrand^} ${tmodel}${ver_suffix}"
 elif is_installed_via_deb; then
@@ -91,7 +91,7 @@ echo ""
 }
 
 check_dependencies() {
-if [ -n "$PREFIX" ] &&[[ "$PREFIX" == *com.termux* ]] && command -v pkg >/dev/null 2>&1; then
+if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]] && command -v pkg >/dev/null 2>&1; then
 IS_TERMUX=true
 if [ ! -d "$HOME/storage" ]; then
 echo "Storage access is requiredfor backups, please grant permission..."
@@ -112,7 +112,7 @@ done
 
 if [ ${#missing_deps[@]} -gt 0 ]; then
 printf "%b\n" "${YELLOW}[!] Installing required core tools: ${missing_deps[*]}${NC}"
-if[ "$IS_TERMUX" = true ]; then
+if [ "$IS_TERMUX" = true ]; then
 pkg update -y && pkg install -y "${missing_deps[@]}"
 elifcommand -v apt-get >/dev/null 2>&1; then
 sudo apt-get update&& sudo apt-get install -y "${missing_deps[@]}"
@@ -132,7 +132,7 @@ printf "%b\n""${CYAN}[*] Fetching latest release info from GitHub...${NC}"
 RELEASE_DATA=$(curl-sL "$API_URL")
 LATEST_TAG=$(echo "$RELEASE_DATA" | jq -r '.tag_name // empty')
 
-if [ -z "$LATEST_TAG" ] ||[ "$LATEST_TAG" = "null" ]; then
+if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
 printf "%b\n" "${RED}[X]Failed to fetch release information.${NC}"
 return 1
 fi
@@ -141,7 +141,7 @@ return 0
 }
 
 install_process() {
-fetch_release ||return 1
+fetch_release || return 1
 
 local action_label prompt_msg
 if is_installed_via_deb; then
@@ -166,7 +166,7 @@ local tmp_dir
 tmp_dir=$(mktemp -d)
 trap 'rm -rf "$tmp_dir"' EXIT
 
-if[ "$IS_TERMUX" = true ]; then
+if [ "$IS_TERMUX" = true ]; then
 printf "%b\n" "${CYAN}[*] Searching Termux package or standalonescript in release...${NC}"
 TERMUX_DEB_URL=$(echo "$RELEASE_DATA" | jq -r '.assets[] |select(.name | endswith(".deb")) | select(.name | contains("termux")) | .browser_download_url' | head -n 1)
 
@@ -182,7 +182,7 @@ curl-L -o "$PREFIX/bin/uraam" "$SCRIPT_URL"
 chmod +x "$PREFIX/bin/uraam"
 fi
 else
-# Environnement PC Linux
+
 local debian_choice="2"
 if is_debian_like; then
 printf "\n%b\n" "${YELLOW}[?] Debian/Ubuntu environment detected. Choose installation method:${NC}"
@@ -196,21 +196,21 @@ if [ "$debian_choice" = "1" ]; then
 printf "%b\n" "${CYAN}[*] Searching .deb package in release...${NC}"
 PC_DEB_URL=$(echo "$RELEASE_DATA" | jq -r '.assets[] | select(.name | endswith(".deb")) | select(.name | contains("termux") | not) | .browser_download_url' | head -n 1)
 
-if [ -n "$PC_DEB_URL" ] &&[ "$PC_DEB_URL" != "null" ]; then
+if [ -n "$PC_DEB_URL" ] && [ "$PC_DEB_URL" != "null" ]; then
 printf "%b\n" "${GREEN}[+] Found Debian package:$(basename "$PC_DEB_URL")${NC}"
 curl -L -o "$tmp_dir/uraam-pc.deb" "$PC_DEB_URL"
 sudo dpkg -i "$tmp_dir/uraam-pc.deb" || sudo apt-get install -f -y
 else
 printf "%b\n" "${YELLOW}[!] No .deb found in release. Falling back to direct script installation...${NC}"
 SCRIPT_URL=$(echo "$RELEASE_DATA" | jq -r '.assets[] | select(.name == "uraam.sh" or .name == "uraam") | .browser_download_url' | head -n1)
-[ -z "$SCRIPT_URL" ] ||[ "$SCRIPT_URL" = "null" ] && SCRIPT_URL="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/uraam.sh"
+[ -z "$SCRIPT_URL" ] || [ "$SCRIPT_URL" = "null" ] && SCRIPT_URL="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/uraam.sh"
 sudo curl -L -o "/usr/local/bin/uraam" "$SCRIPT_URL"
 sudo chmod +x "/usr/local/bin/uraam"
 fi
 else
 printf "%b\n" "${CYAN}[*] Installing standalone script to /usr/local/bin...${NC}"
-SCRIPT_URL=$(echo "$RELEASE_DATA" | jq -r '.assets[] |select(.name == "uraam.sh" or .name == "uraam") | .browser_download_url' | head -n 1)
-[ -z "$SCRIPT_URL" ] ||[ "$SCRIPT_URL" = "null" ] && SCRIPT_URL="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/uraam.sh"
+SCRIPT_URL=$(echo "$RELEASE_DATA" | jq -r '.assets[] | select(.name == "uraam.sh" or .name == "uraam") | .browser_download_url' | head -n 1)
+[ -z "$SCRIPT_URL" ] || [ "$SCRIPT_URL" = "null" ] && SCRIPT_URL="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/uraam.sh"
 sudo curl -L -o "/usr/local/bin/uraam" "$SCRIPT_URL"
 sudo chmod +x "/usr/local/bin/uraam"
 fi
@@ -225,7 +225,7 @@ read -rp "Press Enter to return to menu..."
 uninstall_process() {
 printf "\n%b" "${RED}[?] Are you sure you want to uninstall URAAM? [y/N]: ${NC}"
 read -r confirm
-if[[ ! "$confirm" =~ ^[yY]$ ]]; then
+if [[ ! "$confirm" =~ ^[yY]$ ]]; then
 printf "%b\n" "${YELLOW}[*] Uninstallation aborted.${NC}"
 read -rp "Press Enter to return to menu..."
 return 0
@@ -234,7 +234,7 @@ fi
 if [ "$IS_TERMUX" = true ]; then
 dpkg -r uraam-termux2>/dev/null || rm -f "$PREFIX/bin/uraam"
 else
-ifis_debian_like && is_installed_via_deb; then
+if is_debian_like && is_installed_via_deb; then
 sudo dpkg -r uraam-debian 2>/dev/null || true
 fi
 sudo rm -f "/usr/local/bin/uraam"
