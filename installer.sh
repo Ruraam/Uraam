@@ -170,7 +170,7 @@ if [ "$IS_TERMUX" = true ]; then
 printf "%b\n" "${CYAN}[*] Searching Termux package or standalonescript in release...${NC}"
 TERMUX_DEB_URL=$(echo "$RELEASE_DATA" | jq -r '.assets[] |select(.name | endswith(".deb")) | select(.name | contains("termux")) | .browser_download_url' | head -n 1)
 
-if[ -n "$TERMUX_DEB_URL" ] && [ "$TERMUX_DEB_URL" != "null" ]; then
+if [ -n "$TERMUX_DEB_URL" ] && [ "$TERMUX_DEB_URL" != "null" ]; then
 printf "%b\n" "${GREEN}[+] Found Termux package: $(basename "$TERMUX_DEB_URL")${NC}"
 curl -L -o "$tmp_dir/uraam-termux.deb" "$TERMUX_DEB_URL"
 dpkg -i "$tmp_dir/uraam-termux.deb" || apt-get install -f -y
