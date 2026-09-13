@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# URAAM - Universal Ruvyrom Android ADB Manager
+# URAAM - Universal URAAM Android ADB Manager
 # Remote Installer & Updater Script
 # ==============================================================================
 
