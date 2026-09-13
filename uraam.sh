@@ -9,37 +9,37 @@ SOURCE="$(readlink "$SOURCE")"
 [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
 done
 SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
-cd "$SCRIPT_DIR" || exit 1
-REPO_DIR="$SCRIPT_DIR"
 
-if [[ "$REPO_DIR" == /usr/* ]]; then
+if [[ "$SCRIPT_DIR" == /usr/* ]] || [[ "$SCRIPT_DIR" == *com.termux*/usr/* ]]; then
 USER_DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/uraam"
 USER_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/uraam"
+cd "$HOME" || exit 1
 else
-USER_DATA_DIR="$REPO_DIR"
-USER_CONFIG_DIR="$REPO_DIR/Configs"
+cd "$SCRIPT_DIR" || exit 1
+USER_DATA_DIR="$SCRIPT_DIR"
+USER_CONFIG_DIR="$SCRIPT_DIR/Configs"
 fi
 
-APP_DIR="$REPO_DIR/Apps"
-CONFIGS_DIR="$REPO_DIR/Configs/debloat"
-BACKUPS_DIR="$USER_DATA_DIR/Configs/backup-restore"
-LOGB_DIR="$REPO_DIR/logs/backup"
-LOGD_DIR="$REPO_DIR/logs/debloat"
-LOGR_DIR="$REPO_DIR/logs/restore"
+REPO_DIR="$SCRIPT_DIR"
+
+APP_DIR="$USER_DATA_DIR/Apps"
 USER_DEBLOAT_DIR="$USER_CONFIG_DIR/debloat"
+CONFIGS_DIR="$USER_DEBLOAT_DIR"
 USER_BACKUPS_DIR="$USER_DATA_DIR/Configs/backup-restore"
+BACKUPS_DIR="$USER_BACKUPS_DIR"
+
 LOGD_DIR="$USER_DATA_DIR/Logs/debloat"
 LOGB_DIR="$USER_DATA_DIR/Logs/backup"
 LOGR_DIR="$USER_DATA_DIR/Logs/restore"
 
-mkdir -p "$USER_DEBLOAT_DIR" "$BACKUPS_DIR" "$LOGD_DIR" "$LOGB_DIR" "$LOGR_DIR"
-
 REPO_URL="https://github.com/Uraam/Uraam"
 BRANCH="main"
 
-if [ -z "$INSTALL_DIR" ]; then
+if[ -z "$INSTALL_DIR" ]; then
 INSTALL_DIR="$HOME/Uraam"
 fi
+
+mkdir -p "$USER_DEBLOAT_DIR""$BACKUPS_DIR" "$APP_DIR" "$LOGD_DIR" "$LOGB_DIR" "$LOGR_DIR"
 
 BLUE='\033[0;34m'
 BOLD='\033[1m'
@@ -60,6 +60,21 @@ cat << 'EOF'
 `:::::|::| ::\::| ::|::| ::|::| ::|
 EOF
 echo -e "${NC}"
+}
+
+init_debloat_configs() {
+if ! compgen -G "$USER_DEBLOAT_DIR/*.json" >/dev/null; then
+if [ -d "/usr/share/uraam/Configs/debloat" ]; then
+cp -n /usr/share/uraam/Configs/debloat/*.json "$USER_DEBLOAT_DIR/" 2>/dev/null || true
+elif command -v curl >/dev/null 2>&1 &&command -v jq >/dev/null 2>&1; then
+echo -e "${CYAN}[*] Initializing default debloat lists...${NC}"
+local api_files
+api_files=$(curl -s "https://api.github.com/repos/Uraam/Uraam/contents/Configs/debloat?ref=${BRANCH}" | jq -r '.[] | select(.name | endswith(".json")) | .download_url' 2>/dev/null)
+for url in $api_files; do
+[ -n "$url" ] && curl -sL "$url" -o "$USER_DEBLOAT_DIR/$(basename "$url")"
+done
+fi
+fi
 }
 
 term_set_storage() {
