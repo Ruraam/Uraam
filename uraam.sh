@@ -1127,13 +1127,13 @@ echo -e "${CYAN}Place debloat configurations in ./Configs/debloat/ (Canta JSON s
 echo -e "${CYAN}Place APKs to install in ./Apps/.${NC}"
 echo -e "${CYAN}Backups and restoration targets reside in ./Configs/backup-restore/${NC}"
 printf "%b\n" "${BLUE}--------------------------------------------------------${NC}"
-echo -e" [d] ${CYAN}Debloat apps ${YELLOW}(Remove Bloatware)${NC}"
-echo -e"   [i] ${CYAN}Install APK(s) ${YELLOW}(Batch APK Install)${NC}"
-echo -e"     [b] ${CYAN}[Backup ${YELLOW}(Export Apps List)${NC}"
-echo -e"       [r] ${CYAN}Restore ${YELLOW}(Revert/Reinstall Apps)${NC}"
-echo -e"         [w] ${CYAN}Wireless Menu ${YELLOW}(Pair & Connect)${NC}" 
-echo -e"           [u] ${CYAN}Update URAAM ${YELLOW}(Search/install update from Github)${NC}"
-echo " [e]. Exit ${BLUE}--------------------------------------------------------${NC}"
+echo -e" d) ${CYAN}Debloat apps ${YELLOW}(Remove Bloatware)${NC}"
+echo -e"   i) ${CYAN}Install APK(s) ${YELLOW}(Batch APK Install)${NC}"
+echo -e"     b) ${CYAN}[Backup ${YELLOW}(Export Apps List)${NC}"
+echo -e"       r) ${CYAN}Restore ${YELLOW}(Revert/Reinstall Apps)${NC}"
+echo -e"         w) ${CYAN}Wireless Menu ${YELLOW}(Pair & Connect)${NC}" 
+echo -e"           u) ${CYAN}Update URAAM ${YELLOW}(Search/install update from Github)${NC}"
+echo " e) Exit ${BLUE}--------------------------------------------------------${NC}"
 }
 
 handle_menu_choice() {
