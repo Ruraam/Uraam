@@ -167,18 +167,26 @@ tmp_dir=$(mktemp -d)
 trap 'rm -rf "$tmp_dir"' EXIT
 
 if [ "$IS_TERMUX" = true ]; then
-printf "%b\n" "${CYAN}[*] Searching Termux package or standalonescript in release...${NC}"
-TERMUX_DEB_URL=$(echo "$RELEASE_DATA" | jq -r '.assets[] |select(.name | endswith(".deb")) | select(.name | contains("termux")) | .browser_download_url' | head -n 1)
+printf "%b\n" "${CYAN}[*] Searching Termux package orstandalone script in release...${NC}"
 
-if [ -n "$TERMUX_DEB_URL" ] && [ "$TERMUX_DEB_URL" ! = "null" ]; then
-printf "%b\n" "${GREEN}[+] Found Termux package: $(basename "$TERMUX_DEB_URL")${NC}"
+[ -z "$PREFIX" ]&& PREFIX="/data/data/com.termux/files/usr"
+mkdir -p "$PREFIX/bin"
+
+TERMUX_DEB_URL=$(echo "$RELEASE_DATA" | jq -r '[.assets[] | select(.name | endswith(".deb")) | select(.name | contains("termux")) | .browser_download_url][0] // empty')
+
+if[[ -n "$TERMUX_DEB_URL" && "$TERMUX_DEB_URL" != "null" ]]; then
+printf "%b\n" "${GREEN}[+] Found Termux package:$(basename "$TERMUX_DEB_URL")${NC}"
 curl -L -o "$tmp_dir/uraam-termux.deb" "$TERMUX_DEB_URL"
-dpkg -i "$tmp_dir/uraam-termux.deb" || apt-get install -f -y
+dpkg-i "$tmp_dir/uraam-termux.deb" || apt-get install -f -y
 else
 printf "%b\n" "${YELLOW}[!] Installing standalone script...${NC}"
-SCRIPT_URL=$(echo "$RELEASE_DATA" | jq -r '.assets[] | select(.name == "uraam.sh" or .name == "uraam")| .browser_download_url' | head -n 1)
-[ -z "$SCRIPT_URL" ] || [ "$SCRIPT_URL" = "null" ] && SCRIPT_URL="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/uraam.sh"
-curl -L -o "$PREFIX/bin/uraam" "$SCRIPT_URL"
+SCRIPT_URL=$(echo "$RELEASE_DATA" | jq -r '[.assets[] | select(.name == "uraam.sh" or .name == "uraam") | .browser_download_url][0] //empty')
+
+if [[ -z "$SCRIPT_URL" || "$SCRIPT_URL" == "null" ]]; then
+SCRIPT_URL="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/uraam.sh"
+fi
+
+curl -fsSL -o "$PREFIX/bin/uraam" "$SCRIPT_URL"
 chmod +x "$PREFIX/bin/uraam"
 fi
 else
