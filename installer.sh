@@ -30,6 +30,13 @@ INSTALL_DIR="${INSTALL_DIR:-$HOME/Uraam}"
 REPO_URL="https://github.com/Uraam/Uraam"
 BRANCH="${BRANCH:-main}"
 
+if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; then
+if [ ! -d "$HOME/storage" ]; then
+echo "Storage permission required for backups..."
+termux-setup-storage
+fi
+fi
+
 cleanup() {
 printf "%b\n" "${BLUE}------------------------------------------${NC}"
 printf "%b\n" "${CYAN}[*] Cleaning up...${NC}"
