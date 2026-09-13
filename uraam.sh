@@ -1077,14 +1077,14 @@ ensure_adb || return 1
 printf "%b\n" "${BLUE}------------------------------------------------${NC}"
 printf "%b\n" "Choose your wireless ADB connection mode"
 
-echo -e "a) ${CYAN}Standard Wireless ADB${NC}"
+echo -e "   [a] ${CYAN}Standard Wireless ADB${NC}"
 
 if ! is_installed_via_deb; then
-echo -e "   s) ${CYAN}Starts Shizuku and enables Wireless ADB${NC} ${YELLOW}(Recommended)${NC}"
+echo -e "   [s] ${CYAN}Starts Shizuku and enables Wireless ADB${NC} ${YELLOW}(Recommended)${NC}"
 fi
 
-echo -e "   r) ${CYAN}Return to Dashboard${NC}"
-echo -e "   e) ${CYAN}Exit${NC}"
+echo -e "   [r] ${CYAN}Return to Dashboard${NC}"
+echo -e "   [e] ${CYAN}Exit${NC}"
 
 printf "%b\n" "${BLUE}--------------------------------------------------${NC}"
 printf "%b\n" "Select an option:"
@@ -1128,13 +1128,13 @@ echo -e "${CYAN}Place debloat configurations in ./Configs/debloat/ (Canta JSON s
 echo -e "${CYAN}Place APKs to install in ./Apps/.${NC}"
 echo -e "${CYAN}Backups and restoration targets reside in ./Configs/backup-restore/${NC}"
 printf "%b\n" "${BLUE}--------------------------------------------------------${NC}"
-echo -e" d) ${CYAN}Debloat apps ${YELLOW}(Remove Bloatware)${NC}"
-echo -e"   i) ${CYAN}Install APK(s) ${YELLOW}(Batch APK Install)${NC}"
-echo -e"     b) ${CYAN}[Backup ${YELLOW}(Export Apps List)${NC}"
-echo -e"       r) ${CYAN}Restore ${YELLOW}(Revert/Reinstall Apps)${NC}"
-echo -e"         w) ${CYAN}Wireless Menu ${YELLOW}(Pair & Connect)${NC}" 
-echo -e"           u) ${CYAN}Update URAAM ${YELLOW}(Search/install update from Github)${NC}"
-echo " e) Exit ${BLUE}--------------------------------------------------------${NC}"
+echo -e"   [d] ${CYAN}Debloat apps${NC} ${YELLOW}(Remove Bloatware)${NC}"
+echo -e"     [i] ${CYAN}Install APK(s)${NC} ${YELLOW}(Batch APK Install)${NC}"
+echo -e"       [b] ${CYAN}Backup${NC} ${YELLOW}(Export Apps List)${NC}"
+echo -e"         [r] ${CYAN}Restore${NC} ${YELLOW}(Revert/Reinstall Apps)${NC}"
+echo -e"           [w] ${CYAN}Wireless Menu${NC} ${YELLOW}(Pair & Connect)${NC}" 
+echo -e"             [u] ${CYAN}Update URAAM${NC} ${YELLOW}(Search/install update from Github)${NC}"
+echo "${BLUE}---${NC} [e] Exit ${BLUE}--------------------------------------------------------${NC}"
 }
 
 handle_menu_choice() {
