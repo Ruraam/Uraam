@@ -1134,7 +1134,7 @@ echo -e"       [r] ${CYAN}Restore ${YELLOW}(Revert/Reinstall Apps)${NC}"
 echo -e"         [w] ${CYAN}Wireless Menu ${YELLOW}(Pair & Connect)${NC}" 
 echo -e"           [u] ${CYAN}Update URAAM ${YELLOW}(Search/install update from Github)${NC}"
 echo " [e]. Exit ${BLUE}--------------------------------------------------------${NC}"
-
+}
 
 handle_menu_choice() {
 local choice="$1"
