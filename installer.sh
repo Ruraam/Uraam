@@ -37,6 +37,7 @@ if [ ! -d "$HOME/storage" ]; then
 echo "Storage permission required for backups..."
 termux-setup-storage
 fi
+fi
 }
 
 is_installed_via_deb() {
