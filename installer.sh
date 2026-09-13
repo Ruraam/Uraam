@@ -40,7 +40,7 @@ fi
 if command -v dpkg-query >/dev/null 2>&1; then
 local package_status
 package_status=$(dpkg-query -W -f='${Status}' "$package_name" 2>/dev/null)
-if[[ "$package_status" == *"install ok installed"* ]]; then
+if [[ "$package_status" == *"install ok installed"* ]]; then
 return 0
 fi
 fi
