@@ -1072,27 +1072,28 @@ show_logo
 printf "%b\n" "${BLUE}==================================================${NC}"
 printf "%b\n" "${CYAN}URAAM RUVOMAIN ADB APP-MANAGER | WIRELESS ADB MODE${NC}"
 printf "%b\n" "${BLUE}==================================================${NC}"
-ensure_adb || exit 1
-check_adb_menu
-printf "%b\n" "\n${BLUE}------------------------------------------------${NC}"
+ensure_adb || return 1
+printf "%b\n" "${BLUE}------------------------------------------------${NC}"
 printf "%b\n" "Choose your wireless ADB connection mode"
-printf "%b\n" "\n${BLUE}------------------------------------------------${NC}"
 
-echo -e "   a) ${CYAN}Standard Wireless ADB${NC}"
-echo -e "   s) ${CYAN}Starts Shizuku and enables Wireless ADB${NC} ${YELLOW}(Recommended)${NC}"
-echo -e "   r) ${CYAN}Return to Dashboard${NC}"
-echo -e "   e) ${CYAN}Exit${NC}"
+echo -e "a) ${CYAN}Standard Wireless ADB${NC}"
+
+if ! is_installed_via_deb; then
+echo -e "   [s] ${CYAN}Starts Shizuku and enables Wireless ADB${NC} ${YELLOW}(Recommended)${NC}"
+fi
+
+echo -e "   [r] ${CYAN}Return to Dashboard${NC}"
+echo -e "   [e] ${CYAN}Exit${NC}"
 
 printf "%b\n" "${BLUE}--------------------------------------------------${NC}"
 printf "%b\n" "Select an option:"
 
 read -rp " " choice
 case "$choice" in
-
-a) 
+a|A)
 wireless_adb
 ;;
-s)
+s|S)
 if is_installed_via_deb; then
 printf "%b\n" "${YELLOW}[!] Shizuku is only available on Android/Termux.${NC}"
 printf "%b\n" "${BLUE}--------------------------------------------------${NC}"
@@ -1101,9 +1102,10 @@ else
 wireless_shizuku
 fi
 ;;
-r) return 0
+r|R)
+return 0
 ;;
-e) 
+e|E)
 echo -e "Goodbye!"
 clear
 exit 0
@@ -1125,43 +1127,41 @@ echo -e "${CYAN}Place debloat configurations in ./Configs/debloat/ (Canta JSON s
 echo -e "${CYAN}Place APKs to install in ./Apps/.${NC}"
 echo -e "${CYAN}Backups and restoration targets reside in ./Configs/backup-restore/${NC}"
 printf "%b\n" "${BLUE}--------------------------------------------------------${NC}"
-echo " 1. Debloat apps ${YELLOW}(Remove Bloatware)${NC}"
-echo " 2. Install APK(s) ${YELLOW}(Batch APK Install)${NC}"
-echo " 3. Backup ${YELLOW}(Export Apps List)${NC}"
-echo " 4. Restore ${YELLOW}(Revert/Reinstall Apps)${NC}"
-echo " 5. Wireless Menu ${YELLOW}(Pair & Connect)${NC}" 
-echo " 6. Update URAAM ${YELLOW}(Search/install update from Github)${NC}"
+echo -e" [d] ${CYAN}Debloat apps ${YELLOW}(Remove Bloatware)${NC}"
+echo -e"   [i] ${CYAN}Install APK(s) ${YELLOW}(Batch APK Install)${NC}"
+echo -e"     [b] ${CYAN}[Backup ${YELLOW}(Export Apps List)${NC}"
+echo -e"       [r] ${CYAN}Restore ${YELLOW}(Revert/Reinstall Apps)${NC}"
+echo -e"         [w] ${CYAN}Wireless Menu ${YELLOW}(Pair & Connect)${NC}" 
+echo -e"           [u] ${CYAN}Update URAAM ${YELLOW}(Search/install update from Github)${NC}"
+echo " [e]. Exit ${BLUE}--------------------------------------------------------${NC}"
 
-echo " 0. Exit"
-printf "%b\n" "${BLUE}--------------------------------------------------------${NC}"
-}
 
 handle_menu_choice() {
 local choice="$1"
 case "$choice" in
-1)
+d|D)
 require_backend || return 1
 uraam_debloat
 ;;
-2)
+i|I)
 require_backend || return 1
 uraam_installer
 ;;
-3)
+b|B)
 require_backend || return 1
 uraam_backup
 ;;
-4)
+r|R)
 require_backend || return 1
 uraam_restore
 ;;
-5)
+w|W)
 wireless_menu
 ;;
-6)
+u|U)
 update_uraam
 ;;
-0)
+e)
 printf "%b\n" "${GREEN}Goodbye!${NC}"
 exit 0
 ;;
