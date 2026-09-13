@@ -34,7 +34,7 @@ LOGR_DIR="$USER_DATA_DIR/Logs/restore"
 
 mkdir -p "$USER_DEBLOAT_DIR" "$BACKUPS_DIR" "$LOGD_DIR" "$LOGB_DIR" "$LOGR_DIR"
 
-REPO_URL="https://github.com/Ruvyrom/Uraam"
+REPO_URL="https://github.com/Uraam/Uraam"
 BRANCH="main"
 
 if [ -z "$INSTALL_DIR" ]; then
@@ -74,7 +74,7 @@ read -p "Do you want to install ADB now? (y/n) : " choice
 case "$choice" in
 y|Y)
 printf "${GREEN}[+] Attempting automatic installation...${NC}\n"
-if command -v pkg >/dev/null; then
+if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]] && command -v pkg >/dev/null; then
 pkg install -y android-tools
 elif command -v apt-get >/dev/null; then
 sudo apt-get update && sudo apt-get install -y adb
@@ -135,24 +135,28 @@ esac
 }
 
 device_brand() {
-brand=$("$EXEC" getprop ro.product.manufacturer 2>/dev/null || echo "")
-model=$("$EXEC" getprop ro.product.model 2>/dev/null || echo "")
+local brand model android_ver
+local tbrand tmodel tandroid_ver
+local ver_suffix=""
+
+brand=$("$EXEC" getprop ro.product.manufacturer 2>/dev/null|| echo "")
+model=$("$EXEC" getprop ro.product.model 2>/dev/null ||echo "")
 android_ver=$("$EXEC" getprop ro.build.version.release 2>/dev/null || echo "")
 
-tbrand=$(getprop ro.product.manufacturer2>/dev/null || echo "")
+tbrand=$(getprop ro.product.manufacturer 2>/dev/null || echo "")
 tmodel=$(getprop ro.product.model 2>/dev/null || echo "")
 tandroid_ver=$(getprop ro.build.version.release 2>/dev/null || echo "")
 
 if [ -n "$brand" ]; then
-CURRENT_MODEL="${brand^} ${model} (Android ${android_ver})"
+[ -n "$android_ver" ] && ver_suffix=" (Android ${android_ver})"
+CURRENT_MODEL="${brand^} ${model}${ver_suffix}"
+elif [ -n "$tbrand" ]; then
+[ -n "$tandroid_ver" ] && ver_suffix=" (Android ${tandroid_ver})"
+CURRENT_MODEL="${tbrand^} ${tmodel}${ver_suffix}"
+elif is_installed_via_deb; then
+CURRENT_MODEL="$(cat /sys/devices/virtual/dmi/id/sys_vendor 2>/dev/null) $(cat /sys/devices/virtual/dmi/id/product_name 2>/dev/null) $(uname -s) $(uname -m)"
 else
 CURRENT_MODEL=""
-fi
-
-if [ -n "$tbrand" ]; then
-CURRENT_TMODEL="${tbrand^} ${tmodel} (Android ${tandroid_ver})"
-else
-CURRENT_TMODEL="$(uname -s) $(uname -m)"
 fi
 }
 
@@ -183,14 +187,14 @@ if [ -n "$connected" ]; then
 EXEC="adb shell"
 EXEC_TYPE="ADB"
 device_brand
-printf "%b\n" "${PURPLE}[Host]${NC} $CURRENT_TMODEL"
+printf "%b\n" "${PURPLE}[Host]${NC} $CURRENT_MODEL"
 printf "%b\n" "${PURPLE}[Target]${NC} $CURRENT_MODEL"
 printf "%b\n" "${GREEN}[✓] Execution backend: ADB (Debian)${NC}"
 return 0
 fi
 fi
 device_brand
-printf "%b\n" "${PURPLE}[Host]${NC} $CURRENT_TMODEL"
+printf "%b\n" "${PURPLE}[Host]${NC} $CURRENT_MODEL"
 printf "%b\n" "${RED}[!] No target device connected via ADB.${NC}"
 return 1
 fi
@@ -199,7 +203,7 @@ if [ "$(id -u)" -eq 0 ] || { command -v su >/dev/null 2>&1 && su -c "id" >/dev/n
 EXEC="su -c"
 EXEC_TYPE="ROOT"
 device_brand
-printf "%b\n" "${PURPLE}[Host]${NC} $CURRENT_TMODEL"
+printf "%b\n" "${PURPLE}[Host]${NC} $CURRENT_MODEL"
 printf "%b\n" "${GREEN}[✓] Execution backend: ROOT (su)${NC}"
 return0
 fi
@@ -208,7 +212,7 @@ if command -v rish >/dev/null 2>&1 && echo "exit" | rish >/dev/null 2>&1; then
 EXEC="rish -c"
 EXEC_TYPE="SHIZUKU"
 device_brand
-printf "%b\n" "${PURPLE}[Host]${NC} $CURRENT_TMODEL"
+printf "%b\n" "${PURPLE}[Host]${NC} $CURRENT_MODEL"
 printf "%b\n" "${GREEN}[✓] Execution backend: SHIZUKU (Rish)${NC}"
 return 0
 fi
@@ -220,7 +224,7 @@ if [ -n "$connected" ]; then
 EXEC="adb shell"
 EXEC_TYPE="ADB"
 device_brand
-printf "%b\n" "${PURPLE}[Host]${NC} $CURRENT_TMODEL"
+printf "%b\n" "${PURPLE}[Host]${NC} $CURRENT_MODEL"
 printf "%b\n" "${PURPLE}[Target]${NC} $CURRENT_MODEL"
 printf "%b\n" "${GREEN}[✓] Execution backend: ADB (Connected)${NC}"
 return 0
@@ -228,13 +232,14 @@ fi
 fi
 
 device_brand
-printf "%b\n" "${PURPLE}[Host]${NC} $CURRENT_TMODEL"
+printf "%b\n" "${PURPLE}[Host]${NC} $CURRENT_MODEL"
 printf "%b\n" "${RED}[!] No execution backend detected.${NC}"
 return 1
 }
 
 require_backend() {
 show_logo
+ensure_adb || 1
 ensure_jq || return 1
 
 if ! detect_backend_status; then
@@ -290,7 +295,7 @@ printf "%b\n" "${CYAN} 1. Go to Settings > Developer Options.${NC}"
 printf "%b\n" "${CYAN} 2. Tap on 'Wireless debugging' (the text itself).${NC}"
 printf "%b\n" "${CYAN} 3. Select 'Pair device with pairing code'.${NC}"
 printf "%b\n" "${BLUE}---------------------------------------------------${NC}"
-ensure_adb || exit 1
+ensure_adb || return 1
 check_adb_menu
 printf "%b\n" "\n${BLUE}-------------------------------------------------${NC}"
 
@@ -951,7 +956,7 @@ fi
 
 check_and_update() {
 show_logo
-ensure_jq || exit 1
+ensure_jq || return 1
 
 if ! is_installed_via_deb; then
 update_uraam
@@ -1118,6 +1123,15 @@ sleep 1
 esac
 }
 
+term_set_storage() {
+if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; then
+if [ ! -d "$HOME/storage" ]; then
+echo "Storage permission required for backups..."
+termux-setup-storage
+fi
+fi
+}
+
 show_main_menu() {
 show_logo
 printf "%b\n" "${CYAN}=== URAAM v4.4.1 Dashboard ===${NC}"
@@ -1175,6 +1189,7 @@ esac
 
 main() {
 while true; do
+term_set_storage
 show_main_menu
 read -rp "Enter choice: " user_choice
 handle_menu_choice "$user_choice"
