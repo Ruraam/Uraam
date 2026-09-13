@@ -227,7 +227,6 @@ else
 printf "%b\n" "${YELLOW}[!] Could not detect shell RC file. Please add manually:${NC}\n"
 printf "%b\n" "${YELLOW}    %s${NC}\n" "$EXPORT_LINE"
 fi
-fi
 }
 
 cleanup
