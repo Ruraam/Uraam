@@ -222,10 +222,10 @@ if ! grep -qsF "$EXPORT_LINE" "$RC_FILE" 2>/dev/null; then
 printf "%b\n"  "\n# URAAM ADB Manager\n%s\n" "$EXPORT_LINE" >> "$RC_FILE"
 printf "%b\n"  "${GREEN}[✓] Added %s to PATH in%s${NC}" "$BIN_DIR" "$RC_FILE"
 printf "%b\n"  "${YELLOW}[i] Run 'source %s' or restart your terminal to apply changes.${NC}" "$RC_FILE"
-fi
 else
 printf "%b\n" "${YELLOW}[!] Could not detect shell RC file. Please add manually:${NC}\n"
 printf "%b\n" "${YELLOW}    %s${NC}\n" "$EXPORT_LINE"
+fi
 fi
 }
 
