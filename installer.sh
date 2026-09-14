@@ -257,7 +257,7 @@ show_menu() {
 while true; do
 banner
 local install_label="1) Install / Update URAAM"
-if is_installed_via_deb || command -v uraam >/dev/null 2>&1; then
+if is_installed_via_deb || command -v uraam>/dev/null 2>&1; then
 install_label="1) Update / Reinstall URAAM"
 fi
 
