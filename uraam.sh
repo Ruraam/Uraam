@@ -1100,10 +1100,8 @@ fi
 
 term_set_storage() {
 if [ -d "/data/data/com.termux" ] || { [ -n "$PREFIX" ]&& [[ "$PREFIX" == *com.termux* ]]; }; then
-# Assigner PREFIX s'il est vide
 [ -z "$PREFIX" ] && PREFIX="/data/data/com.termux/files/usr"
 
-# Demander le stockage sipas encore accordé
 if [ ! -d "$HOME/storage" ] && command -v termux-setup-storage >/dev/null 2>&1; then
 printf "%b\n" "${BLUE}---------------------------------------${NC}"
 echo -e "\n${CYAN}[*] Requesting storage access (please confirm the popup)...${NC}"
