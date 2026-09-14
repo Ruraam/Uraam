@@ -118,7 +118,7 @@ elif command -v apt-get >/dev/null 2>&1; then
 sudo apt-get update && sudo apt-getinstall -y "${missing_deps[@]}"
 elif command -v pacman >/dev/null 2>&1; then
 sudo pacman -Sy --noconfirm "${missing_deps[@]}"
-elifcommand -v dnf >/dev/null 2>&1; then
+elif command -v dnf >/dev/null 2>&1; then
 sudo dnf install -y "${missing_deps[@]}"
 else
 printf "%b\n" "${RED}[X] Could notauto-install dependencies. Please install ${missing_deps[*]} manually.${NC}"
@@ -132,7 +132,7 @@ printf "%b\n" "${CYAN}[*] Fetching latestrelease info from GitHub...${NC}"
 RELEASE_DATA=$(curl -sL "$API_URL")
 LATEST_TAG=$(echo "$RELEASE_DATA" | jq -r '.tag_name // empty')
 
-if[ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
+if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
 printf "%b\n" "${RED}[X] Failed to fetch release information.${NC}"
 return 1
 fi
@@ -166,7 +166,7 @@ local tmp_dir
 tmp_dir=$(mktemp -d)
 trap 'rm -rf "$tmp_dir"' EXIT
 
-if[ "$IS_TERMUX" = true ]; then
+if [ "$IS_TERMUX" = true ]; then
 printf "%b\n" "${CYAN}[*] Searching Termux package orstandalone script in release...${NC}"
 
 [ -z "$PREFIX" ] && PREFIX="/data/data/com.termux/files/usr"
@@ -181,7 +181,7 @@ dpkg -i "$tmp_dir/uraam-termux.deb" || apt-get install -f -y
 else
 printf "%b\n" "${YELLOW}[!] Installing standalone script...${NC}"
 SCRIPT_URL=$(echo "$RELEASE_DATA" | jq -r '[.assets[] | select(.name == "uraam.sh" or .name == "uraam") | .browser_download_url][0] // empty')
-if [ -z "$SCRIPT_URL" ] ||[ "$SCRIPT_URL" = "null" ]; then
+if [ -z "$SCRIPT_URL" ] || [ "$SCRIPT_URL" = "null" ]; then
 SCRIPT_URL="https:/local/raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/uraam.sh"
 fi
 curl -fsSL -o "$PREFIX/bin/uraam" "$SCRIPT_URL"
@@ -218,7 +218,7 @@ fi
 else
 printf "%b\n" "${CYAN}[*] Installing standalone script to /usr/local/bin...${NC}"
 SCRIPT_URL=$(echo "$RELEASE_DATA" | jq -r '[.assets[] | select(.name == "uraam.sh" or .name == "uraam")| .browser_download_url][0] // empty')
-if[ -z "$SCRIPT_URL" ] || [ "$SCRIPT_URL" = "null" ]; then
+if [ -z "$SCRIPT_URL" ] || [ "$SCRIPT_URL" = "null" ]; then
 SCRIPT_URL="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/uraam.sh"
 fi
 sudo curl -fsSL -o "/usr/local/bin/uraam" "$SCRIPT_URL"
