@@ -114,7 +114,12 @@ Run the universal installer directly in your terminal (**Linux PC** or **Android
 ```bash
 bash<(curl -fsSL https://raw.githubusercontent.com/Uraam/Uraam/main/installer.sh)
 ```
+### Usage Anywhere
 
+Once installed, simply run the global command from any directory:
+```bash
+uraam
+```
 ### 📦 Updating / Uninstalling
 
 - **To update** to the latestrelease: In the URAAM dashboard, select **`[u] Update URAAM`** to update automatically on all platforms.
@@ -122,12 +127,6 @@ bash<(curl -fsSL https://raw.githubusercontent.com/Uraam/Uraam/main/installer.sh
 
 **You can also download the latest `.deb` packages directly from the [Releases Page](https://github.com/Uraam/Uraam/releases)**
 
-### Usage Anywhere
-
-Once installed, simply run the global command from any directory:
-```bash
-uraam
-```
 > * **Note :**
 >> * *The installer auto-install GIT after confirm and takes care of cloning the repository.*
 >> * *URAAM auto-install ADB and JQ if necessary.*
