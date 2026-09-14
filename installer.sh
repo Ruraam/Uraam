@@ -60,7 +60,7 @@ tbrand=$(getprop ro.product.manufacturer 2>/dev/null || true)
 tmodel=$(getprop ro.product.model 2>/dev/null || true)
 tandroid_ver=$(getprop ro.build.version.release 2>/dev/null || true)
 
-if [ -n "$brand" ];then
+if [ -n "$brand" ]; then
 [ -n "$android_ver" ] && ver_suffix=" (Android ${android_ver})"
 CURRENT_MODEL="${brand^} ${model}${ver_suffix}"
 elif [ -n "$tbrand" ]; then
