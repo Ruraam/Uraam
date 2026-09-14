@@ -35,7 +35,7 @@ return1
 is_installed_via_deb() {
 local package_name="${1:-uraam-debian}"
 if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; then
-return1
+return 1
 fi
 if command -v dpkg-query >/dev/null 2>&1;then
 local package_status
@@ -276,6 +276,7 @@ install_process
 uninstall_process
 ;;
 0)
+clear
 printf "%b\n" "${GREEN}Goodbye!${NC}"
 exit 0
 ;;
