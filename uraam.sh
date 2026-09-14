@@ -998,7 +998,6 @@ fi
 
 check_and_update() {
 show_logo
-ensure_jq || return 1
 
 if ! is_installed_via_deb; then
 update_uraam
@@ -1007,6 +1006,8 @@ fi
 
 printf "%b\n" "${CYAN}[*] Debian .deb installation detected.${NC}"
 printf "%b\n" "${CYAN}[*] Checking for updates on GitHub...${NC}"
+
+ensure_jq || return 1
 
 local api_url
 if [[ "$REPO_URL" == *"api.github.com"* ]]; then
