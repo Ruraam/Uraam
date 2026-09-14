@@ -53,7 +53,7 @@ local tbrand tmodel tandroid_ver
 local ver_suffix=""
 
 brand=$("$EXEC" getprop ro.product.manufacturer 2>/dev/null || true)
-model=$("$EXEC"getprop ro.product.model 2>/dev/null || true)
+model=$("$EXEC" getprop ro.product.model 2>/dev/null || true)
 android_ver=$("$EXEC" getprop ro.build.version.release 2>/dev/null || true)
 
 tbrand=$(getprop ro.product.manufacturer 2>/dev/null || true)
@@ -101,11 +101,11 @@ else
 IS_TERMUX=false
 fi
 
-local deps=("curl" "jq")
+local deps=("git" "curl" "jq")
 local missing_deps=()
 
 for dep in "${deps[@]}"; do
-if ! command -v "$dep">/dev/null 2>&1; then
+if ! command -v "$dep" >/dev/null 2>&1; then
 missing_deps+=("$dep")
 fi
 done
@@ -114,8 +114,10 @@ if [ "${#missing_deps[@]}" -gt 0 ]; then
 printf "%b\n" "${YELLOW}[!] Installing required core tools: ${missing_deps[*]}${NC}"
 if [ "$IS_TERMUX" = true ]; then
 pkg update -y && pkg install -y "${missing_deps[@]}"
+elif command -v apt >/dev/null 2>&1; then
+sudo apt update && sudo apt install -y "${missing_deps[@]}"
 elif command -v apt-get >/dev/null 2>&1; then
-sudo apt-get update && sudo apt-get install -y "${missing_deps[@]}"
+sudo apt-get update -y && sudo apt-get install -y "${missing_deps[@]}"
 elif command -v pacman >/dev/null 2>&1; then
 sudo pacman -Sy --noconfirm "${missing_deps[@]}"
 elif command -v dnf >/dev/null 2>&1; then
@@ -128,7 +130,7 @@ fi
 }
 
 fetch_release() {
-printf "%b\n" "${CYAN}[*] Fetching latestrelease info from GitHub...${NC}"
+printf "%b\n" "${CYAN}[*] Fetching latest release info from GitHub...${NC}"
 RELEASE_DATA=$(curl -sL "$API_URL")
 LATEST_TAG=$(echo "$RELEASE_DATA" | jq -r '.tag_name // empty')
 
@@ -147,7 +149,7 @@ fetch_release || return 1
 local action_label prompt_msg
 if is_installed_via_deb; then
 action_label="Update"
-prompt_msg="A newupdate is available. Do you want to download and install it? [y/N]: "
+prompt_msg="A new update is available. Do you want to download and install it? [y/N]: "
 else
 action_label="Installation"
 prompt_msg="Latest release found. Do you want to download and install it? [y/N]: "
@@ -168,7 +170,7 @@ tmp_dir=$(mktemp -d)
 trap 'rm -rf "$tmp_dir"' EXIT
 
 if [ "$IS_TERMUX" = true ]; then
-printf "%b\n" "${CYAN}[*] Searching Termux package orstandalone script in release...${NC}"
+printf "%b\n" "${CYAN}[*] Searching Termux package or standalone script in release...${NC}"
 
 [ -z "$PREFIX" ] && PREFIX="/data/data/com.termux/files/usr"
 mkdir -p "$PREFIX/bin"
