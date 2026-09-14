@@ -63,7 +63,7 @@ tandroid_ver=$(getprop ro.build.version.release 2>/dev/null || true)
 if [ -n "$brand" ];then
 [ -n "$android_ver" ] && ver_suffix=" (Android ${android_ver})"
 CURRENT_MODEL="${brand^} ${model}${ver_suffix}"
-elif[ -n "$tbrand" ]; then
+elif [ -n "$tbrand" ]; then
 [ -n "$tandroid_ver" ] && ver_suffix=" (Android ${tandroid_ver})"
 CURRENT_MODEL="${tbrand^} ${tmodel}${ver_suffix}"
 elif is_installed_via_deb; then
