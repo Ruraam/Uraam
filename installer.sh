@@ -44,7 +44,7 @@ fi
 if command -v dpkg-query >/dev/null2>&1; then
 local package_status
 package_status=$(dpkg-query -W-f='${Status}' "$package_name" 2>/dev/null || true)
-if[[ "$package_status" == *"install ok installed"* ]]; then
+if [[ "$package_status" == *"install ok installed"* ]]; then
 return 0
 fi
 fi
@@ -115,7 +115,7 @@ missing_deps+=("$dep")
 fi
 done
 
-if [ "${#missing_deps[@]}" -gt 0 ];then
+if [ "${#missing_deps[@]}" -gt 0 ]; then
 printf "%b\n" "${YELLOW}[!] Installing required core tools: ${missing_deps[*]}${NC}"
 if [ "$IS_TERMUX" = true ]; then
 pkg update -y
@@ -134,7 +134,7 @@ sudo apt-get update -y && sudo apt-get install -y "${missing_deps[@]}"
 elif command -v pacman >/dev/null 2>&1; then
 sudo pacman -Sy --noconfirm "${missing_deps[@]}"
 elif command -v dnf >/dev/null 2>&1; then
-sudo dnfinstall -y "${missing_deps[@]}"
+sudo dnf install -y "${missing_deps[@]}"
 else
 printf "%b\n" "${RED}[X] Could not auto-install dependencies. Please install ${missing_deps[*]} manually.${NC}"
 exit1
