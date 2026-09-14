@@ -136,6 +136,7 @@ if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
 printf "%b\n" "${RED}[X] Failed to fetch release information.${NC}"
 return 1
 fi
+
 printf "%b\n" "${GREEN}[+] Online version: ${YELLOW}${LATEST_TAG}${NC} | Current: ${YELLOW}${CURRENT_VERSION}${NC}"
 return 0
 }
