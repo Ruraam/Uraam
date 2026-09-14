@@ -194,7 +194,7 @@ fi
 deb_uraam() {
 show_logo
 
-if! is_debian_like; then
+if ! is_debian_like; then
 standalone_uraam
 return $?
 else
