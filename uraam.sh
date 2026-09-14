@@ -66,21 +66,6 @@ EOF
 echo -e "${NC}"
 }
 
-init_debloat_configs() {
-if ! compgen -G "$USER_DEBLOAT_DIR/*.json" >/dev/null; then
-if [ -d "/usr/share/uraam/Configs/debloat" ]; then
-cp -n /usr/share/uraam/Configs/debloat/*.json "$USER_DEBLOAT_DIR/" 2>/dev/null || true
-elif command -v curl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
-echo -e "${CYAN}[*] Initializing default debloat lists...${NC}"
-local api_files
-api_files=$(curl -s "https://api.github.com/repos/Uraam/Uraam/contents/Configs/debloat?ref=${BRANCH}" | jq -r '.[] | select(.name | endswith(".json")) | .download_url' 2>/dev/null)
-for url in $api_files; do
-[ -n "$url" ] && curl -sL "$url" -o "$USER_DEBLOAT_DIR/$(basename "$url")"
-done
-fi
-fi
-}
-
 term_set_storage() {
 if {[ -d "/data/data/com.termux" ] || [[ "$PREFIX" == *com.termux* ]]; } && [ ! -d "$HOME/storage" ]; then
 if command -v termux-setup-storage >/dev/null 2>&1; then
@@ -472,7 +457,6 @@ printf "%b\n" "${CYAN}Place debloat configurations in ./Configs/debloat/${NC}"
 printf "%b\n" "${CYAN}(Canta JSON, UAD lists & raw packages supported).${NC}"
 printf "%b\n" "\n${CYAN}You have the choice to ${WHITE}[D]${NC}isable or ${WITHE}[U]${NC}ninstall packages.${NC}"
 echo -e "${BLUE}------------------------------------------${NC}"
-init_debloat_configs
 printf "%b\n" "${YELLOW}[*] Fetching installed packages...${NC}"
 local installed_packages
 installed_packages=$($EXEC pm list packages 2>/dev/null | sed 's/^package://' | tr -d '\r')
@@ -958,7 +942,7 @@ show_logo
 echo -e "${BLUE}========================================${NC}"
 echo -e "        ${CYAN}=== URAAM | UPDATER ===${NC}"
 echo -e "${BLUE}========================================${NC}"
-printf "\n%b" "${YELLOW}[?] You areabout to update URAAM. Do you want to download and install it? [y/N]: ${NC}"
+printf "\n%b" "${YELLOW}[?] You are about to update URAAM. Do you want to download and install it? [y/N]: ${NC}"
 read -r confirm
 if [[ ! "$confirm" =~ ^[yY]$ ]]; then
 printf "%b\n" "${CYAN}--------------------------------------------${NC}"
@@ -996,7 +980,7 @@ clear
 exec "$target_bin" "$@"
 else
 rm -f "$tmp_file"
-printf "${RED}[X] Downloadfailed. Check your internet connection.${NC}\n"
+printf "${RED}[X] Download failed. Check your internet connection.${NC}\n"
 sleep 1
 read -rp "Press Enter to return to main menu"
 return 0
@@ -1114,14 +1098,20 @@ return 1
 fi
 }
 
-if [ -d "/data/data/com.termux" ] && command -v termux-setup-storage >/dev/null 2>&1; then
-if [ ! -d "$HOME/storage/shared" ]; then
+term_set_storage() {
+if [ -d "/data/data/com.termux" ] || { [ -n "$PREFIX" ]&& [[ "$PREFIX" == *com.termux* ]]; }; then
+# Assigner PREFIX s'il est vide
+[ -z "$PREFIX" ] && PREFIX="/data/data/com.termux/files/usr"
+
+# Demander le stockage sipas encore accordé
+if [ ! -d "$HOME/storage" ] && command -v termux-setup-storage >/dev/null 2>&1; then
 printf "%b\n" "${BLUE}---------------------------------------${NC}"
 echo -e "\n${CYAN}[*] Requesting storage access (please confirm the popup)...${NC}"
 termux-setup-storage
-sleep 1
+sleep 2
 fi
 fi
+}
 
 wireless_menu() {
 show_logo
