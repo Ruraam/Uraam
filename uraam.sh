@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# URAAM - Universal Ruvomain ADB App-Manager v4.4.2
+# URAAM - Universal Ruvomain ADB App-Manager v4.4.3
 #
 SOURCE="${BASH_SOURCE[0]}"
 while [ -h "$SOURCE" ]; do
@@ -977,7 +977,7 @@ fi
 rm -f "$tmp_file"
 printf "${GREEN}[✓] URAAM updated successfully.${NC}\n"
 printf "%b\n" "${CYAN}--------------------------------------------${NC}"
-sleep1
+sleep 1
 read -rp "Press Enter to restart URAAM with new changes..."
 clear
 exec "$target_bin" "$@"
@@ -1153,7 +1153,7 @@ esac
 
 show_main_menu() {
 show_logo
-printf "%b\n" "${CYAN}=== URAAM v4.4.1 Dashboard ===${NC}"
+printf "%b\n" "${CYAN}=== URAAM v4.4.3 Dashboard ===${NC}"
 detect_backend_status
 printf "%b\n" "${BLUE}--------------------------------------------------------${NC}"
 echo -e "${CYAN}Folder layout instructions before starting:${NC}"
