@@ -94,7 +94,7 @@ or
 
 ## 📁 File Layout (`~/.Uraam/`)
 
-| Folder | Purpose|| On Debian with DEB version |
+| Folder | Purpose|| On Debian/Ubuntu with DEB version |
 | :--- | :--- | :--- | :--- |
 | Configs | `Configs/debloat/` | Place debloat lists here (*Canta/UAD, raw JSON supported*) | $HOME/.local/share/uraam/Configs
 | Apps | `Apps/` | Place APKs to batch-install | $HOME/.local/share/uraam/Apps
