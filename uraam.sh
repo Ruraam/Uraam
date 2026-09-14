@@ -93,16 +93,22 @@ fi
 
 is_installed_via_deb() {
 local package_name="${1:-uraam-debian}"
+
 if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; then
 return 1
 fi
-if command -v dpkg-query >/dev/null 2>&1; then
+
+if !command -v dpkg-query >/dev/null 2>&1; then
+return 1
+fi
+
 local package_status
-package_status=$(dpkg-query -W -f='${Status}' "$package_name" 2>/dev/null)
+package_status=$(dpkg-query -W -f='${Status}' "$package_name" 2>/dev/null || true)
+
 if [[ "$package_status" == *"install ok installed"* ]]; then
 return 0
 fi
-fi
+
 return 1
 }
 
@@ -1000,13 +1006,14 @@ fi
 check_and_update() {
 show_logo
 
-if ! is_installed_via_deb; then
+if! is_installed_via_deb; then
 update_uraam
 return $?
-fi
-
+else
 printf "%b\n" "${CYAN}[*] Debian .deb installation detected.${NC}"
 printf "%b\n" "${CYAN}[*] Checking for updates on GitHub...${NC}"
+read -rp "Appuyez sur Entrée pour continuer..."
+fi
 
 ensure_jq || return 1
 
