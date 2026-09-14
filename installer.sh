@@ -95,7 +95,7 @@ echo ""
 }
 
 check_dependencies() {
-if [ -d "/data/data/com.termux" ] || {[ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; }; then
+if [ -d "/data/data/com.termux" ] || [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; }; then
 IS_TERMUX=true
 [ -z "$PREFIX" ] && PREFIX="/data/data/com.termux/files/usr"
 if [ ! -d "$HOME/storage" ] && command -v termux-setup-storage >/dev/null2>&1; then
