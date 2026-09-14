@@ -67,9 +67,12 @@ echo -e "${NC}"
 }
 
 term_set_storage() {
-if {[ -d "/data/data/com.termux" ] || [[ "$PREFIX" == *com.termux* ]]; } && [ ! -d "$HOME/storage" ]; then
-if command -v termux-setup-storage >/dev/null 2>&1; then
-echo -e "${YELLOW}[!] Storage permission required for backups...${NC}"
+if [ -d "/data/data/com.termux" ] || { [ -n "$PREFIX" ]&& [[ "$PREFIX" == *com.termux* ]]; }; then
+[ -z "$PREFIX" ] && PREFIX="/data/data/com.termux/files/usr"
+
+if [ ! -d "$HOME/storage" ] && command -v termux-setup-storage >/dev/null 2>&1; then
+printf "%b\n" "${BLUE}---------------------------------------${NC}"
+echo -e "\n${CYAN}[*] Requesting storage access (please confirm the popup)...${NC}"
 termux-setup-storage
 sleep 2
 fi
@@ -1095,19 +1098,6 @@ printf "\n%b\n" "${RED}[X] Installation failed.${NC}"
 rm -f "$tmp_deb"
 read -rp "Press Enter to return to main menu"
 return 1
-fi
-}
-
-term_set_storage() {
-if [ -d "/data/data/com.termux" ] || { [ -n "$PREFIX" ]&& [[ "$PREFIX" == *com.termux* ]]; }; then
-[ -z "$PREFIX" ] && PREFIX="/data/data/com.termux/files/usr"
-
-if [ ! -d "$HOME/storage" ] && command -v termux-setup-storage >/dev/null 2>&1; then
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-echo -e "\n${CYAN}[*] Requesting storage access (please confirm the popup)...${NC}"
-termux-setup-storage
-sleep 2
-fi
 fi
 }
 
