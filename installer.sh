@@ -91,7 +91,7 @@ echo ""
 }
 
 check_dependencies() {
-if [ -n "$PREFIX" ] &&[[ "$PREFIX" == *com.termux* ]] && command -v pkg >/dev/null 2>&1; then
+if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]] && command -v pkg >/dev/null 2>&1; then
 IS_TERMUX=true
 if [ ! -d "$HOME/storage" ]; then
 echo "Storage access isrequired for backups, please grant permission..."
@@ -175,7 +175,7 @@ mkdir -p "$PREFIX/bin"
 
 TERMUX_DEB_URL=$(echo "$RELEASE_DATA" | jq -r '[.assets[] | select(.name |endswith(".deb")) | select(.name | contains("termux")) | .browser_download_url][0] // empty')
 
-if [ -n "$TERMUX_DEB_URL" ] &&[ "$TERMUX_DEB_URL" != "null" ]; then
+if [ -n "$TERMUX_DEB_URL" ] && [ "$TERMUX_DEB_URL" != "null" ]; then
 printf "%b\n" "${GREEN}[+] Found Termux package: $(basename "$TERMUX_DEB_URL")${NC}"
 curl -L -o "$tmp_dir/uraam-termux.deb" "$TERMUX_DEB_URL"
 dpkg -i "$tmp_dir/uraam-termux.deb" || apt-get install -f -y
@@ -203,13 +203,13 @@ if [ "$debian_choice" = "1" ]; then
 printf "%b\n" "${CYAN}[*] Searching .deb package in release...${NC}"
 PC_DEB_URL=$(echo "$RELEASE_DATA" | jq -r '[.assets[] | select(.name | endswith(".deb")) | select((.name | contains("termux")) == false) | .browser_download_url][0] // empty')
 
-if [ -n "$PC_DEB_URL" ] && [ "$PC_DEB_URL" != "null" ];then
+if [ -n "$PC_DEB_URL" ] && [ "$PC_DEB_URL" != "null" ]; then
 printf "%b\n" "${GREEN}[+] Found Debian package: $(basename "$PC_DEB_URL")${NC}"
 curl -L -o "$tmp_dir/uraam-pc.deb" "$PC_DEB_URL"
-sudo dpkg -i "$tmp_dir/uraam-pc.deb" || sudo apt-get install -f -y
+sudo dpkg -i "$tmp_dir/uraam-pc.deb" || sudo apt install -f -y
 else
 printf "%b\n" "${YELLOW}[!] No .deb found in release. Falling back to direct script installation...${NC}"
-SCRIPT_URL=$(echo "$RELEASE_DATA" | jq -r '[.assets[] | select(.name =="uraam.sh" or .name == "uraam") | .browser_download_url][0]// empty')
+SCRIPT_URL=$(echo "$RELEASE_DATA" | jq -r '[.assets[] | select(.name =="uraam.sh" or .name == "uraam") | .browser_download_url][0] // empty')
 if [ -z "$SCRIPT_URL" ] || [ "$SCRIPT_URL" = "null" ]; then
 SCRIPT_URL="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/uraam.sh"
 fi
@@ -218,7 +218,7 @@ sudo chmod +x "/usr/local/bin/uraam"
 fi
 else
 printf "%b\n" "${CYAN}[*] Installing standalone script to /usr/local/bin...${NC}"
-SCRIPT_URL=$(echo "$RELEASE_DATA" | jq -r '[.assets[] | select(.name == "uraam.sh" or .name == "uraam")| .browser_download_url][0] // empty')
+SCRIPT_URL=$(echo "$RELEASE_DATA" | jq -r '[.assets[] | select(.name == "uraam.sh" or .name == "uraam") | .browser_download_url][0] // empty')
 if [ -z "$SCRIPT_URL" ] || [ "$SCRIPT_URL" = "null" ]; then
 SCRIPT_URL="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/uraam.sh"
 fi
@@ -242,7 +242,7 @@ return 0
 fi
 
 if [ "$IS_TERMUX" = true ]; then
-dpkg -r uraam-termux 2>/dev/null ||rm -f "$PREFIX/bin/uraam"
+dpkg -r uraam-termux 2>/dev/null || rm -f "$PREFIX/bin/uraam"
 else
 if is_debian_like && is_installed_via_deb; then
 sudo dpkg -r uraam-debian 2>/dev/null || true
@@ -259,7 +259,7 @@ while true; do
 banner
 local install_label="1) Install / Update URAAM"
 if is_installed_via_deb || command -v uraam>/dev/null 2>&1; then
-install_label="1) Update / Reinstall URAAM"
+install_label="2) Update / Reinstall URAAM"
 fi
 
 echo -e "${YELLOW}Please choose an option:${NC}"
