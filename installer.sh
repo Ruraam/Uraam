@@ -24,7 +24,7 @@ REPO_NAME="Uraam"
 API_URL="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest"
 
 is_debian_like() {
-if[ -f /etc/os-release ]; then
+if [ -f /etc/os-release ]; then
 . /etc/os-release
 case "$ID" in
 debian|ubuntu|linuxmint|pop) return 0 ;;
