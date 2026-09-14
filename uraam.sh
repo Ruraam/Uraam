@@ -82,10 +82,11 @@ fi
 }
 
 term_set_storage() {
-if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; then
-if [ ! -d "$HOME/storage" ]; then
-echo "Storage permission required for backups..."
+if {[ -d "/data/data/com.termux" ] ||[[ "$PREFIX" == *com.termux* ]]; } && [ ! -d "$HOME/storage" ]; then
+if command -v termux-setup-storage >/dev/null 2>&1; then
+echo -e "${YELLOW}[!] Storage permission required for backups...${NC}"
 termux-setup-storage
+sleep 2
 fi
 fi
 }
