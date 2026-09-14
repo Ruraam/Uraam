@@ -190,7 +190,7 @@ fi
 else
 
 local debian_choice="2"
-ifis_debian_like; then
+if is_debian_like; then
 printf "\n%b\n" "${YELLOW}[?] Debian/Ubuntuenvironment detected. Choose installation method:${NC}"
 echo -e "  ${CYAN}1) .deb packageinstallation (System package manager)${NC}"
 echo -e "  ${CYAN}2) Direct script installation (/usr/local/bin/uraam)${NC}"
