@@ -108,7 +108,7 @@ or
 
 - **Debian / Ubuntu / WSL**: Native `.deb` package (recommended) or standalone binary.
 - **Android (Termux)**: Automatic setup with storage and environment checks.
-- **Other Linux distros**: Direct standalone installation.
+- **MacOS & other Linux distros**: Direct standalone installation.
 
 Run the universal installer directly in your terminal (**Linux PC** or **Android Termux**) :
 ```bash
@@ -117,11 +117,10 @@ bash<(curl -fsSL https://raw.githubusercontent.com/Uraam/Uraam/main/installer.sh
 
 ### 📦 Updating / Uninstalling
 
-To **update** to the latest release: In URAAM dashboard, Select "[u] Update URAAM" and will update automatically on all platform. 
+- **To update** to the latestrelease: In the URAAM dashboard, select **`[u] Update URAAM`** to update automatically on all platforms.
+- **To uninstall** URAAM: Simply re-run the universal command above and select the uninstall option from the menu.
 
-For **uninstall** URAAM, simply re-run the same command and choose the corresponding option from the menu:
-
-**You can also downlaod latest DEB files from [Releases Page](https://github.com/Ruvyrom/Uraam/releases)**
+**You can also download the latest `.deb` packages directly from the [Releases Page](https://github.com/Uraam/Uraam/releases)**
 
 ### Usage Anywhere
 
@@ -135,7 +134,6 @@ uraam
 >> * *DEB packages install dependencies*
 
 📖 For platform-specific documentation (Termuxstandalone, macOS, WSL2, Linux rules), refer to the **[URAAM - Quick Start Guide](Docs/Quick-Start-Guide.md)**.
-Discover all Makefile targets using `make help`.
 
 ---
 ## Dictionary: Technical Context
