@@ -243,7 +243,7 @@ printf "\n%b" "${RED}[?] Are you sure you want to uninstall URAAM?[y/N]: ${NC}"
 read -r confirm
 if [[ ! "$confirm" =~ ^[yY]$ ]]; then
 printf "%b\n" "${YELLOW}[*] Uninstallation aborted.${NC}"
-read -rp"Press Enter to return to menu..."
+read -rp "Press Enter to return to menu..."
 return 0
 fi
 
