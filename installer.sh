@@ -38,7 +38,7 @@ return 1
 
 is_installed_via_deb() {
 local package_name="${1:-uraam-debian}"
-if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]];then
+if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; then
 return 1
 fi
 if command -v dpkg-query >/dev/null2>&1; then
