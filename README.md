@@ -102,12 +102,12 @@ or
 
 # ⚡ Quick & Direct Installation
 
-# 📦 Universal 1-LineInstaller
+# 📦 Universal 1-Line Installer
 
 **The installer will automatically detect your platform and guide you through:**
 
 - **Debian / Ubuntu / WSL**: Native `.deb` package (recommended) or standalone binary.
-- **Android (Termux)**: Automatic setupwith storage and environment checks.
+- **Android (Termux)**: Automatic setup with storage and environment checks.
 - **macOS & other Linux distros**: Direct standalone installation.
 
 Run the universal installer directly in your terminal (**Linux PC, Mac, or Android Termux**):
@@ -115,7 +115,7 @@ Run the universal installer directly in your terminal (**Linux PC, Mac, or Andro
 bash<(curl -fsSL https://raw.githubusercontent.com/Uraam/Uraam/main/installer.sh)
 ```
 ### 🚀 Usage Anywhere
-Once installed, simplyrun the global command from any directory:
+Once installed, simply run the global command from any directory:
 ```bash
 uraam
 ```
