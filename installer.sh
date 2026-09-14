@@ -189,7 +189,7 @@ else
 printf "%b\n" "${YELLOW}[!] Installing standalone script...${NC}"
 SCRIPT_URL=$(echo "$RELEASE_DATA" | jq -r '[.assets[] | select(.name == "uraam.sh" or .name == "uraam") | .browser_download_url][0] // empty')
 if [ -z "$SCRIPT_URL" ] || [ "$SCRIPT_URL" = "null" ]; then
-SCRIPT_URL="https:/local/raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/uraam.sh"
+SCRIPT_URL="https:raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/uraam.sh"
 fi
 curl -fsSL -o "$PREFIX/bin/uraam" "$SCRIPT_URL"
 chmod +x "$PREFIX/bin/uraam"
