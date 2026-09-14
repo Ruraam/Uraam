@@ -280,7 +280,7 @@ fi
 local tmp_deb="/tmp/uraam-debian_${remote_ver}_all.deb"
 
 printf "\n%b\n" "${CYAN}[*] Downloading: ${deb_url}${NC}"
-if ! curl-L --progress-bar -o "$tmp_deb" "$deb_url"; then
+if ! curl -L --progress-bar -o "$tmp_deb" "$deb_url"; then
 printf "%b\n" "${BLUE}---------------------------------------${NC}"
 printf "%b\n" "${RED}[X] Download failed.${NC}"
 rm -f "$tmp_deb"
