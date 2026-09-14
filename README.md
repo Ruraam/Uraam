@@ -102,23 +102,22 @@ or
 
 ## ⚡ Quick & Direct Installation
 
-### 📦 Universal 1-Line Installer (Recommended)
-Automatically detects your environment and installs Uraam on **Termux, Linux, macOS, or WSL**:
+### 📦 Universal 1-Line Installer
+
+**The installer will automatically detect your platform and guide you through:**
+
+- **Debian / Ubuntu**: Native `.deb` package(recommended) or standalone binary.
+- **Android (Termux)**: Automatic setup with storage and environment checks.
+- **Other Linux distros**: Direct standalone installation.
+
+Run the universal installer directly in your terminal (**Linux PC** or **Android Termux**) :
 ```bash
-bash <(command -v curl >/dev/null && curl -fsSL https://raw.githubusercontent.com/Uraam/Uraam/main/installer.sh || wget -qO- https://raw.githubusercontent.com/Uraam/Uraam/main/installer.sh)
+bash<(curl -fsSL https://raw.githubusercontent.com/Uraam/Uraam/main/installer.sh)
 ```
 
-### 🐧 Debian / Ubuntu / Mint / Kali (DEB Package)
-One-line download and installation of the latest `.deb` package via `apt`:
-```bash
-DEB_URL=$(curl -s https://api.github.com/repos/Uraam/Uraam/releases/latest | grep -o '"browser_download_url": "[^"]*uraam-debian[^"]*"' | cut -d '"' -f 4)
-curl -sL "$DEB_URL" -o /tmp/uraam.deb && sudo apt install -y /tmp/uraam.deb && rm -f /tmp/uraam.deb
-```
+### 📦 Updating / Uninstalling
 
-### 📱 Termux (DEB Package)
-One-line download and installation for Termux on Android:
-```bash
-mkdir -p "$PREFIX/tmp" && curl -s https://api.github.com/repos/Uraam/Uraam/releases/latest | grep "browser_download_url.uraam-termux.\.deb" | cut -d '"' -f 4 | xargs curl -sL -o "$PREFIX/tmp/uraam.deb" && apt install -y "$PREFIX/tmp/uraam.deb" && rm -f "$PREFIX/tmp/uraam.deb"
+To **update** to the latest releaseor **uninstall** URAAM, simply re-run the same command and choose the corresponding option from the menu:
 ```
 
 **You can also downlaod latest DEB files from [Releases Page](https://github.com/Ruvyrom/Uraam/releases)**
