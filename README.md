@@ -106,7 +106,7 @@ or
 
 **The installer will automatically detect your platform and guide you through:**
 
-- **Debian / Ubuntu**: Native `.deb` package(recommended) or standalone binary.
+- **Debian / Ubuntu / WSL**: Native `.deb` package (recommended) or standalone binary.
 - **Android (Termux)**: Automatic setup with storage and environment checks.
 - **Other Linux distros**: Direct standalone installation.
 
