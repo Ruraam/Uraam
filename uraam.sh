@@ -961,7 +961,7 @@ if git reset --hard "origin/$BRANCH">/dev/null 2>&1; then
 printf "${GREEN}[✓] Core repository updated successfully.${NC}\n"
 else
 printf "${RED}[X] Git reset failed. Check repository branch status.${NC}\n"
-exit1
+exit 1
 fi
 
 if [ -f "$INSTALL_DIR/uraam.sh" ]; then
