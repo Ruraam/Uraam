@@ -455,12 +455,13 @@ fi
 uraam_debloat() {
 show_logo
 printf "%b\n" "${BLUE}==========================================${NC}"
-printf "%b\n" "${CYAN}URAAM RUVOMAIN ADB APP-MANAGER | DEBLOATER${NC}"
+printf "%b\n" "        ${CYAN}=== URAAM | Debloater ===${NC}"
 printf "%b\n" "${BLUE}==========================================${NC}"
 printf "%b\n" "${CYAN}Place debloat configurations in ./Configs/debloat/${NC}"
 printf "%b\n" "${CYAN}(Canta JSON, UAD lists & raw packages supported).${NC}"
 printf "%b\n" "\n${CYAN}You have the choice to ${WHITE}[D]${NC}isable or ${WITHE}[U]${NC}ninstall packages.${NC}"
 echo -e "${BLUE}------------------------------------------${NC}"
+init_debloat_configs
 printf "%b\n" "${YELLOW}[*] Fetching installed packages...${NC}"
 local installed_packages
 installed_packages=$($EXEC pm list packages 2>/dev/null | sed 's/^package://' | tr -d '\r')
