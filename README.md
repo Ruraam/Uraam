@@ -105,7 +105,7 @@ or
 ### 📦 Universal 1-Line Installer (Recommended)
 Automatically detects your environment and installs Uraam on **Termux, Linux, macOS, or WSL**:
 ```bash
-bash <(command -v curl >/dev/null && curl -fsSL https://raw.githubusercontent.com/Uraam/Uraam/main/installer.sh || wget -qO- https://raw.githubusercontent.com/Ruvyrom/Uraam/main/installer.sh)
+bash <(command -v curl >/dev/null && curl -fsSL https://raw.githubusercontent.com/Uraam/Uraam/main/installer.sh || wget -qO- https://raw.githubusercontent.com/Uraam/Uraam/main/installer.sh)
 ```
 
 ### 🐧 Debian / Ubuntu / Mint / Kali (DEB Package)
