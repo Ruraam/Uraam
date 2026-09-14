@@ -102,37 +102,39 @@ or
 
 # ⚡ Quick & Direct Installation
 
-### 📦 Universal 1-Line Installer
+# 📦 Universal 1-LineInstaller
 
 **The installer will automatically detect your platform and guide you through:**
 
 - **Debian / Ubuntu / WSL**: Native `.deb` package (recommended) or standalone binary.
-- **Android (Termux)**: Automatic setup with storage and environment checks.
-- **MacOS & other Linux distros**: Direct standalone installation.
+- **Android (Termux)**: Automatic setupwith storage and environment checks.
+- **macOS & other Linux distros**: Direct standalone installation.
 
-Run the universal installer directly in your terminal (**Linux PC** or **Android Termux**) :
+Run the universal installer directly in your terminal (**Linux PC, Mac, or Android Termux**):
 ```bash
 bash<(curl -fsSL https://raw.githubusercontent.com/Uraam/Uraam/main/installer.sh)
 ```
-### Usage Anywhere
-
-Once installed, simply run the global command from any directory:
+### 🚀 Usage Anywhere
+Once installed, simplyrun the global command from any directory:
 ```bash
 uraam
 ```
+>💡 **Desktop Integration:** If installed via the `.deb` package (Debian, Ubuntu, etc.), a desktop entryis automatically created. You can launch URAAM directly from your system applications menu under the **Accessories / Utility** category.
+
 ### 📦 Updating / Uninstalling
+- **To update** to the latest release: In the URAAM dashboard, select `[u] Update URAAM` to update automatically on all platforms.
+- **To uninstall** URAAM: Simply re-run the universal commandabove and select the uninstall option from the menu.
 
-- **To update** to the latestrelease: In the URAAM dashboard, select **`[u] Update URAAM`** to update automatically on all platforms.
-- **To uninstall** URAAM: Simply re-run the universal command above and select the uninstall option from the menu.
+*(You can also download the latest `.deb` packages directly from the[Releases Page](https://github.com/Uraam/Uraam/releases))*
 
-**You can also download the latest `.deb` packages directly from the [Releases Page](https://github.com/Uraam/Uraam/releases)**
+---
 
-> * **Note :**
->> * *The installer auto-install GIT after confirm and takes care of cloning the repository.*
->> * *URAAM auto-install ADB and JQ if necessary.*
->> * *DEB packages install dependencies*
+> **Note:**
+> -The installer auto-installs **Git** (after confirmation) and handles repository cloning.
+> - URAAMauto-installs **ADB** and **JQ** if missing.
+> - The `.deb` package automatically handles system dependencies.
 
-📖 For platform-specific documentation (Termuxstandalone, macOS, WSL2, Linux rules), refer to the **[URAAM - Quick Start Guide](Docs/Quick-Start-Guide.md)**.
+📖 *For platform-specific documentation (Termux standalone, macOS, WSL2, Linux udev rules), refer to the URAAM - [Quick Start Guide](/Docs/Quick-Start-Guide.md).*
 
 ---
 ## Dictionary: Technical Context
