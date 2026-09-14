@@ -23,6 +23,21 @@ REPO_OWNER="Uraam"
 REPO_NAME="Uraam"
 API_URL="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest"
 
+init_debloat_configs() {
+if ! compgen -G "$USER_DEBLOAT_DIR/*.json" >/dev/null; then
+if [ -d "/usr/share/uraam/Configs/debloat" ]; then
+cp -n /usr/share/uraam/Configs/debloat/*.json "$USER_DEBLOAT_DIR/" 2>/dev/null || true
+elif command -v curl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+echo -e "${CYAN}[*] Initializing default debloat lists...${NC}"
+local api_files
+api_files=$(curl -s "https://api.github.com/repos/Uraam/Uraam/contents/Configs/debloat?ref=${BRANCH}" | jq -r '.[] | select(.name | endswith(".json")) | .download_url' 2>/dev/null)
+for url in $api_files; do
+[ -n "$url" ] && curl -sL "$url" -o "$USER_DEBLOAT_DIR/$(basename "$url")"
+done
+fi
+fi
+}
+
 is_debian_like() {
 if [ -f /etc/os-release ]; then
 . /etc/os-release
@@ -239,6 +254,7 @@ SCRIPT_URL="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/ur
 fi
 sudo curl -fsSL -o "/usr/local/bin/uraam" "$SCRIPT_URL"
 sudo chmod +x "/usr/local/bin/uraam"
+init_debloat_configs
 fi
 fi
 echo ""
