@@ -254,7 +254,7 @@ read -rp "Press Enter to return to menu..."
 }
 
 show_menu() {
-whiletrue; do
+while true; do
 banner
 local install_label="1) Install / Update URAAM"
 if is_installed_via_deb || command -v uraam >/dev/null 2>&1; then
