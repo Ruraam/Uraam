@@ -25,11 +25,15 @@ API_URL="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest
 
 is_debian_like() {
 if [ -f /etc/os-release ]; then
-if grep -qiE '^(ID|ID_LIKE)=.*(debian|ubuntu)' /etc/os-release; then
-return 0
+. /etc/os-release
+case "$ID" in
+debian|ubuntu|linuxmint|pop) return 0 ;;
+esac
+case "$ID_LIKE" in
+*debian*|*ubuntu*) return 0 ;;
+esac
 fi
-fi
-return1
+return 1
 }
 
 is_installed_via_deb() {
@@ -68,6 +72,8 @@ elif [ -n "$tbrand" ]; then
 CURRENT_MODEL="${tbrand^} ${tmodel}${ver_suffix}"
 elif is_installed_via_deb; then
 CURRENT_MODEL="$(cat /sys/devices/virtual/dmi/id/sys_vendor 2>/dev/null) $(cat /sys/devices/virtual/dmi/id/product_name 2>/dev/null) $(uname -s) $(uname -m)"
+elif
+CURRENT_MODEL="$(cat /sys/devices/virtual/dmi/id/sys_vendor 2>/dev/null) $(cat /sys/devices/virtual/dmi/id/product_name 2>/dev/null) $(uname -s) $(uname -m)"
 else
 CURRENT_MODEL=""
 fi
@@ -94,7 +100,7 @@ check_dependencies() {
 if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]] && command -v pkg >/dev/null 2>&1; then
 IS_TERMUX=true
 if [ ! -d "$HOME/storage" ]; then
-echo "Storage access isrequired for backups, please grant permission..."
+echo "Storage access is required for backups, please grant permission..."
 termux-setup-storage
 fi
 else
@@ -123,7 +129,7 @@ sudo pacman -Sy --noconfirm "${missing_deps[@]}"
 elif command -v dnf >/dev/null 2>&1; then
 sudo dnf install -y "${missing_deps[@]}"
 else
-printf "%b\n" "${RED}[X] Could notauto-install dependencies. Please install ${missing_deps[*]} manually.${NC}"
+printf "%b\n" "${RED}[X] Could not auto-install dependencies. Please install ${missing_deps[*]} manually.${NC}"
 exit 1
 fi
 fi
@@ -194,7 +200,7 @@ else
 
 local debian_choice="2"
 if is_debian_like; then
-printf "\n%b\n" "${YELLOW}[?] Debian/Ubuntuenvironment detected. Choose installation method:${NC}"
+printf "\n%b\n" "${YELLOW}[?] Debian/Ubuntu environment detected. Choose installation method:${NC}"
 echo -e "  ${CYAN}1) .deb packageinstallation (System package manager)${NC}"
 echo -e "  ${CYAN}2) Direct script installation (/usr/local/bin/uraam)${NC}"
 read -rp "Select method[1-2, default: 1]: " debian_choice
