@@ -979,7 +979,7 @@ local raw_url="https://raw.githubusercontent.com/Uraam/Uraam/main/uraam.sh"
 local tmp_file
 tmp_file=$(mktemp)
 
-if curl -fsSL"$raw_url" -o "$tmp_file"; then
+if curl -fsSL "$raw_url" -o "$tmp_file"; then
 if [ -w "$target_bin" ]; then
 cp "$tmp_file" "$target_bin"
 chmod +x "$target_bin"
@@ -1012,7 +1012,6 @@ return $?
 else
 printf "%b\n" "${CYAN}[*] Debian .deb installation detected.${NC}"
 printf "%b\n" "${CYAN}[*] Checking for updates on GitHub...${NC}"
-read -rp "Appuyez sur Entrée pour continuer..."
 fi
 
 ensure_jq || return 1
