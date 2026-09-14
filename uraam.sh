@@ -953,7 +953,7 @@ esac
 update_uraam() {
 show_logo
 echo -e "${BLUE}========================================${NC}"
-echo -e "${CYAN}URAAM RUVOMAIN ADB APP-MANAGER | UPDATER${NC}"
+echo -e ".        ${CYAN}=== URAAM | UPDATER ===${NC}"
 echo -e "${BLUE}========================================${NC}"
 printf "\n%b" "${YELLOW}[?] You are about to update URAAM. Do you want to download and install it? [y/N]: ${NC}"
 read -r confirm
@@ -1113,7 +1113,7 @@ fi
 wireless_menu() {
 show_logo
 printf "%b\n" "${BLUE}==================================================${NC}"
-printf "%b\n" "${CYAN}URAAM RUVOMAIN ADB APP-MANAGER | WIRELESS ADB MODE${NC}"
+printf "%b\n" ".       ${CYAN}=== URAAM | WIRELESS ADB MODE ===${NC}"
 printf "%b\n" "${BLUE}==================================================${NC}"
 ensure_adb || return 1
 printf "%b\n" "${BLUE}------------------------------------------------${NC}"
