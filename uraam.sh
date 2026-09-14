@@ -34,7 +34,7 @@ REPO_URL="https://github.com/Ruvyrom/Uraam"
 BRANCH="main"
 
 if [ -z "$INSTALL_DIR" ]; then
-if [ -n "$PREFIX" ] &&[ -d "$PREFIX/share/uraam" ]; then
+if [ -n "$PREFIX" ] && [ -d "$PREFIX/share/uraam" ]; then
 INSTALL_DIR="$PREFIX/share/uraam"
 elif [ -d "/usr/share/uraam" ]; then
 INSTALL_DIR="/usr/share/uraam"
