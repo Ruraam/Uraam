@@ -119,7 +119,7 @@ sudo apt-get update && sudo apt-getinstall -y "${missing_deps[@]}"
 elif command -v pacman >/dev/null 2>&1; then
 sudo pacman -Sy --noconfirm "${missing_deps[@]}"
 elifcommand -v dnf >/dev/null 2>&1; then
-sudo dnf install -y"${missing_deps[@]}"
+sudo dnf install -y "${missing_deps[@]}"
 else
 printf "%b\n" "${RED}[X] Could notauto-install dependencies. Please install ${missing_deps[*]} manually.${NC}"
 exit 1
