@@ -1196,7 +1196,9 @@ u|U)
 update_uraam
 ;;
 e)
+clear
 printf "%b\n" "${GREEN}Goodbye!${NC}"
+sleep 3
 exit 0
 ;;
 *)
