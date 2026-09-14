@@ -265,7 +265,7 @@ while true; do
 banner
 local install_label="1) Install / Update URAAM"
 if is_installed_via_deb || command -v uraam>/dev/null 2>&1; then
-install_label="2) Update / Reinstall URAAM"
+install_label="1) Update / Reinstall URAAM"
 fi
 
 echo -e "${YELLOW}Please choose an option:${NC}"
