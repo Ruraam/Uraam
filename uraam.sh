@@ -990,7 +990,7 @@ fi
 check_and_update() {
 show_logo
 
-if! is_installed_via_deb; then
+if ! is_installed_via_deb; then
 update_uraam
 return $?
 else
