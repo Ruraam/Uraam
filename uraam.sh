@@ -13,9 +13,7 @@ SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 if [[ "$SCRIPT_DIR" == /usr/* ]] || [[ "$SCRIPT_DIR" == *com.termux*/usr/* ]]; then
 USER_DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/uraam"
 USER_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/uraam"
-cd "$HOME" || exit 1
 else
-cd "$SCRIPT_DIR" || exit 1
 USER_DATA_DIR="$SCRIPT_DIR"
 USER_CONFIG_DIR="$SCRIPT_DIR/Configs"
 fi
@@ -32,11 +30,21 @@ LOGD_DIR="$USER_DATA_DIR/Logs/debloat"
 LOGB_DIR="$USER_DATA_DIR/Logs/backup"
 LOGR_DIR="$USER_DATA_DIR/Logs/restore"
 
-REPO_URL="https://github.com/Uraam/Uraam"
+REPO_URL="https://github.com/Ruvyrom/Uraam"
 BRANCH="main"
 
 if [ -z "$INSTALL_DIR" ]; then
+if [ -n "$PREFIX" ] &&[ -d "$PREFIX/share/uraam" ]; then
+INSTALL_DIR="$PREFIX/share/uraam"
+elif [ -d "/usr/share/uraam" ]; then
+INSTALL_DIR="/usr/share/uraam"
+elif [ -d "$HOME/.local/share/uraam" ]; then
+INSTALL_DIR="$HOME/.local/share/uraam"
+elif [ -d "$HOME/Uraam" ]; then
 INSTALL_DIR="$HOME/Uraam"
+else
+INSTALL_DIR="$SCRIPT_DIR"
+fi
 fi
 
 mkdir -p "$USER_DEBLOAT_DIR""$BACKUPS_DIR" "$APP_DIR" "$LOGD_DIR" "$LOGB_DIR" "$LOGR_DIR"
@@ -66,7 +74,7 @@ init_debloat_configs() {
 if ! compgen -G "$USER_DEBLOAT_DIR/*.json" >/dev/null; then
 if [ -d "/usr/share/uraam/Configs/debloat" ]; then
 cp -n /usr/share/uraam/Configs/debloat/*.json "$USER_DEBLOAT_DIR/" 2>/dev/null || true
-elif command -v curl >/dev/null 2>&1 &&command -v jq >/dev/null 2>&1; then
+elif command -v curl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
 echo -e "${CYAN}[*] Initializing default debloat lists...${NC}"
 local api_files
 api_files=$(curl -s "https://api.github.com/repos/Uraam/Uraam/contents/Configs/debloat?ref=${BRANCH}" | jq -r '.[] | select(.name | endswith(".json")) | .download_url' 2>/dev/null)
