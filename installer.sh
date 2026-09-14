@@ -73,7 +73,6 @@ fi
 
 show_logo() {
 clear
-device_brand
 echo -e "${PURPLE}"
 cat << 'EOF'
 ::| ::|::::::\ ::::\  ::::\ ::::::|
