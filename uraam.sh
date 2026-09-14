@@ -35,7 +35,7 @@ LOGR_DIR="$USER_DATA_DIR/Logs/restore"
 REPO_URL="https://github.com/Uraam/Uraam"
 BRANCH="main"
 
-if[ -z "$INSTALL_DIR" ]; then
+if [ -z "$INSTALL_DIR" ]; then
 INSTALL_DIR="$HOME/Uraam"
 fi
 
