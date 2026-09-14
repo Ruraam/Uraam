@@ -142,7 +142,7 @@ else
 pkg install -y "$dep"
 fi
 done
-elif command -v apt>/dev/null 2>&1; then
+elif command -v apt >/dev/null 2>&1; then
 sudo apt update && sudo apt install -y "${missing_deps[@]}"
 elif command -v apt-get >/dev/null 2>&1; then
 sudo apt-get update -y && sudo apt-get install -y "${missing_deps[@]}"
