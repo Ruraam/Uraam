@@ -127,7 +127,7 @@ fi
 fi
 }
 
-ffetch_release() {
+fetch_release() {
 printf "%b\n" "${CYAN}[*] Fetching latestrelease info from GitHub...${NC}"
 RELEASE_DATA=$(curl -sL "$API_URL")
 LATEST_TAG=$(echo "$RELEASE_DATA" | jq -r '.tag_name // empty')
