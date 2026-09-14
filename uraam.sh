@@ -953,38 +953,47 @@ esac
 update_uraam() {
 show_logo
 echo -e "${BLUE}========================================${NC}"
-echo -e ".        ${CYAN}=== URAAM | UPDATER ===${NC}"
+echo -e "        ${CYAN}=== URAAM | UPDATER ===${NC}"
 echo -e "${BLUE}========================================${NC}"
-printf "\n%b" "${YELLOW}[?] You are about to update URAAM. Do you want to download and install it? [y/N]: ${NC}"
+printf "\n%b" "${YELLOW}[?] You areabout to update URAAM. Do you want to download and install it? [y/N]: ${NC}"
 read -r confirm
 if [[ ! "$confirm" =~ ^[yY]$ ]]; then
 printf "%b\n" "${CYAN}--------------------------------------------${NC}"
 printf "%b\n" "[X] Update canceled."
-
 return 0
 fi
-printf "${YELLOW}[*] Updating existing installation...${NC}\n"
-git fetch --all --prune >/dev/null 2>&1
 
-if git reset --hard "origin/$BRANCH">/dev/null 2>&1; then
-printf "${GREEN}[✓] Core repository updated successfully.${NC}\n"
-else
-printf "${RED}[X] Git reset failed. Check repository branch status.${NC}\n"
-exit 1
+printf "${YELLOW}[*] Updating existing installation...${NC}\n"
+
+local target_bin="$0"
+if [ -n "$PREFIX" ] &&[ -f "$PREFIX/bin/uraam" ]; then
+target_bin="$PREFIX/bin/uraam"
+elif [ -f "/usr/local/bin/uraam" ]; then
+target_bin="/usr/local/bin/uraam"
 fi
 
-if [ -f "$INSTALL_DIR/uraam.sh" ]; then
-chmod +x "$INSTALL_DIR/uraam.sh"
-find "$INSTALL_DIR" -type f -name "*.sh" -exec chmod +x {} +
-printf "%b\n" "${CYAN}--------------------------------------------${NC}"
-sleep 1 
-read -rp "press Enter to restart URAAM with new changes..." 
-rm -rf "$INSTALL_DIR/assets" "$INSTALL_DIR/installer.sh"
-clear
-exec "$0" "$@"
+local raw_url="https://raw.githubusercontent.com/Uraam/Uraam/main/uraam.sh"
+local tmp_file
+tmp_file=$(mktemp)
+
+if curl -fsSL"$raw_url" -o "$tmp_file"; then
+if [ -w "$target_bin" ]; then
+cp "$tmp_file" "$target_bin"
+chmod +x "$target_bin"
 else
+sudo cp "$tmp_file" "$target_bin"
+sudo chmod +x "$target_bin"
+fi
+rm -f "$tmp_file"
+printf "${GREEN}[✓] URAAM updated successfully.${NC}\n"
 printf "%b\n" "${CYAN}--------------------------------------------${NC}"
-printf "${RED}[X] Critical error: uraam.sh was not found in ${INSTALL_DIR}.${NC}\n"
+sleep1
+read -rp "Press Enter to restart URAAM with new changes..."
+clear
+exec "$target_bin" "$@"
+else
+rm -f "$tmp_file"
+printf "${RED}[X] Downloadfailed. Check your internet connection.${NC}\n"
 sleep 1
 read -rp "Press Enter to return to main menu"
 return 0
