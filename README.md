@@ -118,7 +118,6 @@ bash<(curl -fsSL https://raw.githubusercontent.com/Uraam/Uraam/main/installer.sh
 ### 📦 Updating / Uninstalling
 
 To **update** to the latest releaseor **uninstall** URAAM, simply re-run the same command and choose the corresponding option from the menu:
-```
 
 **You can also downlaod latest DEB files from [Releases Page](https://github.com/Ruvyrom/Uraam/releases)**
 
