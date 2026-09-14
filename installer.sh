@@ -24,7 +24,7 @@ REPO_NAME="Uraam"
 API_URL="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest"
 
 is_debian_like() {
-if [ -f /etc/os-release ]; then
+if[ -f /etc/os-release ]; then
 . /etc/os-release
 case "$ID" in
 debian|ubuntu|linuxmint|pop) return 0 ;;
@@ -38,13 +38,13 @@ return 1
 
 is_installed_via_deb() {
 local package_name="${1:-uraam-debian}"
-if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; then
+if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]];then
 return 1
 fi
-if command -v dpkg-query >/dev/null 2>&1;then
+if command -v dpkg-query >/dev/null2>&1; then
 local package_status
-package_status=$(dpkg-query -W -f='${Status}' "$package_name" 2>/dev/null || true)
-if [[ "$package_status" == *"install ok installed"* ]]; then
+package_status=$(dpkg-query -W-f='${Status}' "$package_name" 2>/dev/null || true)
+if[[ "$package_status" == *"install ok installed"* ]]; then
 return 0
 fi
 fi
