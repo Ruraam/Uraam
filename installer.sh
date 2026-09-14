@@ -95,40 +95,49 @@ echo ""
 }
 
 check_dependencies() {
-if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]] && command -v pkg >/dev/null 2>&1; then
+if [ -d "/data/data/com.termux" ] || {[ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; }; then
 IS_TERMUX=true
-if [ ! -d "$HOME/storage" ]; then
-echo "Storage access is required for backups, please grant permission..."
+[ -z "$PREFIX" ] && PREFIX="/data/data/com.termux/files/usr"
+if [ ! -d "$HOME/storage" ] && command -v termux-setup-storage >/dev/null2>&1; then
+echo -e "${YELLOW}[!] Storage access is required for backups, please grant permission...${NC}"
 termux-setup-storage
 fi
 else
 IS_TERMUX=false
 fi
 
-local deps=("git" "curl" "jq")
+local deps=("git" "curl" "jq" "adb")
 local missing_deps=()
 
 for dep in "${deps[@]}"; do
-if ! command -v "$dep" >/dev/null 2>&1; then
+if !command -v "$dep" >/dev/null 2>&1; then
 missing_deps+=("$dep")
 fi
 done
 
-if [ "${#missing_deps[@]}" -gt 0 ]; then
+if [ "${#missing_deps[@]}" -gt 0 ];then
 printf "%b\n" "${YELLOW}[!] Installing required core tools: ${missing_deps[*]}${NC}"
 if [ "$IS_TERMUX" = true ]; then
-pkg update -y && pkg install -y "${missing_deps[@]}"
-elif command -v apt >/dev/null 2>&1; then
+pkg update -y
+
+for dep in "${missing_deps[@]}";do
+if [ "$dep" = "adb" ]; then
+pkg install -y android-tools
+else
+pkg install -y "$dep"
+fi
+done
+elif command -v apt>/dev/null 2>&1; then
 sudo apt update && sudo apt install -y "${missing_deps[@]}"
 elif command -v apt-get >/dev/null 2>&1; then
 sudo apt-get update -y && sudo apt-get install -y "${missing_deps[@]}"
 elif command -v pacman >/dev/null 2>&1; then
 sudo pacman -Sy --noconfirm "${missing_deps[@]}"
 elif command -v dnf >/dev/null 2>&1; then
-sudo dnf install -y "${missing_deps[@]}"
+sudo dnfinstall -y "${missing_deps[@]}"
 else
 printf "%b\n" "${RED}[X] Could not auto-install dependencies. Please install ${missing_deps[*]} manually.${NC}"
-exit 1
+exit1
 fi
 fi
 }
