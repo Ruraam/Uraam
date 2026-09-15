@@ -114,15 +114,41 @@ Run the universal installer directly in your terminal (**Linux PC, Mac, or Andro
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/Uraam/Uraam/main/installer.sh || wget -qO- https://raw.githubusercontent.com/Uraam/Uraam/main/installer.sh)
 ```
+
+### 📦 Recommended for Debian/Ubuntu: Install via [debup](https://github.com/Uraam/debup)
+
+Keep Uraam automatically updated directly from GitHub Releases using **debup**:
+
+1. **Install debup:**
+```bash
+curl -fsSL https://github.com/Uraam/debup/releases/latest/download/debup_2.0.0_all.deb -o /tmp/debup.deb && sudoapt install -y /tmp/debup.deb && rm -f /tmp/debup.deb
+```
+2. **Add Uraam to tracked packages:**
+```bash
+debup add Uraam/Uraam
+```
+###🔄 Upgrading
+
+Upgrade **Uraam** specifically:
+```bash
+debup upgrade uraam
+```
+Or upgrade all tracked GitHub packages at once:
+```bash
+debup upgrade
+```
+
 ### 🚀 Usage Anywhere
 Once installed, simply run the global command from any directory:
 ```bash
 uraam
 ```
->💡 **Desktop Integration:** If installed via the `.deb` package (Debian, Ubuntu, etc.), a desktop entryis automatically created. You can launch URAAM directly from your system applications menu under the **Accessories / Utility** category.
+💡 **Desktop Integration:** If installed via the `.deb` package (Debian, Ubuntu, etc.), a desktop entryis automatically created. You can launch URAAM directly from your system applications menu under the **Accessories / Utility** category.
 
 ### 📦 Updating / Uninstalling
-- **To update** to the latest release: In the URAAM dashboard, select `[u] Update URAAM` to update automatically on all platforms.
+
+**To update to the latest release:**
+- In the URAAM dashboard, select `[u] Update URAAM` to update automatically on all platforms.
 - **To uninstall** URAAM: Simply re-run the universal command above and select the uninstall option from the menu.
 
 *(You can also download the latest `.deb` packages directly from the [Releases Page](https://github.com/Uraam/Uraam/releases))*
