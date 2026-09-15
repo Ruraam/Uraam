@@ -252,7 +252,7 @@ fi
 
 if command -v adb >/dev/null 2>&1; then
 local connected
-connected=$(timeout 0.8s adb devices 2>/dev/null |grep -v "List of devices" | grep "device$" | head -n 1)
+connected=$(adb devices 2>/dev/null |grep -v "List of devices" | grep "device$" | head -n 1)
 if [ -n "$connected" ]; then
 EXEC="adb shell"
 EXEC_TYPE="ADB"
