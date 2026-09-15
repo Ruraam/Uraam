@@ -96,7 +96,7 @@ or
 
 # ⚡ Quick & Direct Installation
 
-# 📦 Universal 1-Line Installer
+## 📦 Universal 1-Line Installer
 
 **The installer will automatically detect your platform and guide you through:**
 
@@ -120,6 +120,21 @@ uraam
 - **To uninstall** URAAM: Simply re-run the universal command above and select the uninstall option from the menu.
 
 *(You can also download the latest `.deb` packages directly from the [Releases Page](https://github.com/Uraam/Uraam/releases))*
+
+---
+
+## 📱 Android 15/16 Native Linux Terminal (AVF)
+
+Running the new native Linux VM on Android? You can install URAAM directly with a single command:
+```bash
+curl -L -O https://github.com/Uraam/Uraam/releases/download/v4.4.3/uraam-debian_v4.4.3_all.deb && sudo apt install -y ./uraam-debian_v4.4.3_all.deb
+```
+Laucnch URAAM with command:
+```bash
+uraam
+```
+> **Note:** On first run (`uraam`), accept the ADB prompt that appears on your phone screen to allowlocal device control.
+
 
 ---
 
