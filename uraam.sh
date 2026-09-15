@@ -215,7 +215,7 @@ EXEC_TYPE=""
 if is_installed_via_deb; then
 if command -v adb >/dev/null 2>&1; then
 local connected
-connected=$(adb devices 2>/dev/null | grep -v "List of devices" | grep "device$" | head -n 1)
+connected=$(timeout 0.8s adb devices 2>/dev/null | grep -v "List of devices" | grep "device$" | head -n 1)
 if [ -n "$connected" ]; then
 EXEC="adb shell"
 EXEC_TYPE="ADB"
@@ -252,7 +252,7 @@ fi
 
 if command -v adb >/dev/null 2>&1; then
 local connected
-connected=$(adb devices 2>/dev/null |grep -v "List of devices" | grep "device$" | head -n 1)
+connected=$(timeout 0.8s adb devices 2>/dev/null |grep -v "List of devices" | grep "device$" | head -n 1)
 if [ -n "$connected" ]; then
 EXEC="adb shell"
 EXEC_TYPE="ADB"
