@@ -43,14 +43,7 @@ Designed to be simple, fast, and respectful of your device integrity.
 
 > **🚀 Latest Updates:**
 > *[changelog on Releases Page](https://github.com/Uraam/Uraam/releases)*
-> * ***v4.4.1***
->>* *Added one-click update for uraam-debian-*.deb, directly download Uraam DEB Latest Release on Github Repo & install it automatically.Select option "Update Uraam" in Dashboard.
-> * ***v4.2.0***
->>* *You can *install URAAM* now in **Debian** & **Termux** with `uraam*-_4.2.0_all.deb`*
->>* *Integrated Auto-Updater, One-Line Installer, Improvements.*
-> * ***v4.0/v4.1***
->>* ***Major Refactoring:** Unified suite bundled into a single zero-overhead master engine: `uraam.sh`.*
->>* ***Curated Presets:** Added curated debloat configurations in [`./Configs/debloat`](https://github.com/Ruvyrom/Uraam/tree/main/Configs/debloat) (Samsung OneUI, Xiaomi HyperOS, Vivo/iQOO, TCL Android TV, Meta preinstalled daemons & Carrier bloatware).*
+>
 >---
 
 ## ⚡ Core Features
