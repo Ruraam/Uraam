@@ -174,15 +174,32 @@ sudo cp "$tmp_file" "$target_bin"
 sudo chmod +x "$target_bin"
 fi
 rm -f "$tmp_file"
-printf "${GREEN}[✓] URAAM updated successfully.${NC}\n"
+printf "%b\n" "${GREEN}[✓] URAAM updated successfully.${NC}"
 printf "%b\n" "${CYAN}--------------------------------------------${NC}"
-sleep 1
-read -rp "Press Enter to restart URAAM with new changes..."
+
+if [ -n "$PREFIX" ] && [ ! -f "$HOME/.shortcuts/URAAM" ]; then
+echo ""
+read -rp"  Create a Termux:Widget home screen shortcut? (y/N): " create_widget
+if [[ "$create_widget" =~ ^[yY]([eE][sS])?$ ]]; then
+mkdir -p "$HOME/.shortcuts"
+cat << 'EOF' > "$HOME/.shortcuts/URAAM"
+#!/data/data/com.termux/files/usr/bin/bash
+uraam
+EOF
+chmod +x "$HOME/.shortcuts/URAAM"
+printf "%b\n" "${GREEN}[✓]${NC} Shortcut created in ~/.shortcuts/URAAM!"
+printf "%b\n" "    (Available via Termux:Widget or Shortcut Maker)\n"
+printf "%b\n" "${CYAN}--------------------------------------------${NC}"
+fi
+fi
+
+read -rp "Press Enter to restart URAAM..."
 clear
 exec "$target_bin" "$@"
 else
 rm -f "$tmp_file"
-printf "${RED}[X] Download failed. Check your internet connection.${NC}\n"
+printf "%b\n" "${CYAN}--------------------------------------------${NC}"
+printf "%b\n" "${RED}[X] Download failed. Check your internet connection.${NC}"
 sleep 1
 read -rp "Press Enter to return to main menu"
 return 0
