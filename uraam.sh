@@ -1156,10 +1156,9 @@ show_logo
 printf "%b\n" "${CYAN}=== URAAM v4.4.3 Dashboard ===${NC}"
 detect_backend_status
 printf "%b\n" "${BLUE}--------------------------------------------------------${NC}"
-echo -e "${CYAN}Folder layout instructions before starting:${NC}"
-echo -e "${CYAN}Place debloat configurations in ./Configs/debloat/ (Canta JSON supported).${NC}"
-echo -e "${CYAN}Place APKs to install in ./Apps/.${NC}"
-echo -e "${CYAN}Backups and restoration targets reside in ./Configs/backup-restore/${NC}"
+printf "Place debloat configurations in: %s (Canta JSON supported)\n" "$USER_DEBLOAT_DIR"
+printf "Place APKs to install in:        %s\n" "$APP_DIR"
+printf "Backups & restores reside in:    %s\n" "$BACKUPS_DIR"
 printf "%b\n" "${BLUE}--------------------------------------------------------${NC}"
 echo -e "   [d] ${CYAN}Debloat apps${NC} ${YELLOW}(Remove Bloatware)${NC}"
 echo -e "   [i] ${CYAN}Install APK(s)${NC} ${YELLOW}(Batch APK Install)${NC}"
