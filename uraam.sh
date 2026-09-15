@@ -1153,12 +1153,16 @@ esac
 
 show_main_menu() {
 show_logo
+printf "%b\n" "${BLUE}--------------------------------------------------------${NC}"
 printf "%b\n" "${CYAN}=== URAAM v4.4.3 Dashboard ===${NC}"
 detect_backend_status
 printf "%b\n" "${BLUE}--------------------------------------------------------${NC}"
-printf "Place debloat configurations in: %s (Canta JSON supported)\n" "$USER_DEBLOAT_DIR"
-printf "Place APKs to install in:        %s\n" "$APP_DIR"
-printf "Backups & restores reside in:    %s\n" "$BACKUPS_DIR"
+printf "%b\n" "${CYAN}Place debloat configurations in: (Canta JSON supported)${NC}"
+printf "%b\n" "$USER_DEBLOAT_DIR"
+printf "%b\n" "${CYAN}Place APKs to install in:${NC}" 
+printf "%b\n" "$APP_DIR"
+printf "%b\n" "${CYAN}Backups & restores reside in:${NC}"
+printf "%b\n" "$BACKUPS_DIR"
 printf "%b\n" "${BLUE}--------------------------------------------------------${NC}"
 echo -e "   [d] ${CYAN}Debloat apps${NC} ${YELLOW}(Remove Bloatware)${NC}"
 echo -e "   [i] ${CYAN}Install APK(s)${NC} ${YELLOW}(Batch APK Install)${NC}"
@@ -1166,7 +1170,7 @@ echo -e "   [b] ${CYAN}Backup${NC} ${YELLOW}(Export Apps List)${NC}"
 echo -e "   [r] ${CYAN}Restore${NC} ${YELLOW}(Revert/Reinstall Apps)${NC}"
 echo -e "   [w] ${CYAN}Wireless Menu${NC} ${YELLOW}(Pair & Connect)${NC}" 
 echo -e "   [u] ${CYAN}Update URAAM${NC} ${YELLOW}(Search/install update from Github)${NC}"
-echo -e "${BLUE}------------------------------------------${NC} [e] Exit ${BLUE}-----${NC}"
+echo -e "${BLUE}-------------------------------------------|${NC} [e] Exit ${BLUE}|-----${NC}"
 }
 
 handle_menu_choice() {
