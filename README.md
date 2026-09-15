@@ -135,7 +135,7 @@ Running the new native Linux VM on Android? You can install URAAM directly with 
 ```bash
 curl -L -O https://github.com/Uraam/Uraam/releases/download/v4.4.3/uraam-debian_v4.4.3_all.deb && sudo apt install -y ./uraam-debian_v4.4.3_all.deb
 ```
-Laucnch URAAM with command:
+Launch URAAM with this command:
 ```bash
 uraam
 ```
