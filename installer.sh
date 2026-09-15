@@ -278,7 +278,7 @@ deb_url=$(echo "$release_json" | jq -r '.assets[] | select(.name | test("uraam-d
 
 if [ -z "$deb_url" ] || [ "$deb_url" = "null" ]; then
 printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf"\n%b\n" "${RED}[!] New version found (${latest_tag}), but no .deb assetis available.${NC}"
+printf "%b\n" "${RED}[!] New version found (${latest_tag}), but no .deb assetis available.${NC}"
 read -rp "Press [Enter] to return to menu..."
 return 1
 fi
