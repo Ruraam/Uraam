@@ -37,6 +37,12 @@ URAAM is a lightweight, fully open-source Bash toolkit that lets you safely **de
 
 Designed to be simple, fast, and respectful of your device integrity.
 
+---
+
+***[📦 Universal 1-Line Installer](https://github.com/Uraam/Uraam/edit/main/README.md#-universal-1-line-installer)***
+
+***[📱 Android 15/16 Native Linux Terminal (AVF)](https://github.com/Uraam/Uraam/edit/main/README.md#-android-1516-native-linux-terminal-avf)***
+
 | <div align="center">Termux</div> <div align="center"><img src="/assets/Termux-Icon.webp"></div> | <img src="assets/uraam-termux.jpg" width="200"> | <img src="assets/uraam-wireless.jpg" width="200"> || <div align="center">Debian</div> <div align="center"><img src="/assets/debian_logo.png" width="150"></div> | <div align="center"><img src="assets/debupdate.png" width="400"></div> |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 || <div align="center">Dashboard</div> | <div align="center">Wireless ADB</div> || | Uraam DEB Update |
