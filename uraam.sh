@@ -14,6 +14,7 @@ if [[ "$SCRIPT_DIR" == */bin* ]] || [[ "$SCRIPT_DIR" == /usr/* ]]; then
 USER_DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/uraam"
 USER_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/uraam"
 else
+USER_DATA_DIR="$SCRIPT_DIR"
 USER_CONFIG_DIR="$SCRIPT_DIR/Configs"
 fi
 
@@ -23,6 +24,7 @@ USER_DEBLOAT_DIR="$USER_CONFIG_DIR/debloat"
 CONFIGS_DIR="$USER_DEBLOAT_DIR"
 USER_BACKUPS_DIR="$USER_DATA_DIR/Configs/backup-restore"
 BACKUPS_DIR="$USER_BACKUPS_DIR"
+SYSTEM_DEBLOAT_DIR="${PREFIX:-/usr}/share/uraam/debloat"
 
 LOGD_DIR="$USER_DATA_DIR/Logs/debloat"
 LOGB_DIR="$USER_DATA_DIR/Logs/backup"
@@ -31,19 +33,23 @@ LOGR_DIR="$USER_DATA_DIR/Logs/restore"
 REPO_URL="https://github.com/Uraam/Uraam"
 BRANCH="main"
 
-if [ -z "$INSTALL_DIR" ]; then
-if [ -n "$PREFIX" ] &&[ -f "$PREFIX/bin/uraam" ]; then
+if [ -z "$INSTALL_DIR" ];then
+if [ -n "$PREFIX" ] && [ -f "$PREFIX/bin/uraam" ];then
 INSTALL_DIR="$PREFIX/bin"
-elif [ -f "/usr/local/bin/uraam" ];then
+elif [ -f "/usr/local/bin/uraam" ]; then
 INSTALL_DIR="/usr/local/bin"
-elif [ -d "$HOME/Uraam" ]; then
+elif [ -d "$HOME/Uraam" ];then
 INSTALL_DIR="$HOME/Uraam"
 else
 INSTALL_DIR="$SCRIPT_DIR"
 fi
 fi
 
-mkdir -p "$USER_DEBLOAT_DIR" "$BACKUPS_DIR" "$APP_DIR" "$LOGD_DIR" "$LOGB_DIR" "$LOGR_DIR"
+mkdir -p"$USER_DEBLOAT_DIR" "$BACKUPS_DIR" "$APP_DIR" "$LOGD_DIR" "$LOGB_DIR" "$LOGR_DIR"
+
+if [ -d "$SYSTEM_DEBLOAT_DIR" ] && [ -z "$(ls -A "$USER_DEBLOAT_DIR" 2>/dev/null)" ]; then
+cp -r "$SYSTEM_DEBLOAT_DIR"/*.json "$USER_DEBLOAT_DIR/" 2>/dev/null
+fi
 
 BLUE='\033[0;34m'
 BOLD='\033[1m'
