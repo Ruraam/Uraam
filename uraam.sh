@@ -65,9 +65,9 @@ show_logo() {
 clear
 echo -e "${PURPLE}"
 cat << 'EOF'
-::| ::|::::::\ ::::\  ::::\ ::::::|
-::|_::|::|,::|::|,::|::|,::|:::"::|
-`:::::|::| ::\::| ::|::| ::|::| ::|
+          ::| ::|::::::\ ::::\  ::::\ ::::::|
+          ::|_::|::|,::|::|,::|::|,::|:::"::|
+          `:::::|::| ::\::| ::|::| ::|::| ::|
 EOF
 echo -e "${NC}"
 }
@@ -1160,7 +1160,8 @@ esac
 show_main_menu() {
 show_logo
 printf "%b\n" "${BLUE}--------------------------------------------------------${NC}"
-printf "%b\n" "${CYAN}=== URAAM v4.4.3 Dashboard ===${NC}"
+printf "%b\n" "          ${CYAN}=== URAAM v4.4.3 Dashboard ===${NC}"
+printf "%b\n" "${BLUE}--------------------------------------------------------${NC}"
 detect_backend_status
 printf "%b\n" "${BLUE}--------------------------------------------------------${NC}"
 printf "%b\n" "${CYAN}Place debloat configurations in: (Canta JSON supported)${NC}"
