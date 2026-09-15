@@ -144,8 +144,6 @@ show_logo
 printf "%b\n" "${BLUE}--------------------------------------------${NC}"
 printf "%b\n" "   ${CYAN}=== URAAM | Standalone Installer ===${NC}"
 printf "%b\n" "${BLUE}--------------------------------------------${NC}"
-device_brand
-printf "%b\n" "${BLUE}--------------------------------------------${NC}"
 printf "\n%b" "${YELLOW}[?] You are about to update URAAM. Do you want to download and install it? [y/N]: ${NC}"
 read -r confirm
 if [[ ! "$confirm" =~ ^[yY]$ ]]; then
