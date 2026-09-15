@@ -33,12 +33,12 @@ LOGR_DIR="$USER_DATA_DIR/Logs/restore"
 REPO_URL="https://github.com/Uraam/Uraam"
 BRANCH="main"
 
-if [ -z "$INSTALL_DIR" ];then
-if [ -n "$PREFIX" ] && [ -f "$PREFIX/bin/uraam" ];then
+if [ -z "$INSTALL_DIR" ]; then
+if [ -n "$PREFIX" ] && [ -f "$PREFIX/bin/uraam" ]; then
 INSTALL_DIR="$PREFIX/bin"
 elif [ -f "/usr/local/bin/uraam" ]; then
 INSTALL_DIR="/usr/local/bin"
-elif [ -d "$HOME/Uraam" ];then
+elif [ -d "$HOME/Uraam" ]; then
 INSTALL_DIR="$HOME/Uraam"
 else
 INSTALL_DIR="$SCRIPT_DIR"
