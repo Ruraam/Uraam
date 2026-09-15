@@ -212,7 +212,6 @@ detect_backend_status() {
 EXEC=""
 EXEC_TYPE=""
 
-if is_installed_via_deb; then
 if command -v adb >/dev/null 2>&1; then
 local connected
 connected=$(timeout 0.8s adb devices 2>/dev/null | grep -v "List of devices" | grep "device$" | head -n 1)
@@ -232,35 +231,25 @@ printf "%b\n" "${RED}[!] No target device connected via ADB.${NC}"
 return 1
 fi
 
+if [ -n "$ANDROID_ROOT" ] || [ -n "$TERMUX_VERSION" ]; then
 if [ "$(id -u)" -eq 0 ] || { command -v su >/dev/null 2>&1 && su -c "id" >/dev/null 2>&1; }; then
 EXEC="su -c"
 EXEC_TYPE="ROOT"
 device_brand
 printf "%b\n" "${PURPLE}[Host]${NC} $CURRENT_MODEL"
 printf "%b\n" "${GREEN}[✓] Execution backend: ROOT (su)${NC}"
-return0
+return 0
 fi
 
+if [ -z "$BACKEND" ] && command -v rish >/dev/null 2>&1; then
 if command -v rish >/dev/null 2>&1 && echo "exit" | rish >/dev/null 2>&1; then
 EXEC="rish -c"
 EXEC_TYPE="SHIZUKU"
 device_brand
 printf "%b\n" "${PURPLE}[Host]${NC} $CURRENT_MODEL"
-printf "%b\n" "${GREEN}[✓] Execution backend: SHIZUKU (Rish)${NC}"
+printf "%b\n" "${GREEN}[✓] Execution backend:SHIZUKU (Rish)${NC}"
 return 0
 fi
-
-if command -v adb >/dev/null 2>&1; then
-local connected
-connected=$(adb devices 2>/dev/null |grep -v "List of devices" | grep "device$" | head -n 1)
-if [ -n "$connected" ]; then
-EXEC="adb shell"
-EXEC_TYPE="ADB"
-device_brand
-printf "%b\n" "${PURPLE}[Host]${NC} $CURRENT_MODEL"
-printf "%b\n" "${PURPLE}[Target]${NC} $CURRENT_MODEL"
-printf "%b\n" "${GREEN}[✓] Execution backend: ADB (Connected)${NC}"
-return 0
 fi
 fi
 
