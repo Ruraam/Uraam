@@ -42,6 +42,7 @@ Designed to be simple, fast, and respectful of your device integrity.
 || <div align="center">Dashboard</div> | <div align="center">Wireless ADB</div> || | Uraam DEB Update |
 
 > **🚀 Latest Updates:**
+> *[changelog on Releases Page](https://github.com/Uraam/Uraam/releases)*
 > * ***v4.4.1***
 >>* *Added one-click update for uraam-debian-*.deb, directly download Uraam DEB Latest Release on Github Repo & install it automatically.Select option "Update Uraam" in Dashboard.
 > * ***v4.2.0***
