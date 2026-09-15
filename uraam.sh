@@ -278,7 +278,7 @@ ensure_jq || return 1
 if ! detect_backend_status; then
 printf "%b\n" "${BLUE}--------------------------------------------------------${NC}"
 printf "%b\n" "${RED}[ERROR] Action aborted: no active backend detected!${NC}"
-printf "%b\n""${YELLOW}[!] Make sure:${NC}"
+printf "%b\n" "${YELLOW}[!] Make sure:${NC}"
 printf "%b\n" "  ${CYAN}1.USB/Wireless debugging is enabled and authorized.${NC}"
 printf "%b\n" "  ${CYAN}2.The device is visible via 'adb devices' (or rish/root active).${NC}"
 printf "%b\n" "${BLUE}--------------------------------------------------------${NC}"
@@ -320,9 +320,9 @@ exec> >(tee -a "$LOGFILE") 2>&1
 
 wireless_adb() {
 show_logo
-printf "%b\n" "${BLUE}===================================================${NC}"
-printf "%b\n" "${CYAN}URAAM RUVOMAIN ADB APP-MANAGER | WIRELESS ADB SETUP${NC}"
-printf "%b\n" "${BLUE}===================================================${NC}"
+printf "%b\n" "${BLUE}---------------------------------------------------${NC}"
+printf "%b\n" "         ${CYAN}=== URAAM | WIRELESS ADB SETUP ===${NC}"
+printf "%b\n" "${BLUE}---------------------------------------------------${NC}"
 printf "%b\n" "${CYAN}CRITICAL STEP: Wireless Debugging.${NC}"
 printf "%b\n" "${CYAN} 1. Go to Settings > Developer Options.${NC}"
 printf "%b\n" "${CYAN} 2. Tap on 'Wireless debugging' (the text itself).${NC}"
@@ -401,13 +401,13 @@ return 1
 
 wireless_shizuku() {
 show_logo
-printf "%b\n" "${BLUE}==================================================${NC}"
-printf "%b\n" "${CYAN}URAAM RUVOMAIN ADB APP-MANAGER | WIRELESS SHIZUKU${NC}"
-printf "%b\n" "${BLUE}==================================================${NC}"
+printf "%b\n" "${BLUE}------------------------------------------------${NC}"
+printf "%b\n" "       ${CYAN}=== URAAM | WIRELESS SHIZUKU===${NC}"
+printf "%b\n" "${BLUE}------------------------------------------------${NC}"
 printf "%b\n" "${CYAN}WIRELESS ADB & SHIZUKU SETUP${NC}"
 printf "%b\n" " ${CYAN}1.Starts Shizuku and enables Wireless ADB in a single step.${NC}"
 printf "%b\n" " ${CYAN}2.Unplug your USB cable:no need to plug it in again!${NC}"
-printf "%b\n" "\n${BLUE}------------------------------------------------${NC}"
+printf "%b\n" "${BLUE}------------------------------------------------${NC}"
 ensure_adb || exit 1
 check_adb_menu
 printf "%b\n" "\n${BLUE}------------------------------------------------${NC}"
@@ -459,13 +459,13 @@ fi
 
 uraam_debloat() {
 show_logo
-printf "%b\n" "${BLUE}==========================================${NC}"
+printf "%b\n" "${BLUE}------------------------------------------${NC}"
 printf "%b\n" "        ${CYAN}=== URAAM | Debloater ===${NC}"
-printf "%b\n" "${BLUE}==========================================${NC}"
+printf "%b\n" "${BLUE}------------------------------------------${NC}"
 printf "%b\n" "${CYAN}Place debloat configurations in ./Configs/debloat/${NC}"
 printf "%b\n" "${CYAN}(Canta JSON, UAD lists & raw packages supported).${NC}"
-printf "%b\n" "\n${CYAN}You have the choice to ${WHITE}[D]${NC}isable or ${WITHE}[U]${NC}ninstall packages.${NC}"
-echo -e "${BLUE}------------------------------------------${NC}"
+printf "%b\n" "\n${CYAN}You have the choice to ${WHITE}[D]${NC}isable or ${WITHE}[U]${NC}ninstall packages."
+printf "%b\n" "${BLUE}------------------------------------------${NC}"
 printf "%b\n" "${YELLOW}[*] Fetching installed packages...${NC}"
 local installed_packages
 installed_packages=$($EXEC pm list packages 2>/dev/null | sed 's/^package://' | tr -d '\r')
