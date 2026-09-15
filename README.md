@@ -148,7 +148,12 @@ uraam
 ### 📦 Updating / Uninstalling
 
 **To update to the latest release:**
+- Use [debup](https://github.com/Uraam/debup/tree/main) (Debian/Ubuntu)
+```bash
+debup upgrade uraam
+```
 - In the URAAM dashboard, select `[u] Update URAAM` to update automatically on all platforms.
+
 - **To uninstall** URAAM: Simply re-run the universal command above and select the uninstall option from the menu.
 
 *(You can also download the latest `.deb` packages directly from the [Releases Page](https://github.com/Uraam/Uraam/releases))*
