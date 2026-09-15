@@ -17,7 +17,7 @@ PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-CURRENT_VERSION="4.4.2"
+CURRENT_VERSION="4.4.3"
 
 REPO_URL="https://github.com/Uraam/Uraam"
 BRANCH="main"
