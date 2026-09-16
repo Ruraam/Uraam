@@ -49,7 +49,7 @@ or
 
 Run the universal installer directly in your terminal (**Linux PC, Mac, or Android Termux**):
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Uraam/Uraam/main/installer.sh || wget -qO- https://raw.githubusercontent.com/Uraam/Uraam/main/installer.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Ruraam/Uraam/main/installer.sh || wget -qO- https://raw.githubusercontent.com/Uraam/Uraam/main/installer.sh)
 ```
 ### 🚀 Usage Anywhere
 Once installed, simply run the global command from any directory:
@@ -114,7 +114,7 @@ sudo dnf install -y git
 - **Clone the repo:**
   
 ```bash
-git clone https://github.com/Ruvyrom/Uraam.git
+git clone https://github.com/Ruraam/Uraam.git
 ```
 
 Folder layout:
