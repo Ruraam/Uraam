@@ -21,7 +21,7 @@ CURRENT_VERSION="4.4.3"
 
 REPO_URL="https://github.com/Uraam/Uraam"
 BRANCH="main"
-REPO_OWNER="Uraam"
+REPO_OWNER="Ruraam"
 REPO_NAME="Uraam"
 API_URL="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest"
 
