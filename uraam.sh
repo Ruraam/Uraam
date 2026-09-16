@@ -30,7 +30,7 @@ LOGD_DIR="$USER_DATA_DIR/Logs/debloat"
 LOGB_DIR="$USER_DATA_DIR/Logs/backup"
 LOGR_DIR="$USER_DATA_DIR/Logs/restore"
 
-REPO_URL="https://github.com/Uraam/Uraam"
+REPO_URL="https://github.com/Ruraam/Uraam"
 BRANCH="main"
 
 if [ -z "$INSTALL_DIR" ]; then
