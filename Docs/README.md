@@ -112,7 +112,7 @@ or
 
 Run the universal installer directly in your terminal (**Linux PC, Mac, or Android Termux**):
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Uraam/Uraam/main/installer.sh || wget -qO- https://raw.githubusercontent.com/Uraam/Uraam/main/installer.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Ruraam/Uraam/main/installer.sh || wget -qO- https://raw.githubusercontent.com/Uraam/Uraam/main/installer.sh)
 ```
 
 ### 📦 Recommended for Debian/Ubuntu: Install via [debup](https://github.com/Uraam/debup)
@@ -121,11 +121,11 @@ Keep Uraam automatically updated directly from GitHub Releases using **debup**:
 
 1. **Install debup:**
 ```bash
-curl -fsSL https://github.com/Uraam/debup/releases/latest/download/debup_2.0.0_all.deb -o /tmp/debup.deb && sudoapt install -y /tmp/debup.deb && rm -f /tmp/debup.deb
+curl -fsSL https://github.com/Ruraam/debup/releases/latest/download/debup_2.0.0_all.deb -o /tmp/debup.deb && sudoapt install -y /tmp/debup.deb && rm -f /tmp/debup.deb
 ```
 2. **Add Uraam to tracked packages:**
 ```bash
-debup add Uraam/Uraam
+debup add Ruraam/Uraam
 ```
 ###🔄 Upgrading
 
@@ -164,7 +164,7 @@ debup upgrade uraam
 
 Running the new native Linux VM on Android? You can install URAAM directly with a single command:
 ```bash
-curl -L -O https://github.com/Uraam/Uraam/releases/download/v4.4.3/uraam-debian_v4.4.3_all.deb && sudo apt install -y ./uraam-debian_v4.4.3_all.deb
+curl -L -O https://github.com/Ruraam/Uraam/releases/download/v4.4.3/uraam-debian_v4.4.3_all.deb && sudo apt install -y ./uraam-debian_v4.4.3_all.deb
 ```
 Launch URAAM with this command:
 ```bash
