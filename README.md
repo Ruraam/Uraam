@@ -116,6 +116,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Ruraam/Uraam/main/installer.
 ```
 
 ## 📦 Recommended for Debian/Ubuntu: Install via [debup](https://github.com/Uraam/debup)
+[![debup](https://img.shields.io/badge/install_with-debup-blue)](https://github.com/Ruraam/debup)
 
 Keep Uraam automatically updated directly from GitHub Releases using **debup**:
 
