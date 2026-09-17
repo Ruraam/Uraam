@@ -123,10 +123,12 @@ Keep Uraam automatically updated directly from GitHub Releases using **debup**:
 ```bash
 curl -fsSL https://github.com/Ruraam/debup/releases/latest/download/debup_2.0.0_all.deb -o /tmp/debup.deb && sudoapt install -y /tmp/debup.deb && rm -f /tmp/debup.deb
 ```
-2. **Add Uraam to tracked packages:**
+2. **Search Uraam repository & to tracked packages:**
 ```bash
-debup add Uraam/Uraam
+debup search uraam
 ```
+Type 1 & Enter, type 1 when prompted and debup installs URAAM via apt.
+
 ###🔄 Upgrading
 
 Upgrade **Uraam** specifically:
