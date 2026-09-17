@@ -115,7 +115,7 @@ Run the universal installer directly in your terminal (**Linux PC, Mac, or Andro
 bash <(curl -fsSL https://raw.githubusercontent.com/Ruraam/Uraam/main/installer.sh || wget -qO- https://raw.githubusercontent.com/Uraam/Uraam/main/installer.sh)
 ```
 
-### 📦 Recommended for Debian/Ubuntu: Install via [debup](https://github.com/Uraam/debup)
+## 📦 Recommended for Debian/Ubuntu: Install via [debup](https://github.com/Uraam/debup)
 
 Keep Uraam automatically updated directly from GitHub Releases using **debup**:
 
