@@ -129,7 +129,7 @@ debup search uraam
 ```
 Type 1 & Enter, type 1 when prompted and debup installs URAAM via apt.
 
-###🔄 Upgrading
+### 🔄 Upgrading
 
 Upgrade **Uraam**
 Or upgrade all tracked GitHub packages at once:
