@@ -104,18 +104,18 @@ or
 
 ## 📦 Universal 1-Line Installer
 
-**The installer will automatically detect your platform and guide you through:**
+**The installer will automatically detectyour platform and guide you through:**
 
 - **Debian / Ubuntu / WSL**: Native `.deb` package (recommended) or standalone binary.
 - **Android (Termux)**: Automatic setup with storage and environment checks.
-- **macOS & other Linux distros**: Direct standalone installation.
+-**macOS & other Linux distros**: Direct standalone installation.
 
 Run the universal installer directly in your terminal (**Linux PC, Mac, or Android Termux**):
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/Ruraam/Uraam/main/installer.sh || wget -qO- https://raw.githubusercontent.com/Uraam/Uraam/main/installer.sh)
 ```
 
-## 📦 Recommended for Debian/Ubuntu [![debup](https://img.shields.io/badge/Install_with-debup-blue)](https://github.com/Ruraam/debup)
+## 📦 Recommended for Debian/Ubuntu/WSL/Android Linux Terminal (AVF) [![debup](https://img.shields.io/badge/Install_with-debup-blue)](https://github.com/Ruraam/debup)
 
 
 Keep Uraam automatically updated directly from GitHub Releases using **debup**:
@@ -124,7 +124,7 @@ Keep Uraam automatically updated directly from GitHub Releases using **debup**:
 ```bash
 curl -fsSL https://github.com/Ruraam/debup/releases/latest/download/debup_2.0.0_all.deb -o /tmp/debup.deb && sudoapt install -y /tmp/debup.deb && rm -f /tmp/debup.deb
 ```
-2. **Search Uraam repository & to tracked packages:**
+2. **Search and track Uraam:**
 ```bash
 debup search uraam
 ```
