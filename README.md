@@ -149,7 +149,7 @@ uraam
 **To update to the latest release:**
 - Use [debup](https://github.com/Uraam/debup/tree/main) (Debian/Ubuntu)
 ```bash
-debup upgrade uraam
+debup upgrade
 ```
 - In the URAAM dashboard, select `[u] Update URAAM` to update automatically on all platforms.
 
