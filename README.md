@@ -115,7 +115,7 @@ Run the universal installer directly in your terminal (**Linux PC, Mac, or Andro
 bash <(curl -fsSL https://raw.githubusercontent.com/Ruraam/Uraam/main/installer.sh || wget -qO- https://raw.githubusercontent.com/Uraam/Uraam/main/installer.sh)
 ```
 
-## 📦 Recommended for Debian/Ubuntu/WSL/Android Linux Terminal (AVF) [![debup](https://img.shields.io/badge/Install_with-debup-blue)](https://github.com/Ruraam/debup)
+## 📦 Recommended for Debian/Ubuntu/WSL/Android Linux Terminal (AVF) [![debup](https://img.shields.io/badge/Install_with-debup-blue)](https://github.com/Ruraam/debup) (The Obtainium-like CLI package manager for Debian/Ubuntu-based distributions, WSL, Android Linux Terminal. Search, track, install, and upgrade.deb packages directly from GitHub Releases on all architectures via APT.)
 
 
 Keep Uraam automatically updated directly from GitHub Releases using **[debup](https://github.com/Ruraam/debup/blob/main/README.md)**:
