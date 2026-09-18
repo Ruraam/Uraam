@@ -118,7 +118,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Ruraam/Uraam/main/installer.
 ## 📦 Recommended for Debian/Ubuntu/WSL/Android Linux Terminal (AVF) [![debup](https://img.shields.io/badge/Install_with-debup-blue)](https://github.com/Ruraam/debup)
 
 
-Keep Uraam automatically updated directly from GitHub Releases using **debup**:
+Keep Uraam automatically updated directly from GitHub Releases using **[debup](https://github.com/Ruraam/debup/blob/main/README.md)**:
 
 1. **Install debup:**
 ```bash
