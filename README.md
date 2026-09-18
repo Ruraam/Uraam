@@ -126,7 +126,7 @@ curl -fsSL https://github.com/Ruraam/debup/releases/latest/download/debup_2.0.0_
 ```
 2. **Search and track Uraam:**
 ```bash
-debup search uraam
+dbp search uraam
 ```
 Type 1 & Enter, type 1 when prompted and debup installs URAAM via apt.
 
@@ -135,7 +135,7 @@ Type 1 & Enter, type 1 when prompted and debup installs URAAM via apt.
 Upgrade **Uraam**
 Or upgrade all tracked GitHub packages at once:
 ```bash
-debup upgrade
+dbp upgrade
 ```
 
 ### 🚀 Usage Anywhere
@@ -150,7 +150,7 @@ uraam
 **To update to the latest release:**
 - Use [debup](https://github.com/Uraam/debup/tree/main) (Debian/Ubuntu)
 ```bash
-debup upgrade
+dbp upgrade
 ```
 - In the URAAM dashboard, select `[u] Update URAAM` to update automatically on all platforms.
 
