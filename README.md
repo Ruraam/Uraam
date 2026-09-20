@@ -129,13 +129,13 @@ curl -fsSL https://github.com/Ruraam/debup/releases/latest/download/debup_2.0.0_
 ```bash
 dbp search uraam
 ```
-Type 1 & Enter, type 1 when prompted and debup installs URAAM via apt.
+Type 1 & Enter, type 1 when prompted and debup installs URAAM via apt and add it to debup's sources.list for future update.
 
 or
 ```bash
 dbp add Ruraam/Uraam
 ```
-Press enter and debup installs Uraam via apt.
+Press enter and debup installs Uraam via apt and add it to debup's sources.list for future update.
 
 ### 🔄 Upgrading
 
