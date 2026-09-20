@@ -137,7 +137,7 @@ dbp add Ruraam/Uraam
 ```
 Press enter and debup installs Uraam via apt and add it to debup's sources.list for future update.
 
-### 🔄 Upgrading
+### 🔄 Upgrading via debup
 
 Upgrade **Uraam**
 Or upgrade all tracked GitHub packages at once:
