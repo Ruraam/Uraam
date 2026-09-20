@@ -131,6 +131,12 @@ dbp search uraam
 ```
 Type 1 & Enter, type 1 when prompted and debup installs URAAM via apt.
 
+or
+```bash
+dbp add Ruraam/Uraam
+```
+Press enter and debup installs Uraam via apt.
+
 ### 🔄 Upgrading
 
 Upgrade **Uraam**
