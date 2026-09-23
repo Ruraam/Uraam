@@ -117,7 +117,7 @@ or
 or
 
 Run the universal installer directly in your terminal (**Linux, Mac, Termux or Proot debian/ubuntu**):
-*installer download standlone or .deb. 
+*installer download standlone or .deb in latest release.
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/Ruraam/Uraam/main/installer.sh || wget -qO- https://raw.githubusercontent.com/Uraam/Uraam/main/installer.sh)
 ```
