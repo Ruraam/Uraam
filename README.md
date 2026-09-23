@@ -110,9 +110,14 @@ or
 - **Android (Termux)**: Automatic setup with storage and environment checks.
 -**macOS & other Linux distros**: Direct standalone installation.
 
+#####For Debian/Ubunu-bzsed distributions
+
 **Install debup with [APT repository](https://github.com/Ruraam/debup/tree/main#option-1-apt-repository-recommended).**
 
-Run the universal installer directly in your terminal (**Linux PC, Mac, or Android Termux**):
+or
+
+Run the universal installer directly in your terminal (**Linux, Mac, Termux or Proot debian/ubuntu**):
+*installer download standlone or .deb. 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/Ruraam/Uraam/main/installer.sh || wget -qO- https://raw.githubusercontent.com/Uraam/Uraam/main/installer.sh)
 ```
