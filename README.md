@@ -104,17 +104,11 @@ or
 
 ## 📦 Universal 1-Line Installer
 
-**The installer will automatically detectyour platform and guide you through:**
+**The installer will automatically detect your platform and guide you through:**
 
 - **Debian / Ubuntu / WSL**: Native `.deb` package (recommended) or standalone binary.
 - **Android (Termux)**: Automatic setup with storage and environment checks.
--**macOS & other Linux distros**: Direct standalone installation.
-
-#####For Debian/Ubunu-bzsed distributions
-
-**Install debup with [APT repository](https://github.com/Ruraam/debup/tree/main#option-1-apt-repository-recommended).**
-
-or
+- **macOS & other Linux distros**: Direct standalone installation.
 
 Run the universal installer directly in your terminal (**Linux, Mac, Termux or Proot debian/ubuntu**):
 *installer download standlone or .deb in latest release.
@@ -123,14 +117,14 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Ruraam/Uraam/main/installer.
 ```
 
 ## 📦 Recommended for Debian/Ubuntu/WSL/Android Linux Terminal (AVF) [![debup](https://img.shields.io/badge/Install_with-debup-blue)](https://github.com/Ruraam/debup) 
-debub - The AUR-like CLI package manager for Debian/Ubuntu-based distributions, WSL, Android Linux Terminal. Search, track, install, and upgrade.deb packages directly from GitHub Releases on all architectures via APT.)
+debub - The AUR-like CLI package manager for Debian/Ubuntu-based distributions, WSL, Android Linux Terminal. Search, track, install, and upgrade.deb packages directly from APT & GitHub Releases on all architectures via APT.)
 
 
 Keep Uraam automatically updated directly from GitHub Releases using **[debup](https://github.com/Ruraam/debup/blob/main/README.md)**:
 
-1. **Install debup:**
+1. **Install debup with 3 methods (via official ATP repo, direct download or autobuild) in interactive Debup installer:**
 ```bash
-curl -fsSL https://github.com/Ruraam/debup/releases/latest/download/debup_2.0.0_all.deb -o /tmp/debup.deb && sudoapt install -y /tmp/debup.deb && rm -f /tmp/debup.deb
+curl -sSL https://raw.githubusercontent.com/Ruraam/debup/main/installer.sh | bash
 ```
 2. **Search and track Uraam:**
 ```bash
