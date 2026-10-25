@@ -293,7 +293,11 @@ Stable environment. No critical system crashes or UI stutters detected in daily 
 *I am not responsible for any issues resulting from system modifications. Always perform a data backup before deployment.*
 
 ---
-*My other project on github for [Google Pixel6, LineageOS Vanilla 23.2](https://github.com/Ruvyrom/Ruvyrom/tree/main)*
+#### My other project on github
+
+*[ULPM - Universal Linux Package Manager & Autonomous Containerized Bundle Engine](https://github.com/Ruraam/ulpm)*
+
+*[Debup - Search, discover, track, install, and upgrade .deb packages directly from APT & GitHub Releases simultaneously](https://github.com/Ruraam/debup)*
 
 
 
