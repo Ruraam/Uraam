@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # URAAM - Universal Ruvomain ADB App-Manager
-# Hardened maintenance release based on v4.4.3
+# Hardened maintenance release based on v4.4.5
 #
 # Compatible with: Debian/Linux, Android Termux
 # Backends: ADB, local ROOT, Shizuku (rish)
@@ -16,7 +16,7 @@
 set -o pipefail
 umask 077
 
-URAAM_VERSION="4.4.4"
+URAAM_VERSION="4.4.5"
 SOURCE="${BASH_SOURCE[0]}"
 while [[ -h "$SOURCE" ]]; do
     DIR="$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)"
