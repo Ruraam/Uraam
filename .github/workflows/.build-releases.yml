@@ -26,7 +26,7 @@ jobs:
           mkdir -p "$PKG_DIR/usr/bin" "$PKG_DIR/usr/share/uraam" "$PKG_DIR/DEBIAN"
           cp uraam.sh "$PKG_DIR/usr/share/uraam/"
           cp -r Configs "$PKG_DIR/usr/share/uraam/"
-          ln -s /usr/share/uraam/uraam.sh"$PKG_DIR/usr/bin/uraam"
+          ln -s /usr/share/uraam/uraam.sh "$PKG_DIR/usr/bin/uraam"
           chmod +x "$PKG_DIR/usr/share/uraam/uraam.sh"
           sed "s/VERSION_PLACEHOLDER/$VERSION/" packaging/debian/DEBIAN/control > "$PKG_DIR/DEBIAN/control"
           dpkg-deb --build "$PKG_DIR"
