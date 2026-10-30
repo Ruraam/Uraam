@@ -1,21 +1,38 @@
 #!/usr/bin/env bash
 #
-# URAAM - Universal Ruvomain ADB App-Manager v4.4.3
+# URAAM - Universal Ruvomain ADB App-Manager
+# Hardened maintenance release based on v4.4.3
 #
-SOURCE="${BASH_SOURCE[0]}"
-while [ -h "$SOURCE" ]; do
-DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
-SOURCE="$(readlink "$SOURCE")"
-[[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
-done
-SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+# Compatible with: Debian/Linux, Android Termux
+# Backends: ADB, local ROOT, Shizuku (rish)
+#
+# Existing data layout is preserved:
+#   portable: <script-dir>/Apps, Configs, Logs
+#   installed: ~/.local/share/uraam and ~/.config/uraam
+#
+# NOTE: Package operations are destructive. Review each selected list before
+# applying it. Android system-package removal is performed for user 0 only.
 
-if [[ "$SCRIPT_DIR" == */bin* ]] || [[ "$SCRIPT_DIR" == /usr/* ]]; then
-USER_DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/uraam"
-USER_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/uraam"
+set -o pipefail
+umask 077
+
+URAAM_VERSION="4.4.4"
+SOURCE="${BASH_SOURCE[0]}"
+while [[ -h "$SOURCE" ]]; do
+    DIR="$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)"
+    LINK="$(readlink "$SOURCE")"
+    [[ "$LINK" != /* ]] && LINK="$DIR/$LINK"
+    SOURCE="$LINK"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)"
+
+# Resolve install/data locations without changing the legacy portable layout.
+if [[ "$SCRIPT_DIR" == */bin || "$SCRIPT_DIR" == */bin/* || "$SCRIPT_DIR" == /usr/* ]]; then
+    USER_DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/uraam"
+    USER_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/uraam"
 else
-USER_DATA_DIR="$SCRIPT_DIR"
-USER_CONFIG_DIR="$SCRIPT_DIR/Configs"
+    USER_DATA_DIR="$SCRIPT_DIR"
+    USER_CONFIG_DIR="$SCRIPT_DIR/Configs"
 fi
 
 REPO_DIR="$SCRIPT_DIR"
@@ -32,1187 +49,876 @@ LOGR_DIR="$USER_DATA_DIR/Logs/restore"
 
 REPO_URL="https://github.com/Ruraam/Uraam"
 BRANCH="main"
+EXEC_TYPE=""
+CURRENT_MODEL=""
+LOGFILE=""
+BACKEND_SERIAL="${ANDROID_SERIAL:-}"
 
-if [ -z "$INSTALL_DIR" ]; then
-if [ -n "$PREFIX" ] && [ -f "$PREFIX/bin/uraam" ]; then
-INSTALL_DIR="$PREFIX/bin"
-elif [ -f "/usr/local/bin/uraam" ]; then
-INSTALL_DIR="/usr/local/bin"
-elif [ -d "$HOME/Uraam" ]; then
-INSTALL_DIR="$HOME/Uraam"
+# Terminal colors (disabled automatically when output is not a terminal).
+if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+    BLUE=$'\033[0;34m'; BOLD=$'\033[1m'; CYAN=$'\033[0;36m'
+    PURPLE=$'\033[0;35m'; GREEN=$'\033[0;32m'; RED=$'\033[1;31m'
+    WHITE=$'\033[0;37m'; YELLOW=$'\033[0;33m'; NC=$'\033[0m'
 else
-INSTALL_DIR="$SCRIPT_DIR"
-fi
-fi
-
-mkdir -p"$USER_DEBLOAT_DIR" "$BACKUPS_DIR" "$APP_DIR" "$LOGD_DIR" "$LOGB_DIR" "$LOGR_DIR"
-
-if [ -d "$SYSTEM_DEBLOAT_DIR" ] && [ -z "$(ls -A "$USER_DEBLOAT_DIR" 2>/dev/null)" ]; then
-cp -r "$SYSTEM_DEBLOAT_DIR"/*.json "$USER_DEBLOAT_DIR/" 2>/dev/null
+    BLUE=""; BOLD=""; CYAN=""; PURPLE=""; GREEN=""; RED=""
+    WHITE=""; YELLOW=""; NC=""
 fi
 
-BLUE='\033[0;34m'
-BOLD='\033[1m'
-CYAN='\033[0;36m'
-PURPLE='\e[0;35m'
-GREEN='\033[0;32m'
-RED='\033[1;31m'
-WHITE='\033[0;37m'
-YELLOW='\033[0;33m'
-NC='\033[0m'
+# ---------------------------------------------------------------------------
+# Common helpers
+# ---------------------------------------------------------------------------
+
+msg()  { printf '%b\n' "$*"; }
+info() { msg "${CYAN}[*]${NC} $*"; }
+ok()   { msg "${GREEN}[✓]${NC} $*"; }
+warn() { msg "${YELLOW}[!]${NC} $*" >&2; }
+err()  { msg "${RED}[X]${NC} $*" >&2; }
+
+pause() {
+    read -r -p "Press Enter to continue..." _ || true
+}
 
 show_logo() {
-clear
-echo -e "${PURPLE}"
-cat << 'EOF'
+    [[ -t 1 ]] && clear
+    msg "${PURPLE}"
+    cat <<'EOF'
           ::| ::|::::::\ ::::\  ::::\ ::::::|
           ::|_::|::|,::|::|,::|::|,::|:::"::|
           `:::::|::| ::\::| ::|::| ::|::| ::|
 EOF
-echo -e "${NC}"
+    msg "${NC}"
 }
 
-term_set_storage() {
-if [ -d "/data/data/com.termux" ] || { [ -n "$PREFIX" ]&& [[ "$PREFIX" == *com.termux* ]]; }; then
-[ -z "$PREFIX" ] && PREFIX="/data/data/com.termux/files/usr"
-
-if [ ! -d "$HOME/storage" ] && command -v termux-setup-storage >/dev/null 2>&1; then
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-echo -e "\n${CYAN}[*] Requesting storage access (please confirm the popup)...${NC}"
-termux-setup-storage
-sleep 2
-fi
-fi
+is_termux() {
+    [[ -d /data/data/com.termux ]] || [[ "${PREFIX:-}" == *com.termux* ]]
 }
 
 is_installed_via_deb() {
-local package_name="${1:-uraam-debian}"
+    local package_name="${1:-uraam-debian}" status
+    is_termux && return 1
+    command -v dpkg-query >/dev/null 2>&1 || return 1
+    status="$(dpkg-query -W -f='${Status}' "$package_name" 2>/dev/null || true)"
+    [[ "$status" == *"install ok installed"* ]]
+}
 
-if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; then
-return 1
-fi
+init_directories() {
+    local dir
+    for dir in "$USER_DEBLOAT_DIR" "$BACKUPS_DIR" "$APP_DIR" \
+               "$LOGD_DIR" "$LOGB_DIR" "$LOGR_DIR"; do
+        if ! mkdir -p -- "$dir"; then
+            err "Cannot create directory: $dir"
+            return 1
+        fi
+    done
 
-if !command -v dpkg-query >/dev/null 2>&1; then
-return 1
-fi
+    # Seed bundled configurations only when the user's directory is empty.
+    if [[ -d "$SYSTEM_DEBLOAT_DIR" ]] &&
+       ! find "$USER_DEBLOAT_DIR" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null | grep -q .; then
+        find "$SYSTEM_DEBLOAT_DIR" -maxdepth 1 -type f -name '*.json' \
+            -exec cp -n -- '{}' "$USER_DEBLOAT_DIR/" \; 2>/dev/null || true
+    fi
+}
 
-local package_status
-package_status=$(dpkg-query -W -f='${Status}' "$package_name" 2>/dev/null || true)
+term_set_storage() {
+    is_termux || return 0
+    [[ -n "${PREFIX:-}" ]] || PREFIX="/data/data/com.termux/files/usr"
 
-if [[ "$package_status" == *"install ok installed"* ]]; then
-return 0
-fi
+    if [[ ! -d "$HOME/storage" ]] && command -v termux-setup-storage >/dev/null 2>&1; then
+        msg "${BLUE}---------------------------------------${NC}"
+        info "Requesting Termux storage access. Confirm the Android permission dialog."
+        termux-setup-storage || warn "Storage permission was not granted."
+    fi
+}
 
-return 1
+start_log() {
+    local kind="$1" dir="$2" prefix="$3"
+    mkdir -p -- "$dir" || return 1
+    find "$dir" -maxdepth 1 -type f -name "${prefix}-*.log" -mtime +30 -delete 2>/dev/null || true
+    LOGFILE="$dir/${prefix}-$(date +%Y%m%d_%H%M%S).log"
+    exec > >(tee -a "$LOGFILE") 2>&1
+}
+
+# ---------------------------------------------------------------------------
+# Dependency handling
+# ---------------------------------------------------------------------------
+
+install_package() {
+    local package="$1"
+    if is_termux; then
+        command -v pkg >/dev/null 2>&1 || { err "Termux pkg is unavailable."; return 1; }
+        pkg install -y "$package"
+    elif command -v apt-get >/dev/null 2>&1; then
+        sudo apt-get install -y "$package"
+    elif command -v pacman >/dev/null 2>&1; then
+        sudo pacman -S --needed --noconfirm "$package"
+    elif command -v dnf >/dev/null 2>&1; then
+        sudo dnf install -y "$package"
+    elif command -v brew >/dev/null 2>&1; then
+        brew install "$package"
+    else
+        err "No supported package manager found. Install $package manually."
+        return 1
+    fi
+}
+
+ensure_command() {
+    local command_name="$1" package_name="$2" answer
+    if command -v "$command_name" >/dev/null 2>&1; then
+        ok "$command_name is installed."
+        return 0
+    fi
+
+    warn "$command_name is not installed."
+    read -r -p "Install $package_name now? [y/N]: " answer
+    [[ "$answer" =~ ^[yY]$ ]] || return 1
+    install_package "$package_name" || return 1
+    command -v "$command_name" >/dev/null 2>&1 || {
+        err "$command_name is still unavailable after installation."
+        return 1
+    }
+    ok "$command_name installed successfully."
 }
 
 ensure_adb() {
-if command -v adb >/dev/null; then
-printf "${GREEN}[✓] ADB is already installed and ready to use.${NC}\n"
-return 0
-fi
-
-printf "${RED}[!] ADB is not detected on your system.${NC}\n"
-read -p "Do you want to install ADB now? (y/n) : " choice
-
-case "$choice" in
-y|Y)
-printf "${GREEN}[+] Attempting automatic installation...${NC}\n"
-if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]] && command -v pkg >/dev/null; then
-pkg install -y android-tools
-elif is_installed_via_deb; then
-sudo apt install -y adb
-elif command -v apt-get >/dev/null; then
-sudo apt-get update && sudo apt-get install -y adb
-elif command -v pacman >/dev/null; then
-sudo pacman -S --noconfirm android-tools
-elif command -v dnf >/dev/null; then
-sudo dnf install -y android-tools
-elif command -v brew >/dev/null; then
-brew install android-platform-tools
-else
-printf "${RED}[!] Package manager not supported. Please install ADB manually.${NC}\n" >&2
-sleep 1
-read -rp "Press [Enter] to return to main menu..."
-return 1
-fi
-;;
-*)
-printf "${YELLOW}[-] Installation cancelled. ADB is required for the project to work properly.${NC}\n"
-return 1
-;;
-esac
+    ensure_command adb android-tools
 }
 
 ensure_jq() {
-if command -v jq >/dev/null; then
-printf "${GREEN}[✓] JQ is already installed and ready to use.${NC}\n"
-return 0
-fi
+    ensure_command jq jq
+}
 
-printf "${RED}[!] JQ is not detected on your system.${NC}\n"
-read -p "Do you want to install JQ now? (y/n) : " choice
+# ---------------------------------------------------------------------------
+# Device execution layer
+# Do not store commands such as "adb shell" in a string and expand them.
+# Arguments remain distinct for ADB. Root/Shizuku command strings are escaped.
+# ---------------------------------------------------------------------------
 
-case "$choice" in
-y|Y)
-printf "%b\n" "${GREEN}[+] Attempting automatic installation...${NC}"
+shell_quote_args() {
+    local arg
+    printf -v _QUOTED_ARGS '%q ' "$@"
+    printf '%s' "${_QUOTED_ARGS% }"
+}
 
-if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]] && command -v pkg >/dev/null; then
-pkg install -y jq
-elif is_installed_via_deb; then
-sudo apt install -y jq
-elif command -v apt-get >/dev/null; then
-sudo apt-get update && sudo apt-get install -y jq
-elif command -v pacman >/dev/null; then
-sudo pacman -S --noconfirm jq
-elif command -v dnf >/dev/null; then
-sudo dnf install -y jq
-elif command -v brew >/dev/null; then
-brew install jq
-else
-printf "%b\n" "${RED}[!] Package manager not supported. Please install JQ manually.${NC}" >&2
-read -rp "Press [Enter] to return to main menu..."
-return 1
-fi
-;;
-*)
-printf "%b\n" "${YELLOW}[-] Installation cancelled. JQ is required for the project to work properly.${NC}"
-return 1
-;;
-esac
+run_adb() {
+    local -a cmd=(adb)
+    [[ -n "$BACKEND_SERIAL" ]] && cmd+=(-s "$BACKEND_SERIAL")
+    cmd+=(shell "$@")
+    "${cmd[@]}"
+}
+
+run_root() {
+    local command_string
+    command_string="$(shell_quote_args "$@")"
+    su -c "$command_string"
+}
+
+run_shizuku() {
+    local command_string
+    command_string="$(shell_quote_args "$@")"
+    rish -c "$command_string"
+}
+
+run_device() {
+    case "$EXEC_TYPE" in
+        ADB)     run_adb "$@" ;;
+        ROOT)    run_root "$@" ;;
+        SHIZUKU) run_shizuku "$@" ;;
+        *)       err "No valid device backend selected."; return 1 ;;
+    esac
+}
+
+device_getprop() {
+    local property="$1"
+    case "$EXEC_TYPE" in
+        ADB) run_adb getprop "$property" 2>/dev/null ;;
+        ROOT) run_root getprop "$property" 2>/dev/null ;;
+        SHIZUKU) run_shizuku getprop "$property" 2>/dev/null ;;
+        *) getprop "$property" 2>/dev/null ;;
+    esac
 }
 
 device_brand() {
-local brand model android_ver
-local tbrand tmodel tandroid_ver
-local ver_suffix=""
+    local brand model android_ver
+    brand="$(device_getprop ro.product.manufacturer || true)"
+    model="$(device_getprop ro.product.model || true)"
+    android_ver="$(device_getprop ro.build.version.release || true)"
 
-brand=$("$EXEC" getprop ro.product.manufacturer 2>/dev/null|| echo "")
-model=$("$EXEC" getprop ro.product.model 2>/dev/null ||echo "")
-android_ver=$("$EXEC" getprop ro.build.version.release 2>/dev/null || echo "")
-
-tbrand=$(getprop ro.product.manufacturer 2>/dev/null || echo "")
-tmodel=$(getprop ro.product.model 2>/dev/null || echo "")
-tandroid_ver=$(getprop ro.build.version.release 2>/dev/null || echo "")
-
-if [ -n "$brand" ]; then
-[ -n "$android_ver" ] && ver_suffix=" (Android ${android_ver})"
-CURRENT_MODEL="${brand^} ${model}${ver_suffix}"
-elif [ -n "$tbrand" ]; then
-[ -n "$tandroid_ver" ] && ver_suffix=" (Android ${tandroid_ver})"
-CURRENT_MODEL="${tbrand^} ${tmodel}${ver_suffix}"
-elif is_installed_via_deb; then
-CURRENT_MODEL="$(cat /sys/devices/virtual/dmi/id/sys_vendor 2>/dev/null) $(cat /sys/devices/virtual/dmi/id/product_name 2>/dev/null) $(uname -s) $(uname -m)"
-else
-CURRENT_MODEL=""
-fi
+    if [[ -n "$brand$model" ]]; then
+        CURRENT_MODEL="${brand^} $model"
+        [[ -n "$android_ver" ]] && CURRENT_MODEL+=" (Android $android_ver)"
+    elif is_installed_via_deb; then
+        CURRENT_MODEL="$(cat /sys/devices/virtual/dmi/id/sys_vendor 2>/dev/null) $(cat /sys/devices/virtual/dmi/id/product_name 2>/dev/null) $(uname -s) $(uname -m)"
+    else
+        CURRENT_MODEL="Unknown device"
+    fi
 }
 
 detect_backend_status() {
-EXEC=""
-EXEC_TYPE=""
+    EXEC_TYPE=""
+    BACKEND_SERIAL="${ANDROID_SERIAL:-}"
 
-if command -v adb >/dev/null 2>&1; then
-local connected
-connected=$(timeout 0.8s adb devices 2>/dev/null | grep -v "List of devices" | grep "device$" | head -n 1)
-if [ -n "$connected" ]; then
-EXEC="adb shell"
-EXEC_TYPE="ADB"
-device_brand
-printf "%b\n" "${PURPLE}[Host]${NC} $CURRENT_MODEL"
-printf "%b\n" "${PURPLE}[Target]${NC} $CURRENT_MODEL"
-printf "%b\n" "${GREEN}[✓] Execution backend: ADB (Debian)${NC}"
-return 0
-fi
-fi
-device_brand
-printf "%b\n" "${PURPLE}[Host]${NC} $CURRENT_MODEL"
-printf "%b\n" "${RED}[!] No target device connected via ADB.${NC}"
-return 1
+    # Prefer an explicitly connected ADB target.
+    if command -v adb >/dev/null 2>&1; then
+        local devices serial
+        devices="$(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {print $1}')"
+        if [[ -n "$BACKEND_SERIAL" ]]; then
+            if printf '%s\n' "$devices" | grep -Fxq "$BACKEND_SERIAL"; then
+                EXEC_TYPE="ADB"
+            fi
+        else
+            serial="$(printf '%s\n' "$devices" | head -n1)"
+            if [[ -n "$serial" ]]; then
+                BACKEND_SERIAL="$serial"
+                EXEC_TYPE="ADB"
+            fi
+        fi
+    fi
 
-if [ -n "$ANDROID_ROOT" ] || [ -n "$TERMUX_VERSION" ]; then
-if [ "$(id -u)" -eq 0 ] || { command -v su >/dev/null 2>&1 && su -c "id" >/dev/null 2>&1; }; then
-EXEC="su -c"
-EXEC_TYPE="ROOT"
-device_brand
-printf "%b\n" "${PURPLE}[Host]${NC} $CURRENT_MODEL"
-printf "%b\n" "${GREEN}[✓] Execution backend: ROOT (su)${NC}"
-return 0
-fi
+    # On-device Termux: use ROOT first, then Shizuku.
+    if [[ -z "$EXEC_TYPE" ]] && is_termux; then
+        if [[ "$(id -u)" -eq 0 ]]; then
+            EXEC_TYPE="ROOT"
+        elif command -v su >/dev/null 2>&1 && su -c id >/dev/null 2>&1; then
+            EXEC_TYPE="ROOT"
+        elif [[ -z "${BACKEND:-}" ]] && command -v rish >/dev/null 2>&1 &&
+             printf 'exit\n' | rish >/dev/null 2>&1; then
+            EXEC_TYPE="SHIZUKU"
+        fi
+    fi
 
-if [ -z "$BACKEND" ] && command -v rish >/dev/null 2>&1; then
-if command -v rish >/dev/null 2>&1 && echo "exit" | rish >/dev/null 2>&1; then
-EXEC="rish -c"
-EXEC_TYPE="SHIZUKU"
-device_brand
-printf "%b\n" "${PURPLE}[Host]${NC} $CURRENT_MODEL"
-printf "%b\n" "${GREEN}[✓] Execution backend:SHIZUKU (Rish)${NC}"
-return 0
-fi
-fi
-fi
+    if [[ -n "$EXEC_TYPE" ]]; then
+        device_brand
+        msg "${PURPLE}[Target]${NC} $CURRENT_MODEL"
+        ok "Execution backend: $EXEC_TYPE"
+        return 0
+    fi
 
-device_brand
-printf "%b\n" "${PURPLE}[Host]${NC} $CURRENT_MODEL"
-printf "%b\n" "${RED}[!] No execution backend detected.${NC}"
-return 1
+    if is_installed_via_deb; then
+        CURRENT_MODEL="$(uname -s) $(uname -m)"
+        msg "${PURPLE}[Host]${NC} $CURRENT_MODEL"
+    fi
+    warn "No execution backend detected."
+    return 1
 }
 
 require_backend() {
-show_logo
-ensure_adb || 1
-ensure_jq || return 1
+    show_logo
+    ensure_adb || return 1
+    ensure_jq || return 1
 
-if ! detect_backend_status; then
-printf "%b\n" "${BLUE}--------------------------------------------------------${NC}"
-printf "%b\n" "${RED}[ERROR] Action aborted: no active backend detected!${NC}"
-printf "%b\n" "${YELLOW}[!] Make sure:${NC}"
-printf "%b\n" "  ${CYAN}1.USB/Wireless debugging is enabled and authorized.${NC}"
-printf "%b\n" "  ${CYAN}2.The device is visible via 'adb devices' (or rish/root active).${NC}"
-printf "%b\n" "${BLUE}--------------------------------------------------------${NC}"
-read -rp "Press [Enter] to return to main menu..."
-return 1
-fi
-return 0
+    if ! detect_backend_status; then
+        msg "${BLUE}--------------------------------------------------------${NC}"
+        err "Action aborted: no active backend detected."
+        msg "  1. Enable and authorize USB/Wireless debugging."
+        msg "  2. Check 'adb devices'."
+        msg "  3. On Termux, start ROOT or Shizuku (rish)."
+        msg "${BLUE}--------------------------------------------------------${NC}"
+        pause
+        return 1
+    fi
 }
 
-init_logs() {
-mkdir -p "$LOGD_DIR"
+# ---------------------------------------------------------------------------
+# Wireless ADB / Shizuku
+# ---------------------------------------------------------------------------
 
-find "$LOGD_DIR" -name "uraam-debloat-*.log" -type f -mtime +30 -delete 2>/dev/null
-
-LOGFILE="$LOGD_DIR/uraam-debloat-$(date +%Y%m%d_%H%M%S).log"
-
-exec> >(tee -a "$LOGFILE") 2>&1
-}
-
-init_logs_backup() {
-mkdir -p "$LOGB_DIR"
-
-find "$LOGB_DIR" -name "uraam-backup-*.log" -type f -mtime +30 -delete 2>/dev/null
-
-LOGFILE="$LOGB_DIR/uraam-backup-$(date +%Y%m%d_%H%M%S).log"
-
-exec> >(tee -a "$LOGFILE") 2>&1
-}
-
-init_logs_restore() {
-mkdir -p "$LOGR_DIR"
-
-find "$LOGR_DIR" -name "uraam-restore-*.log" -type f -mtime +30 -delete 2>/dev/null
-
-LOGFILE="$LOGR_DIR/uraam-restore-$(date +%Y%m%d_%H%M%S).log"
-
-exec> >(tee -a "$LOGFILE") 2>&1
+check_adb_menu() {
+    adb devices -l
 }
 
 wireless_adb() {
-show_logo
-printf "%b\n" "${BLUE}---------------------------------------------------${NC}"
-printf "%b\n" "         ${CYAN}=== URAAM | WIRELESS ADB SETUP ===${NC}"
-printf "%b\n" "${BLUE}---------------------------------------------------${NC}"
-printf "%b\n" "${CYAN}CRITICAL STEP: Wireless Debugging.${NC}"
-printf "%b\n" "${CYAN} 1. Go to Settings > Developer Options.${NC}"
-printf "%b\n" "${CYAN} 2. Tap on 'Wireless debugging' (the text itself).${NC}"
-printf "%b\n" "${CYAN} 3. Select 'Pair device with pairing code'.${NC}"
-printf "%b\n" "${BLUE}---------------------------------------------------${NC}"
-ensure_adb || return 1
-check_adb_menu
-printf "%b\n" "\n${BLUE}-------------------------------------------------${NC}"
+    show_logo
+    msg "${BLUE}---------------------------------------------------${NC}"
+    msg "         ${CYAN}=== URAAM | WIRELESS ADB SETUP ===${NC}"
+    msg "${BLUE}---------------------------------------------------${NC}"
+    msg "1. Open Developer Options > Wireless debugging."
+    msg "2. Choose 'Pair device with pairing code' if not paired."
+    ensure_adb || return 1
+    check_adb_menu
 
-printf "%b\n" "Do you need to PAIR first (y/N)" 
-read -rp " " need_pair
+    local need_pair pair_host pair_code conn_input conn_host
+    read -r -p "Do you need to pair first? [y/N]: " need_pair
 
-case "$need_pair" in
-y|Y)
-printf "%b\n" "\n--- STEP 1: PAIRING ---"
-printf "%b\n" "\n${CYAN}Check the pairing popup dialog${NC}"
-printf "%b\n" "${CYAN}for IP:Port and the 6-digit code.${NC}"
-read -rp "Enter PAIRING host:port or just PORT: " pair_input
-if [[ "$pair_input" =~ ^[0-9]+$ ]]; then
-pair_host="127.0.0.1:$pair_input"
-else
-pair_host="$pair_input"
-fi
+    if [[ "$need_pair" =~ ^[yY]$ ]]; then
+        read -r -p "Pairing host:port (or port only): " pair_host
+        [[ "$pair_host" =~ ^[0-9]+$ ]] && pair_host="127.0.0.1:$pair_host"
+        read -r -s -p "6-digit pairing code: " pair_code
+        printf '\n'
+        if [[ -z "$pair_host" || -z "$pair_code" ]]; then
+            err "Pairing host and code are required."
+            pause
+            return 1
+        fi
+        adb pair "$pair_host" "$pair_code" || {
+            err "ADB pairing failed."
+            pause
+            return 1
+        }
+        ok "Pairing completed."
+    fi
 
-read -rp "Enter 6-digit PAIRING CODE: " pair_code
+    read -r -p "Connection host:port (or port only): " conn_input
+    conn_host="$conn_input"
+    [[ "$conn_input" =~ ^[0-9]+$ ]] && conn_host="127.0.0.1:$conn_input"
+    [[ -n "$conn_host" ]] || { err "Connection host is empty."; pause; return 1; }
 
-if [ "$need_pair" = "y" ] || [ "$need_pair" = "Y" ]; then
-if [ -z "$pair_host" ] || [ -z "$pair_code" ]; then
-printf "%b\n" "\n${RED}[!] Pairing aborted: host or code cannot be empty.${NC}"
-printf "%b\n" "\n${BLUE}----------------------------------------------------${NC}"
-printf "%b\n" "Press Enter to return to main menu..."
-read -rp ""
-return 1
-fi
-adb pair "$pair_host" "$pair_code"
-else
-printf "%b\n" "\n${RED}[!] Pairing aborted: host or code cannot be empty.${NC}"
-fi
-;;
-esac
+    info "Connecting to $conn_host..."
+    if adb connect "$conn_host" && adb devices | awk -v h="$conn_host" '$1==h && $2=="device" {found=1} END {exit !found}'; then
+        ok "Wireless ADB connected: $conn_host"
+        BACKEND_SERIAL="$conn_host"
+        pause
+        return 0
+    fi
 
-printf "%b\n" "\n--- STEP 2: CONNECTION ---"
-printf "%b\n" "\n${CYAN}Look at the main Wireless Debugging screen${NC}" 
-printf "%b\n" "${CYAN}for the CONNECTION port.${NC}"
-
-read -rp "Enter CONNECTION host:port or just PORT: " conn_host
-if [[ "$conn_input" =~ ^[0-9]+$ ]]; then
-conn_host="127.0.0.1:$conn_input"
-else
-conn_host="$conn_host"
-fi
-
-if [ -n "$conn_host" ]; then
-printf "%b\n" "\n${YELLOW}[*] Connecting to $conn_host...${NC}"
-adb connect "$conn_host"
-
-sleep 1
-if adb devices | grep -q "$conn_host.*device"; then
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "%b\n" "\n${GREEN}[✓] Successfully connected via Wireless ADB!${NC}"
-else
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "%b\n" "\n${RED}[!] Connection failed.${NC}"
-printf "%b\n" "Check IP/Port and make sure screen is on."
-fi
-else
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-echo -e "\n${RED}[!] Connection aborted: host empty.${NC}"
-fi
-
-printf "%b\n" "\n${BLUE}--------------------------------------------------------${NC}"
-printf "%b\n" "Press Enter to return to main menu..."
-read -rp ""
-return 1
+    err "Connection failed. Check the IP address, port and debugging state."
+    pause
+    return 1
 }
 
 wireless_shizuku() {
-show_logo
-printf "%b\n" "${BLUE}------------------------------------------------${NC}"
-printf "%b\n" "       ${CYAN}=== URAAM | WIRELESS SHIZUKU===${NC}"
-printf "%b\n" "${BLUE}------------------------------------------------${NC}"
-printf "%b\n" "${CYAN}WIRELESS ADB & SHIZUKU SETUP${NC}"
-printf "%b\n" " ${CYAN}1.Starts Shizuku and enables Wireless ADB in a single step.${NC}"
-printf "%b\n" " ${CYAN}2.Unplug your USB cable:no need to plug it in again!${NC}"
-printf "%b\n" "${BLUE}------------------------------------------------${NC}"
-ensure_adb || exit 1
-check_adb_menu
-printf "%b\n" "\n${BLUE}------------------------------------------------${NC}"
-if ! $EXEC pm path moe.shizuku.privileged.api >/dev/null 2>&1; then
-wireless_adb
-return 0 2>/dev/null || exit 0
-fi
-
-if [[ "$EXEC" =~ "rish" ]]; then
-printf "%b\n" "${GREEN}[✓] Shizuku is already active (running under rish context).${NC}"
-else
-SHIZUKU_CHECK=$($EXEC pidof rish 2>/dev/null || $EXEC ps-A 2>/dev/null | grep -i shizuku)
-
-if [ -z "$SHIZUKU_CHECK" ]; then
-printf "%b\n" "${YELLOW}[!] Starting Shizuku service...${NC}"
-$EXEC sh /sdcard/Android/data/moe.shizuku.privileged.api/start.sh 2>/dev/null || \
-$EXEC sh /data/user_de/0/moe.shizuku.privileged.api/bin/start.sh 2>/dev/null
-sleep 3
-else
-printf "%b\n" "${YELLOW}[!] Shizuku is already running.${NC}"
-fi
-fi
-
-printf "%b\n" "${YELLOW}[!] Enabling wireless ADB on port 5555...${NC}"
-adb tcpip 5555
-sleep 2
-
-IP=$(adb shell ip -finet addr show wlan0 2>/dev/null | awk '/inet / {print $2}' | cut -d/ -f1)
-
-if [ -z "$IP" ]; then
-IP=$(adb shell ip route 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) print $i}' | head -n1)
-fi
-
-if [ -z "$IP" ]; then
-printf "%b\n" "\n${BLUE}--------------------------------------------------${NC}"
-printf "%b\n" "${RED}[X] Could not automatically determine device IP. Please ensure Wi-Fi is connected.${NC}"
-printf "%b\n" "${YELLOW}[*] You can manually connect using: adb connect${NC} <device-ip>:5555"
-else
-printf "%b\n" "${GREEN}[✓] Device IP detected:${NC} $IP"
-printf "%b\n" "${YELLOW}[!] Connecting to wireless ADB...${NC}"
-adb connect "$IP:5555"
-printf "%b\n" "\n${BLUE}--------------------------------------------------${NC}"
-printf "%b\n" "${GREEN}[✓] Wireless ADB setup complete!${NC} You can now unplug your cable."
-printf "%b\n" "${YELLOW}[*] To reconnect later: adb connect $IP:5555${NC}"
-read -rp "Press Enter to return to main menu"
-return 0
-fi
-}
-
-uraam_debloat() {
-show_logo
-printf "%b\n" "${BLUE}------------------------------------------${NC}"
-printf "%b\n" "        ${CYAN}=== URAAM | Debloater ===${NC}"
-printf "%b\n" "${BLUE}------------------------------------------${NC}"
-printf "%b\n" "${CYAN}Place debloat configurations in ./Configs/debloat/${NC}"
-printf "%b\n" "${CYAN}(Canta JSON, UAD lists & raw packages supported).${NC}"
-printf "%b\n" "\n${CYAN}You have the choice to ${WHITE}[D]${NC}isable or ${WITHE}[U]${NC}ninstall packages."
-printf "%b\n" "${BLUE}------------------------------------------${NC}"
-printf "%b\n" "${YELLOW}[*] Fetching installed packages...${NC}"
-local installed_packages
-installed_packages=$($EXEC pm list packages 2>/dev/null | sed 's/^package://' | tr -d '\r')
-
-if [ -z "$installed_packages" ]; then
-printf "%b\n" "${RED}[ERROR] Failed to fetch packages from device.${NC}"
-read -rp "Press [Enter] to return..."
-return 1
-fi
-
-local files=()
-
-shopt -s nullglob
-files+=("$CONFIGS_DIR"/*.json)
-if [ "$USER_DEBLOAT_DIR" != "$CONFIGS_DIR" ]; then
-files+=("$USER_DEBLOAT_DIR"/*.json)
-fi
-shopt -u nullglob
-
-if [ "$USER_DEBLOAT_DIR" != "$CONFIGS_DIR" ]; then
-for f in "$USER_DEBLOAT_DIR"/*.json; do
-[ -e "$f" ] && files+=("$f")
-done
-fi
-
-if [ ${#files[@]} -eq 0 ]; then
-printf "%b\n" "\n${RED}[X] No .json files found in $CONFIGS_DIR${NC}"
-read -rp "Press Enter to return to main menu..."
-return 1
-fi
-
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "%b\n" "${GREEN}[✓] Configuration files found:${NC}"
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-
-local display_names=()
-for f in "${files[@]}"; do
-display_names+=("$(basename "$f")")
-done
-
-PS3="Select the file number (1-${#files[@]}): "
-select short_name in "${display_names[@]}"; do
-if [ -n "$short_name" ]; then
-file="${files[$((REPLY-1))]}"
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "%b\n" "${YELLOW}[!] Selected file:${NC} ${GREEN}${short_name}${NC}"
-break
-else
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "%b\n" "\n${RED}[X] Invalid selection, please try again.${NC}"
-sleep 4
-fi
-done
-
-mapfile -t PACKAGES < <(jq -r '
-  def extract:
-    if type == "string" and test("^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+$") then
-      .
-    elif type == "object" then
-      (.packageName // .package // empty)
-    elif type == "array" then
-      .[] | extract
-    else
-      empty
-    end;
-
- if .apps then .apps[] | extract
- elif .packages then .packages[] | extract
- elif type == "array" then .[] | extract
- else extract
- end
- ' "$file" 2>/dev/null | sort -u)
-
- if [ ${#PACKAGES[@]} -eq 0 ]; then
- printf "%b\n" "${BLUE}---------------------------------------${NC}"
- printf "%b\n" "${RED}[X] No packages found. Verify the JSON format.${NC}"
- sleep 1
- read -rp "Press Enter to return to main menu"
- return 1
- fi
-
-echo -e "${YELLOW}[?] Choose action: [U]ninstall  /  [D]isable  /  [C]ancel: ${NC}"
-read -r action
-
-case "$action" in
-[Uu])
-ACTION="uninstall"
-ACTION_LABEL="removed"
-;;
-[Dd])
-ACTION="disable"
-ACTION_LABEL="disabled"
-;;
-*)
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "%b\n" "${YELLOW}[X] Operation cancelled.${NC}"
-sleep 1
-read -rp "Press Enter to return to main menu"
-return 0
-;;
-esac
-
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "\n%b" "${YELLOW}[?] You are about to $ACTION packages... continue? [y/N]: ${NC}"
-read -r confirm
-if [[ ! "$confirm" =~ ^[yY]$ ]]; then
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "%b\n" "${YELLOW}[X] Operation canceled.${NC}"
-return 0
-fi
-
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "%b\n" "${YELLOW}[!] Fetching installed packages from device...${NC}"
-local INSTALLED_PKGS
-INSTALLED_PKGS=$($EXEC pm list packages -u 2>/dev/null | tr -d '\r' | cut -d: -f2)
-
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "%b\n" "${YELLOW}[!] Starting $ACTION of ${#PACKAGES[@]} packages...${NC}"
-
-local SUCCESS=0
-local SKIPPED=0
-local FAILED=0
-
-for pkg in "${PACKAGES[@]}"; do
-[ -z "$pkg" ] && continue
-echo -n "${YELLOW}Checking${NC} $pkg: "
-
-if ! echo "$INSTALLED_PKGS" | grep -qx "$pkg"; then
-printf "%b\n" "${YELLOW}[*] Skipped (not installed)${NC}"
-((SKIPPED++))
-continue
-fi
-
-if [ "$ACTION" = "uninstall" ]; then
-if $EXEC pm uninstall -k --user 0 "$pkg" >/dev/null 2>&1; then
-echo -e "\n${GREEN}[✓] Success ($ACTION_LABEL)${NC}"
-((SUCCESS++))
-else
-echo -e "\n${RED}[X] Failed${NC}"
-((FAILED++))
-fi
-else
-
-if $EXEC pm disable-user --user 0 "$pkg" >/dev/null 2>&1 || $EXEC pm disable --user 0 "$pkg" >/dev/null 2>&1; then
-echo -e "\n${GREEN}[✓] Success ($ACTION_LABEL)${NC}"
-((SUCCESS++))
-else
-echo -e "\n${RED}[X] Failed${NC}"
-((FAILED++))
-fi
-fi
-done
-
-echo -e "\n${BLUE}----------------------------------------${NC}"
-echo -e "Summary: ${GREEN}$SUCCESS [✓] $ACTION_LABEL${NC}, ${YELLOW}$SKIPPED[*] skipped${NC}, ${RED}$FAILED [X] failed${NC}."
-echo -e "\n${BLUE}----------------------------------------${NC}"
-sleep 1
-read -rp "Press Enter to return to main menu"
-return 0
-}
-
-ubackup() {
-local output_dir="$BACKUPS_DIR"
-mkdir -p "$output_dir"
-
-local date_str
-date_str="$(date +%Y%m%d_%H%M%S)"
-local output_file="$output_dir/Uraam_Restoration_List_${date_str}.json"
-
-printf "\n%b\n" "${BLUE}----------------------------------------${NC}"
-printf "%b\n" "${YELLOW}Generating restoration list...${NC}"
-printf "%b\n" "${BLUE}----------------------------------------${NC}"
-
-local all_pkgs active_pkgs
-all_pkgs=$($EXEC pm list packages -u --user 0 2>/dev/null | sed 's/^package://' | tr -d '\r' | sort)
-active_pkgs=$($EXEC pm list packages --user 0 2>/dev/null | sed 's/^package://' | tr -d '\r' | sort)
-
-if [ -z "$all_pkgs" ]; then
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "\n%b\n" "${RED}[!] Unable to communicate with package manager.${NC}"
-read -rp "Press [Enter] to return to main menu"
-return 1
-fi
-
-comm -23 <(echo "$all_pkgs") <(echo "$active_pkgs") | jq -R -s --arg date "$date_str" '
-  [ split("\n")[] 
-    | select(test("^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z0-9_]+)+$")) 
-    | {packageName: .} 
-  ] as $apps
-  | {
-      name: ("Uraam_Restore_List_" + $date),
-      description: "List of debloated packages pending restoration",
-      author: "URAAM",
-      version: "4.4.0",
-      apps: $apps
-      }
-' > "$output_file"
-
-local count
-count=$(jq '.apps | length' "$output_file" 2>/dev/null || echo 0)
-
-if [ "$count" -eq 0 ]; then
-rm -f "$output_file"
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "\n%b\n" "${YELLOW}[X] No debloated packages found on this device.${NC}"
-else
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "\n%b\n" "${GREEN}[✓] Successfully identified $count debloated packages!${NC}"
-printf "%b\n" "${BLUE}[!] File saved to: ${output_file}${NC}"
-fi
-
-read -rp "Press [Enter] to return to main menu"
-}
-
-uraam_backup() {
-show_logo
-echo -e "${BLUE}===============================================${NC}"
-echo -e "${CYAN}URAAM RUVOMAIN ADB APP-MANAGER | BACKUP CREATOR${NC}"
-echo -e "${BLUE}===============================================${NC}"
-echo -e "${CYAN}Backups targets reside in ./Configs/backup-restore/"
-echo -e "${BLUE}-----------------------------------------------${NC}"
-
-printf "%b\n" "\n${RED}--- Warning ---${NC}"
-echo -e "${CYAN}[?] You are about to create backup.*json in /Configs/backuo-restore.${NC}"
-read -p "Are you sure you want to proceed? (y/N): " confirm
-
-if [[ ! "$confirm" =~ ^[yY]$ ]]; then
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-echo "${RED}[X] Operation cancelled.${NC}"
-sleep 1
-read -rp "Press Enter to return to main menu"
-return 1
-else
-ubackup
-fi
-}
-
-uraam_installer() {
-clear
-show_logo
-printf "%b\n" "${BLUE}==========================================${NC}"
-printf "%b\n" "${CYAN}URAAM RUVOMAIN ADB APP-MANAGER | INSTALLER${NC}"
-printf "%b\n" "${BLUE}==========================================${NC}"
-printf "%b\n" "${CYAN}Place APKs to install in ./Apps/ before starting.${NC}"
-printf "%b\n" "${BLUE}----------------------------------------${NC}"
-
-require_backend || return 1
-
-if [ ! -d "$APP_DIR" ]; then
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-echo -e "\n${RED}[ERROR]${NC}Directory $APP_DIR not found."
-sleep 1
-read -rp "Press Enter to return to main menu"
-return 1
-fi
-
-shopt -s nullglob
-local apks=("$APP_DIR"/*.apk)
-shopt -u nullglob
-
-if [ ${#apks[@]} -eq 0 ]; then
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-echo -e "\n${RED}[ERROR]${NC}[X] No APK files found in $APP_DIR."
-sleep 1
-read -rp "Press Enter to return to main menu"
-return 1
-fi
-
-echo -e "\n${PURPLE}[INFO]${NC} ${YELLOW}[!] Deploying${NC} ${#apks[@]} ${YELLOW}package(s)...${NC}"
-
-local ok=0
-local fail=0
-for apk in "${apks[@]}"; do
-echo -n "${YELLOW}Installing:${NC} $(basename "$apk") ... "
-if $EXEC pm install -r -g "$apk" >/dev/null 2>&1; then
-echo -e "${GREEN}[✓] Success${NC}"
-((ok++))
-else
-echo -e "${RED}[X] Failed${NC}"
-((fail++))
-fi
-done
-
-echo -e "\n${BLUE}----------------------------------------${NC}"
-echo -e "Summary: ${GREEN}$ok [✓] Installed${NC}, ${RED}$fail [X] Failed${NC}."
-echo -e "${BLUE}----------------------------------------${NC}\n"
-sleep 1
-read -rp "Press Enter to return to main menu"
-return 0
-}
-
-uraam_restore() {
-show_logo
-echo -e "${BLUE}=========================================${NC}"
-echo -e "${CYAN}URAAM RUVOMAIN ADB APP-MANAGER | RESTORER${NC}"
-echo -e "${BLUE}=========================================${NC}"
-echo -e "\n${CYAN}Restoration targets reside in ./Configs/backup-restore/${NC}"
-echo -e "\n${BLUE}---------------------------------------${NC}"
-
-require_backend || return 1
-
-shopt -s nullglob
-local files=("$BACKUPS_DIR"/*.json)
-shopt -u nullglob
-
-local display_names=()
-for f in "${files[@]}"; do
-display_names+=("$(basename "$f")")
-done
-
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "%b\n" "${GREEN}[✓] Configuration files found:${NC}"
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-
-PS3="Select the file number (1-${#files[@]}): "
-select short_name in "${display_names[@]}"; do
-if [ -n "$short_name" ]; then
-file="${files[$((REPLY-1))]}"
-echo -e "\n${YELLOW}[!] Selected file:${NC} ${GREEN}${short_name}${NC}"
-break
-else
-printf "%b\n" "${BLUE}--------------------------------------------${NC}"
-echo -e "\n${RED}[X] Invalid selection, please try again.${NC}"
-read -rp "Press Enter to return to main menu"
-return 1
-fi
-done
-
-mapfile -t PACKAGES < <(jq -r '
-  def extract:
-    if type == "string" and test("^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+$") then
-      .
-    elif type == "object" then
-      (.packageName // .package // empty)
-    elif type == "array" then
-      .[] | extract
-    else
-      empty
-    end;
-
-  if .apps then .apps[] | extract
-  elif .packages then .packages[] | extract
-  elif type == "array" then .[] | extract
-  else extract
-  end
-' "$file" 2>/dev/null | sort -u)
-
-if [ ${#PACKAGES[@]} -eq 0 ]; then
-printf "%b\n" "${CYAN}--------------------------------------------${NC}"
-echo -e "\n${RED}[X] No packages found. Verify the JSON format.${NC}"
-sleep 1
-read -rp "Press Enter to return to main menu"
-return 1
-fi
-
-printf "%b\n" "${BLUE}--------------------------------------------${NC}"
-printf "%b\n" "${BLUE}[!] Starting restoration of ${#PACKAGES[@]} packages...${NC}"
-
-local SUCCESS=0
-local FAILED=0
-
-for pkg in "${PACKAGES[@]}"; do
-[ -z "$pkg" ] && continue
-echo -n "${YELLOW}[!] Restoring${NC} $pkg: "
-
-if $EXEC pm install-existing --user 0 "$pkg" >/dev/null 2>&1; then
-echo -e "\n${GREEN}[✓] Success${NC}"
-((SUCCESS++))
-else
-echo -e "\n${RED}[X] Failed (already present or not found)${NC}"
-((FAILED++))
-fi
-done
-
-printf "%b\n" "\n${BLUE}----------------------------------------${NC}"
-printf "%b\n" "\nSummary: ${GREEN}$SUCCESS [✓] restored${NC}, ${RED}$FAILED [X] failed/skipped${NC}."
-echo -e "\n${BLUE}----------------------------------------${NC}"
-sleep 1
-read -rp "Press Enter to return to main menu"
-return 0
-}
-
-view_dlogs() {
-clear
-if compgen -G "$LOGD_DIR/*.log" >/dev/null; then
-if command -v less >/dev/null 2>&1; then
-echo -e "${GREEN}[*] Viewing logs (Press 'q' to quit, ':n' for next file)...${NC}"
-sleep 1
-less -R "$LOGD_DIR"/*.log
-elif command -v nano >/dev/null 2>&1; then
-echo-e "${YELLOW}[!] 'less' not found. Opening with nano in view-mode...${NC}"
-sleep 1
-nano -v "$LOGD_DIR"/*.log
-else
-echo -e "\n${YELLOW}[!] Displaying raw logs:${NC}\n"
-cat "$LOGD_DIR"/*.log
-echo -e "\n${CYAN}Press [Enter] to return to the menu...${NC}"
-read -r
-fi
-else
-echo -e "\n${RED}[X] No log files found in $LOGD_DIR${NC}"
-sleep 2
-fi
-}
-
-view_blogs() {
-clear
-if compgen -G "$LOGB_DIR/*.log" >/dev/null; then
-if command -v less >/dev/null 2>&1; then
-echo -e "${GREEN}[*] Viewing logs (Press 'q' to quit, ':n' for next file)...${NC}"
-sleep 1
-less -R "$LOGB_DIR"/*.log
-elif command -v nano >/dev/null 2>&1; then
-echo -e "${YELLOW}[!] 'less' not found. Opening with nano in view-mode...${NC}"
-sleep1
-nano -v "$LOGB_DIR"/*.log
-else
-echo -e "\n${YELLOW}[!] Displaying raw logs:${NC}\n"
-cat "$LOGB_DIR"/*.log
-echo -e "Press Enter to return to the menu..."
-read -r
-fi
-else
-echo -e "\n${RED}[X] No log files found in $LOGB_DIR${NC}"
-sleep 2
-fi
-}
-
-view_rlogs() {
-clear
-if compgen -G "$LOGR_DIR/*.log" >/dev/null; then
-if command -v less >/dev/null 2>&1; then
-echo -e "${GREEN}[*] Viewing logs (Press 'q' to quit, ':n' for next file)...${NC}"
-sleep 1
-less -R "$LOGR_DIR"/*.log
-elif command -v nano >/dev/null 2>&1; then
-echo -e "${YELLOW}[!] 'less' not found. Opening with nano in view-mode...${NC}"
-sleep1
-nano -v "$LOGR_DIR"/*.log
-else
-echo -e "\n${YELLOW}[!] Displaying raw logs:${NC}\n"
-cat "$LOGR_DIR"/*.log
-echo -e "Press [Enter] to return to the menu... "
-read -r
-fi
-else
-echo -e "${RED}[X] No log files found in $LOGR_DIR${NC}"
-sleep 2
-fi
-}
-
-vl_menu() {
-show_logo
-echo -e "${BLUE}==========================================${NC}"
-echo -e "${CYAN}URAAM RUVOMAIN ADB APP-MANAGER | VIEW LOGS${NC}"
-echo -e "${BLUE}==========================================${NC}"
-
-echo -e "\n [1] View Debloat Logs"
-echo -e " [2] View Restore Logs"
-echo -e " [3] View Backup Logs"
-echo -e " [4] Return to Dashboard"
-echo -e " [5] Exit\n"
-read -rp "Enter choice: " choice
-case "$choice" in
-
-1) view_dlogs;;
-2) view_rlogs ;;
-3) view_blogs ;;
-4) return 0 ;;
-5)
-echo -e "\nGoodbye!"
-clear
-exit 0
-;;
-*)
-echo -e "${RED}[X] Invalid option.${NC} Please try again."
-;;
-esac
-}
-
-update_uraam() {
-show_logo
-echo -e "${BLUE}========================================${NC}"
-echo -e "        ${CYAN}=== URAAM | UPDATER ===${NC}"
-echo -e "${BLUE}========================================${NC}"
-printf "\n%b" "${YELLOW}[?] You are about to update URAAM. Do you want to download and install it? [y/N]: ${NC}"
-read -r confirm
-if [[ ! "$confirm" =~ ^[yY]$ ]]; then
-printf "%b\n" "${CYAN}--------------------------------------------${NC}"
-printf "%b\n" "[X] Update canceled."
-return 0
-fi
-
-printf "${YELLOW}[*] Updating existing installation...${NC}\n"
-
-local target_bin="$0"
-if [ -n "$PREFIX" ] &&[ -f "$PREFIX/bin/uraam" ]; then
-target_bin="$PREFIX/bin/uraam"
-elif [ -f "/usr/local/bin/uraam" ]; then
-target_bin="/usr/local/bin/uraam"
-fi
-
-local raw_url="https://raw.githubusercontent.com/Uraam/Uraam/main/uraam.sh"
-local tmp_file
-tmp_file=$(mktemp)
-
-if curl -fsSL "$raw_url" -o "$tmp_file"; then
-if [ -w "$target_bin" ]; then
-cp "$tmp_file" "$target_bin"
-chmod +x "$target_bin"
-else
-sudo cp "$tmp_file" "$target_bin"
-sudo chmod +x "$target_bin"
-fi
-rm -f "$tmp_file"
-printf "${GREEN}[✓] URAAM updated successfully.${NC}\n"
-printf "%b\n" "${CYAN}--------------------------------------------${NC}"
-sleep 1
-read -rp "Press Enter to restart URAAM with new changes..."
-clear
-exec "$target_bin" "$@"
-else
-rm -f "$tmp_file"
-printf "${RED}[X] Download failed. Check your internet connection.${NC}\n"
-sleep 1
-read -rp "Press Enter to return to main menu"
-return 0
-fi
-}
-
-check_and_update() {
-show_logo
-
-if ! is_installed_via_deb; then
-update_uraam
-return $?
-else
-printf "%b\n" "${CYAN}[*] Debian .deb installation detected.${NC}"
-printf "%b\n" "${CYAN}[*] Checking for updates on GitHub...${NC}"
-fi
-
-ensure_jq || return 1
-
-local api_url
-if [[ "$REPO_URL" == *"api.github.com"* ]]; then
-api_url="${REPO_URL%/}/releases/latest"
-else
-local repo_path
-repo_path=$(echo "$REPO_URL" | sed -E 's#^https?://github.com/##; s#/$##; s#\.git$##')
-api_url="https://api.github.com/repos/${repo_path}/releases/latest"
-fi
-
-local release_json
-release_json=$(curl -sSL \
--H "Accept: application/vnd.github+json" \
--H "User-Agent: URAAM-Updater" \
-"$api_url")
-
-local latest_tag
-latest_tag=$(echo "$release_json" | jq -r '.tag_name // empty' 2>/dev/null | tr -d '\r')
-
-if [ -z "$latest_tag" ]; then
-local error_message
-error_message=$(echo "$release_json" | jq -r '.message // empty' 2>/dev/null)
-
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "%b\n" "${RED}[X] Error: Unable to fetch release info from GitHub.${NC}"
-        
-if [ -n "$error_message" ]; then
-printf "%b\n" "${RED}[X] GitHub API response: ${error_message}${NC}"
-fi
-        
-read -rp "Press Enter to return to main menu"
-return 1
-fi
-
-local remote_ver="${latest_tag#v}"
-
-local local_ver
-local_ver=$(dpkg-query -W -f='${Version}' uraam 2>/dev/null | tr -d '\r')
-if [ -z "$local_ver" ]; then
-local_ver=$(dpkg-query -W -f='${Version}' uraam-debian 2>/dev/null | tr -d '\r')
-fi
-local_ver="${local_ver#v}"
-
-printf "%b\n" "${YELLOW}Current version:${NC} ${local_ver}"
-printf "%b\n" "${GREEN}Latest version:${NC} ${remote_ver}"
-
-if [ "$local_ver" = "$remote_ver" ]; then
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "\n%b\n" "${GREEN}[✓] URAAM is already up to date!${NC}"
-read -rp "Press [Enter] to return to menu..."
-return 0
-fi
-
-local deb_url
-deb_url=$(echo "$release_json" | jq -r '.assets[] | select(.name | test("uraam-debian*\\.deb$")) | .browser_download_url' | head -n1)
-
-if [ -z "$deb_url" ] || [ "$deb_url" = "null" ]; then
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "\n%b\n" "${RED}[!] New version found (${latest_tag}), but no .deb asset is available.${NC}"
-read -rp "Press [Enter] to return to menu..."
-return 1
-fi
-
-printf "\n%b" "${YELLOW}[?] A new update is available. Do you want to download and install it? [y/N]: ${NC}"
-read -r confirm
-if [[ ! "$confirm" =~ ^[yY]$ ]]; then
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "%b\n" "${RED}[X] Update canceled.${NC}"
-read -rp "Press Enter to return to main menu"
-return 0
-fi
-
-local tmp_deb="/tmp/uraam-debian_${remote_ver}_all.deb"
-
-printf "\n%b\n" "${CYAN}[*] Downloading: ${deb_url}${NC}"
-if ! curl -L --progress-bar -o "$tmp_deb" "$deb_url"; then
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "%b\n" "${RED}[X] Download failed.${NC}"
-rm -f "$tmp_deb"
-read -rp "Press Enter to return to main menu"
-return 1
-fi
-
-printf "\n%b\n" "${CYAN}[*] Installing package (sudo required)...${NC}"
-if sudo apt-get install -y "$tmp_deb"; then
-rm -f "$tmp_deb"
-printf "\n%b\n" "${GREEN}[✓] URAAM successfully updated to ${latest_tag}!${NC}"
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "%b\n" "${YELLOW}[!] Please restart URAAM to apply changes.${NC}"
-exit 0
-else
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "\n%b\n" "${RED}[X] Installation failed.${NC}"
-rm -f "$tmp_deb"
-read -rp "Press Enter to return to main menu"
-return 1
-fi
+    show_logo
+    msg "${BLUE}------------------------------------------------${NC}"
+    msg "       ${CYAN}=== URAAM | SHIZUKU SETUP ===${NC}"
+    msg "${BLUE}------------------------------------------------${NC}"
+
+    if ! is_termux; then
+        warn "Shizuku local mode is intended for Android/Termux."
+        pause
+        return 1
+    fi
+    if ! command -v rish >/dev/null 2>&1; then
+        err "rish was not found. Install/configure the Shizuku shell integration first."
+        pause
+        return 1
+    fi
+
+    if ! rish -c id >/dev/null 2>&1; then
+        err "Shizuku is not active. Start it from the Shizuku app first."
+        pause
+        return 1
+    fi
+
+    ok "Shizuku is active."
+    info "Shizuku already provides the local privileged shell; no legacy ADB TCP port is forced."
+    pause
+    return 0
 }
 
 wireless_menu() {
-show_logo
-printf "%b\n" "${BLUE}==================================================${NC}"
-printf "%b\n" ".       ${CYAN}=== URAAM | WIRELESS ADB MODE ===${NC}"
-printf "%b\n" "${BLUE}==================================================${NC}"
-ensure_adb || return 1
-printf "%b\n" "${BLUE}------------------------------------------------${NC}"
-printf "%b\n" "Choose your wireless ADB connection mode"
-
-echo -e "   [a] ${CYAN}Standard Wireless ADB${NC}"
-
-if ! is_installed_via_deb; then
-echo -e "   [s] ${CYAN}Starts Shizuku and enables Wireless ADB${NC} ${YELLOW}(Recommended)${NC}"
-fi
-
-echo -e "   [r] ${CYAN}Return to Dashboard${NC}"
-echo -e "   [e] ${CYAN}Exit${NC}"
-
-printf "%b\n" "${BLUE}--------------------------------------------------${NC}"
-printf "%b\n" "Select an option:"
-
-read -rp " " choice
-case "$choice" in
-a|A)
-wireless_adb
-;;
-s|S)
-if is_installed_via_deb; then
-printf "%b\n" "${YELLOW}[!] Shizuku is only available on Android/Termux.${NC}"
-printf "%b\n" "${BLUE}--------------------------------------------------${NC}"
-read -rp "Press [Enter] to continue..."
-else
-wireless_shizuku
-fi
-;;
-r|R)
-return 0
-;;
-e|E)
-echo -e "Goodbye!"
-clear
-exit 0
-;;
-*)
-echo -e "\n${RED}[!] Invalid option.${NC} Please try again."
-sleep 1
-;;
-esac
+    show_logo
+    msg "${BLUE}==================================================${NC}"
+    msg "       ${CYAN}=== URAAM | WIRELESS CONNECTION ===${NC}"
+    msg "${BLUE}==================================================${NC}"
+    ensure_adb || return 1
+    printf ' [a] Standard Wireless ADB\n'
+    is_termux && printf ' [s] Check Shizuku (rish)\n'
+    printf ' [r] Return\n [e] Exit\n'
+    read -r -p "Select: " choice
+    case "$choice" in
+        a|A) wireless_adb ;;
+        s|S) wireless_shizuku ;;
+        r|R) return 0 ;;
+        e|E) exit 0 ;;
+        *) warn "Invalid option."; sleep 1 ;;
+    esac
 }
 
+# ---------------------------------------------------------------------------
+# JSON configuration parsing
+# Supports legacy Canta/UAD-like forms and URAAM packageName/package objects.
+# ---------------------------------------------------------------------------
+
+validate_json_file() {
+    local file="$1"
+    [[ -f "$file" ]] || { err "File not found: $file"; return 1; }
+    jq empty "$file" >/dev/null 2>&1 || { err "Invalid JSON: $file"; return 1; }
+}
+
+load_packages_from_json() {
+    local file="$1"
+    validate_json_file "$file" || return 1
+
+    mapfile -t PACKAGES < <(jq -r '
+      def extract:
+        if type == "string" then
+          select(test("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$"))
+        elif type == "object" then
+          (.packageName // .package // .id // empty) |
+          select(type == "string" and test("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$"))
+        elif type == "array" then
+          .[] | extract
+        else empty end;
+
+      if type == "object" and (.apps | type) == "array" then
+        .apps[] | extract
+      elif type == "object" and (.packages | type) == "array" then
+        .packages[] | extract
+      elif type == "array" then .[] | extract
+      else extract end
+    ' "$file" 2>/dev/null | sort -u)
+
+    ((${#PACKAGES[@]} > 0)) || { err "No valid Android package IDs found in $file."; return 1; }
+}
+
+select_json_file() {
+    local directory="$1" prompt="$2" file
+    local -a files=()
+    shopt -s nullglob
+    files=("$directory"/*.json)
+    shopt -u nullglob
+
+    ((${#files[@]} > 0)) || { err "No JSON files found in $directory."; return 1; }
+
+    printf '%s\n' "$prompt"
+    local i
+    for i in "${!files[@]}"; do
+        printf '  [%d] %s\n' "$((i+1))" "$(basename "${files[$i]}")"
+    done
+    local selection
+    read -r -p "Select file number (1-${#files[@]}): " selection
+    [[ "$selection" =~ ^[0-9]+$ ]] || { err "Invalid selection."; return 1; }
+    (( selection >= 1 && selection <= ${#files[@]} )) || { err "Selection out of range."; return 1; }
+    SELECTED_FILE="${files[$((selection-1))]}"
+}
+
+# ---------------------------------------------------------------------------
+# Device package operations
+# ---------------------------------------------------------------------------
+
+device_package_list() {
+    local mode="${1:-active}"
+    case "$mode" in
+        all) run_device pm list packages -u --user 0 ;;
+        active) run_device pm list packages --user 0 ;;
+        *) return 2 ;;
+    esac | sed -n 's/^package://p' | tr -d '\r' | sort -u
+}
+
+package_is_installed() {
+    local package="$1" installed="$2"
+    grep -Fxq -- "$package" <<<"$installed"
+}
+
+uraam_debloat() {
+    show_logo
+    msg "${BLUE}------------------------------------------${NC}"
+    msg "        ${CYAN}=== URAAM | DEBLOATER ===${NC}"
+    msg "Configurations: $USER_DEBLOAT_DIR"
+    msg "${BLUE}------------------------------------------${NC}"
+
+    require_backend || return 1
+    select_json_file "$CONFIGS_DIR" "Available debloat configurations:" || return 1
+    local file="$SELECTED_FILE"
+    info "Selected: $(basename "$file")"
+    load_packages_from_json "$file" || { pause; return 1; }
+
+    local action confirm installed pkg
+    printf 'Choose action: [u] Uninstall for user 0 / [d] Disable / [c] Cancel: '
+    read -r action
+    case "$action" in
+        u|U) action="uninstall" ;;
+        d|D) action="disable" ;;
+        *) warn "Operation cancelled."; return 0 ;;
+    esac
+
+    warn "You are about to $action ${#PACKAGES[@]} package(s) for Android user 0."
+    read -r -p "Continue? [y/N]: " confirm
+    [[ "$confirm" =~ ^[yY]$ ]] || { warn "Cancelled."; return 0; }
+
+    start_log debloat "$LOGD_DIR" uraam-debloat || return 1
+    installed="$(device_package_list all)" || { err "Cannot query device packages."; return 1; }
+
+    local success=0 skipped=0 failed=0
+    for pkg in "${PACKAGES[@]}"; do
+        printf '%s: ' "$pkg"
+        if ! package_is_installed "$pkg" "$installed"; then
+            warn "not installed; skipped"
+            ((skipped+=1))
+            continue
+        fi
+
+        if [[ "$action" == uninstall ]]; then
+            if run_device pm uninstall -k --user 0 "$pkg" >/dev/null 2>&1; then
+                ok "uninstalled for user 0"
+                ((success+=1))
+            else
+                err "uninstall failed"
+                ((failed+=1))
+            fi
+        else
+            if run_device pm disable-user --user 0 "$pkg" >/dev/null 2>&1; then
+                ok "disabled"
+                ((success+=1))
+            else
+                err "disable failed"
+                ((failed+=1))
+            fi
+        fi
+    done
+
+    msg "${BLUE}----------------------------------------${NC}"
+    msg "Summary: ${GREEN}$success succeeded${NC}, ${YELLOW}$skipped skipped${NC}, ${RED}$failed failed${NC}."
+    msg "Log: $LOGFILE"
+    pause
+}
+
+ubackup() {
+    local output_dir="$BACKUPS_DIR" date_str output_file
+    mkdir -p "$output_dir" || return 1
+    date_str="$(date +%Y%m%d_%H%M%S)"
+    output_file="$output_dir/Uraam_Restoration_List_${date_str}.json"
+
+    local all_pkgs active_pkgs model android_ver
+    all_pkgs="$(device_package_list all)" || return 1
+    active_pkgs="$(device_package_list active)" || return 1
+    [[ -n "$all_pkgs" ]] || { err "Unable to retrieve installed packages."; return 1; }
+
+    model="$(device_getprop ro.product.model || true)"
+    android_ver="$(device_getprop ro.build.version.release || true)"
+
+    comm -23 <(printf '%s\n' "$all_pkgs") <(printf '%s\n' "$active_pkgs") |
+        jq -R -s --arg date "$date_str" --arg model "$model" --arg android "$android_ver" '
+          [split("\n")[] | select(test("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$")) | {packageName:.}] as $apps
+          | {name:("Uraam_Restore_List_"+$date),
+             description:"Packages not currently installed for Android user 0",
+             author:"URAAM", version:"4.4.4",
+             device:$model, android_version:$android, created_at:$date, apps:$apps}
+        ' > "$output_file" || { rm -f "$output_file"; return 1; }
+
+    local count
+    count="$(jq '.apps | length' "$output_file" 2>/dev/null)" || count=0
+    if (( count == 0 )); then
+        rm -f "$output_file"
+        warn "No disabled or user-uninstalled packages were found."
+        return 0
+    fi
+    ok "Saved $count package(s) to $output_file"
+}
+
+uraam_backup() {
+    show_logo
+    msg "${BLUE}===============================================${NC}"
+    msg "${CYAN}URAAM | BACKUP CREATOR${NC}"
+    msg "${BLUE}===============================================${NC}"
+    require_backend || return 1
+    read -r -p "Create a restoration list of packages missing for user 0? [y/N]: " confirm
+    [[ "$confirm" =~ ^[yY]$ ]] || { warn "Cancelled."; return 0; }
+    start_log backup "$LOGB_DIR" uraam-backup || return 1
+    ubackup
+    pause
+}
+
+uraam_restore() {
+    show_logo
+    msg "${BLUE}=========================================${NC}"
+    msg "${CYAN}URAAM | RESTORER${NC}"
+    msg "${BLUE}=========================================${NC}"
+    require_backend || return 1
+    select_json_file "$BACKUPS_DIR" "Available restoration lists:" || return 1
+    load_packages_from_json "$SELECTED_FILE" || { pause; return 1; }
+
+    warn "The selected list contains ${#PACKAGES[@]} package(s)."
+    read -r -p "Restore these packages for Android user 0? [y/N]: " confirm
+    [[ "$confirm" =~ ^[yY]$ ]] || { warn "Cancelled."; return 0; }
+
+    start_log restore "$LOGR_DIR" uraam-restore || return 1
+    local success=0 failed=0 pkg
+    for pkg in "${PACKAGES[@]}"; do
+        printf '%s: ' "$pkg"
+        if run_device pm install-existing --user 0 "$pkg" >/dev/null 2>&1; then
+            ok "restored"
+            ((success+=1))
+        else
+            err "not restored (not present on device, or operation denied)"
+            ((failed+=1))
+        fi
+    done
+    msg "${BLUE}----------------------------------------${NC}"
+    msg "Summary: ${GREEN}$success restored${NC}, ${RED}$failed failed${NC}."
+    msg "Log: $LOGFILE"
+    pause
+}
+
+# ---------------------------------------------------------------------------
+# APK installation
+# ADB uses 'adb install' with a host-side path. Local ROOT/Shizuku pushes the
+# APK to a temporary device path, then invokes pm install on that device.
+# ---------------------------------------------------------------------------
+
+install_one_apk() {
+    local apk="$1"
+    local remote="/data/local/tmp/uraam-$(date +%s)-$(basename "$apk")"
+
+    case "$EXEC_TYPE" in
+        ADB)
+            local -a cmd=(adb)
+            [[ -n "$BACKEND_SERIAL" ]] && cmd+=(-s "$BACKEND_SERIAL")
+            "${cmd[@]}" install -r -g "$apk"
+            ;;
+        ROOT)
+            # In local Termux mode, su can read Termux's private app directory.
+            # Copy to a shell-readable temporary location before invoking pm.
+            su -c "cp $(printf '%q' "$apk") $(printf '%q' "$remote")" || return 1
+            run_device pm install -r -g "$remote"
+            local result=$?
+            su -c "rm -f $(printf '%q' "$remote")" >/dev/null 2>&1 || true
+            return "$result"
+            ;;
+        SHIZUKU)
+            # The Android shell UID cannot normally read Termux's private files.
+            # Stage the APK in shared Downloads, which is accessible to both apps.
+            local shared_dir="$HOME/storage/downloads/URAAM"
+            local shared_apk="$shared_dir/$(basename "$apk")"
+            [[ -d "$HOME/storage" ]] || {
+                err "Termux storage is not set up. Run termux-setup-storage first."
+                return 1
+            }
+            mkdir -p "$shared_dir" || return 1
+            cp -- "$apk" "$shared_apk" || return 1
+            rish -c "pm install -r -g $(printf '%q' "$shared_apk")"
+            local result=$?
+            rm -f -- "$shared_apk"
+            return "$result"
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+uraam_installer() {
+    show_logo
+    msg "${BLUE}==========================================${NC}"
+    msg "${CYAN}URAAM | APK INSTALLER${NC}"
+    msg "Place APK files in: $APP_DIR"
+    msg "${BLUE}----------------------------------------${NC}"
+    require_backend || return 1
+
+    local -a apks=()
+    shopt -s nullglob
+    apks=("$APP_DIR"/*.apk)
+    shopt -u nullglob
+    ((${#apks[@]} > 0)) || { err "No APK files found in $APP_DIR."; pause; return 1; }
+
+    local confirm apk ok_count=0 fail_count=0
+    printf 'Found %d APK(s).\n' "${#apks[@]}"
+    read -r -p "Install all of them? [y/N]: " confirm
+    [[ "$confirm" =~ ^[yY]$ ]] || return 0
+
+    for apk in "${apks[@]}"; do
+        printf 'Installing %s... ' "$(basename "$apk")"
+        if install_one_apk "$apk" >/dev/null 2>&1; then
+            ok "installed"
+            ((ok_count+=1))
+        else
+            err "installation failed"
+            ((fail_count+=1))
+        fi
+    done
+    msg "Summary: ${GREEN}$ok_count installed${NC}, ${RED}$fail_count failed${NC}."
+    pause
+}
+
+# ---------------------------------------------------------------------------
+# Logs
+# ---------------------------------------------------------------------------
+
+view_logs() {
+    local directory="$1" label="$2"
+    show_logo
+    local -a logs=()
+    shopt -s nullglob
+    logs=("$directory"/*.log)
+    shopt -u nullglob
+    ((${#logs[@]} > 0)) || { warn "No $label logs found."; pause; return 0; }
+
+    if command -v less >/dev/null 2>&1; then
+        less -R "${logs[@]}"
+    elif command -v nano >/dev/null 2>&1; then
+        nano -v "${logs[@]}"
+    else
+        cat "${logs[@]}"
+        pause
+    fi
+}
+
+vl_menu() {
+    show_logo
+    printf ' [1] Debloat logs\n [2] Restore logs\n [3] Backup logs\n [4] Return\n [5] Exit\n'
+    read -r -p "Choice: " choice
+    case "$choice" in
+        1) view_logs "$LOGD_DIR" debloat ;;
+        2) view_logs "$LOGR_DIR" restore ;;
+        3) view_logs "$LOGB_DIR" backup ;;
+        4) return 0 ;;
+        5) exit 0 ;;
+        *) warn "Invalid option."; sleep 1 ;;
+    esac
+}
+
+# ---------------------------------------------------------------------------
+# Update engine
+# Non-Debian/script install: update the actual resolved script path.
+# Debian package install: fetch latest GitHub release asset and install it.
+# ---------------------------------------------------------------------------
+
+update_uraam() {
+    show_logo
+    msg "${BLUE}========================================${NC}"
+    msg "${CYAN}=== URAAM | SCRIPT UPDATER ===${NC}"
+    read -r -p "Download and replace the current script? [y/N]: " confirm
+    [[ "$confirm" =~ ^[yY]$ ]] || { warn "Update cancelled."; return 0; }
+
+    command -v curl >/dev/null 2>&1 || { err "curl is required."; return 1; }
+    local target_bin="$SOURCE"
+    local raw_url="https://raw.githubusercontent.com/Ruraam/Uraam/main/uraam.sh"
+    local tmp_file
+    tmp_file="$(mktemp)" || return 1
+
+    if ! curl -fL --retry 2 --connect-timeout 15 "$raw_url" -o "$tmp_file"; then
+        rm -f "$tmp_file"
+        err "Download failed."
+        return 1
+    fi
+    bash -n "$tmp_file" || {
+        rm -f "$tmp_file"
+        err "Downloaded script has a Bash syntax error; current installation was not changed."
+        return 1
+    }
+
+    if [[ -w "$target_bin" ]]; then
+        if ! install -m 0755 "$tmp_file" "$target_bin"; then
+            rm -f "$tmp_file"
+            return 1
+        fi
+    else
+        sudo install -m 0755 "$tmp_file" "$target_bin" || {
+            rm -f "$tmp_file"
+            return 1
+        }
+    fi
+    rm -f "$tmp_file"
+    ok "URAAM script updated."
+    read -r -p "Press Enter to restart..."
+    exec "$target_bin" "$@"
+}
+
+check_and_update() {
+    show_logo
+    if ! is_installed_via_deb uraam && ! is_installed_via_deb uraam-debian; then
+        update_uraam
+        return $?
+    fi
+
+    ensure_jq || return 1
+    command -v curl >/dev/null 2>&1 || { err "curl is required."; return 1; }
+
+    local repo_path api_url release_json latest_tag remote_ver local_ver deb_url tmp_deb
+    repo_path="${REPO_URL#https://github.com/}"
+    repo_path="${repo_path%.git}"
+    api_url="https://api.github.com/repos/${repo_path}/releases/latest"
+
+    release_json="$(curl -fsSL --retry 2 -H 'Accept: application/vnd.github+json' \
+        -H 'User-Agent: URAAM-Updater' "$api_url")" || {
+        err "Unable to contact GitHub release API."
+        pause
+        return 1
+    }
+
+    latest_tag="$(jq -r '.tag_name // empty' <<<"$release_json")"
+    [[ -n "$latest_tag" ]] || {
+        err "No published GitHub release found."
+        jq -r '.message // empty' <<<"$release_json"
+        pause
+        return 1
+    }
+
+    remote_ver="${latest_tag#v}"
+    local_ver="$(dpkg-query -W -f='${Version}' uraam 2>/dev/null || \
+                 dpkg-query -W -f='${Version}' uraam-debian 2>/dev/null || true)"
+    local_ver="${local_ver#v}"
+    printf 'Installed: %s\nLatest:    %s\n' "${local_ver:-unknown}" "$remote_ver"
+    [[ "$local_ver" == "$remote_ver" ]] && { ok "URAAM is up to date."; pause; return 0; }
+
+    deb_url="$(jq -r '.assets[]? | select(.name | test("uraam-debian.*\\.deb$")) | .browser_download_url' <<<"$release_json" | head -n1)"
+    [[ -n "$deb_url" && "$deb_url" != null ]] || {
+        err "A new release exists, but no uraam-debian .deb asset was found."
+        pause
+        return 1
+    }
+
+    read -r -p "Install version $latest_tag? [y/N]: " confirm
+    [[ "$confirm" =~ ^[yY]$ ]] || { warn "Update cancelled."; return 0; }
+
+    tmp_deb="$(mktemp --suffix=.deb)" || return 1
+    if ! curl -fL --retry 2 --connect-timeout 15 "$deb_url" -o "$tmp_deb"; then
+        rm -f "$tmp_deb"
+        err "Package download failed."
+        return 1
+    fi
+    if ! dpkg-deb --info "$tmp_deb" >/dev/null 2>&1; then
+        rm -f "$tmp_deb"
+        err "Downloaded file is not a valid Debian package."
+        return 1
+    fi
+    if sudo apt-get install -y "$tmp_deb"; then
+        rm -f "$tmp_deb"
+        ok "URAAM updated to $latest_tag. Restart the application."
+        return 0
+    fi
+    rm -f "$tmp_deb"
+    err "Package installation failed."
+    return 1
+}
+
+# ---------------------------------------------------------------------------
+# Main dashboard
+# ---------------------------------------------------------------------------
+
 show_main_menu() {
-show_logo
-printf "%b\n" "${BLUE}--------------------------------------------------------${NC}"
-printf "%b\n" "             ${CYAN}=== URAAM v4.4.3 Dashboard ===${NC}"
-printf "%b\n" "${BLUE}--------------------------------------------------------${NC}"
-detect_backend_status
-printf "%b\n" "${BLUE}--------------------------------------------------------${NC}"
-printf "%b\n" "${CYAN}Place debloat configurations in: (Canta JSON supported)${NC}"
-printf "%b\n" "${USER_DEBLOAT_DIR/#$HOME/~}"
-printf "%b\n" "${CYAN}Place APKs to install in:${NC}" 
-printf "%b\n" "${APP_DIR/#HOME/~}"
-printf "%b\n" "${CYAN}Backups & restores reside in:${NC}"
-printf "%b\n" "${BACKUPS_DIR/#HOME/~}"
-printf "%b\n" "${BLUE}--------------------------------------------------------${NC}"
-echo -e "   [d] ${CYAN}Debloat apps${NC} ${YELLOW}(Remove Bloatware)${NC}"
-echo -e "   [i] ${CYAN}Install APK(s)${NC} ${YELLOW}(Batch APK Install)${NC}"
-echo -e "   [b] ${CYAN}Backup${NC} ${YELLOW}(Export Apps List)${NC}"
-echo -e "   [r] ${CYAN}Restore${NC} ${YELLOW}(Revert/Reinstall Apps)${NC}"
-echo -e "   [w] ${CYAN}Wireless Menu${NC} ${YELLOW}(Pair & Connect)${NC}" 
-echo -e "   [u] ${CYAN}Update URAAM${NC} ${YELLOW}(Search/install update from Github)${NC}"
-echo -e "${BLUE}---------------------------------------|${NC} [e] Exit ${BLUE}|-----${NC}"
+    show_logo
+    msg "${BLUE}--------------------------------------------------------${NC}"
+    msg "             ${CYAN}=== URAAM v${URAAM_VERSION} Dashboard ===${NC}"
+    msg "${BLUE}--------------------------------------------------------${NC}"
+    detect_backend_status || true
+    msg "${BLUE}--------------------------------------------------------${NC}"
+    printf 'Debloat configurations: %s\n' "${USER_DEBLOAT_DIR/#$HOME/~}"
+    printf 'APK directory:          %s\n' "${APP_DIR/#$HOME/~}"
+    printf 'Backup / restore:       %s\n' "${BACKUPS_DIR/#$HOME/~}"
+    msg "${BLUE}--------------------------------------------------------${NC}"
+    printf ' [d] Debloat apps\n'
+    printf ' [i] Install APK(s)\n'
+    printf ' [b] Backup restoration list\n'
+    printf ' [r] Restore packages\n'
+    printf ' [w] Wireless menu\n'
+    printf ' [l] View logs\n'
+    printf ' [u] Update URAAM\n'
+    printf ' [e] Exit\n'
 }
 
 handle_menu_choice() {
-local choice="$1"
-case "$choice" in
-d|D)
-require_backend || return 1
-uraam_debloat
-;;
-i|I)
-require_backend || return 1
-uraam_installer
-;;
-b|B)
-require_backend || return 1
-uraam_backup
-;;
-r|R)
-require_backend || return 1
-uraam_restore
-;;
-w|W)
-wireless_menu
-;;
-u|U)
-update_uraam
-;;
-e)
-clear
-printf "%b\n" "${GREEN}Goodbye!${NC}"
-sleep 3
-exit 0
-;;
-*)
-printf "%b\n" "${RED}[X] Invalid option!${NC}"
-sleep 1
-;;
-esac
+    case "$1" in
+        d|D) uraam_debloat ;;
+        i|I) uraam_installer ;;
+        b|B) uraam_backup ;;
+        r|R) uraam_restore ;;
+        w|W) wireless_menu ;;
+        l|L) vl_menu ;;
+        u|U) check_and_update ;;
+        e|E) msg "${GREEN}Goodbye!${NC}"; exit 0 ;;
+        *) warn "Invalid option."; sleep 1 ;;
+    esac
 }
 
 main() {
-while true; do
-term_set_storage
-show_main_menu
-read -rp "Enter choice: " user_choice
-handle_menu_choice "$user_choice"
-done
+    init_directories || exit 1
+    term_set_storage
+
+    while true; do
+        show_main_menu
+        read -r -p "Enter choice: " user_choice || exit 0
+        handle_menu_choice "$user_choice"
+    done
 }
 
-main
+main "$@"
