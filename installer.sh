@@ -14,7 +14,7 @@ set -uo pipefail
 # Configuration
 # ------------------------------------------------------------------------------
 
-CURRENT_VERSION="4.4.3"
+CURRENT_VERSION="4.4.5"
 REPO_OWNER="Ruraam"
 REPO_NAME="Uraam"
 BRANCH="main"
