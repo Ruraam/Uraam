@@ -1,13 +1,26 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Installer Script for URAAM
-# Project: URAAM (Universal Ruvomain Android App-Manager)
-# Author:Ruvyrom
-# License: GPL-3.0
-# Description: Automated installer for PC (Debian/Ubuntu/Arch/Fedora) & Android (Termux)
+# Project : URAAM (Universal Ruvomain Android App-Manager)
+# Author  : Ruvyrom
+# License : GPL-3.0
+# Description: Installer/updater for Debian/Ubuntu, other Linux distributions
+#              (standalone mode), and Android (Termux).
 # ==============================================================================
 
-set -e
+set -uo pipefail
+
+# ------------------------------------------------------------------------------
+# Configuration
+# ------------------------------------------------------------------------------
+
+CURRENT_VERSION="4.4.3"
+REPO_OWNER="Ruraam"
+REPO_NAME="Uraam"
+BRANCH="main"
+REPO_URL="https://github.com/${REPO_OWNER}/${REPO_NAME}"
+API_URL="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest"
+RAW_SCRIPT_URL="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${BRANCH}/uraam.sh"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -17,371 +30,513 @@ PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-CURRENT_VERSION="4.4.3"
+IS_TERMUX=false
+CURRENT_MODEL=""
+SCRIPT_TMP=""
 
-REPO_URL="https://github.com/Uraam/Uraam"
-BRANCH="main"
-REPO_OWNER="Ruraam"
-REPO_NAME="Uraam"
-API_URL="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest"
+# ------------------------------------------------------------------------------
+# General helpers
+# ------------------------------------------------------------------------------
+
+cleanup() {
+    if [[ -n "${SCRIPT_TMP:-}" && -e "$SCRIPT_TMP" ]]; then
+        rm -f -- "$SCRIPT_TMP"
+    fi
+}
+trap cleanup EXIT
+
+msg() {
+    printf '%b\n' "$*"
+}
+
+pause_menu() {
+    local prompt="${1:-Press Enter to return to the menu...}"
+    read -r -p "$prompt" _ || true
+}
+
+confirm_yes() {
+    local answer=""
+    read -r -p "${1:-Continue?} [y/N]: " answer || true
+    [[ "$answer" =~ ^[yY]([eE][sS])?$ ]]
+}
+
+have_command() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+run_as_root() {
+    if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
+        "$@"
+    elif have_command sudo; then
+        sudo "$@"
+    elif have_command su; then
+        su -c "$(printf '%q ' "$@")"
+    else
+        msg "${RED}[X] Root privileges are required (sudo or su not found).${NC}"
+        return 1
+    fi
+}
+
+is_termux() {
+    [[ -d /data/data/com.termux ]] ||
+    [[ "${PREFIX:-}" == *"/com.termux"* ]]
+}
 
 is_debian_like() {
-if [ -f /etc/os-release ]; then
-. /etc/os-release
-case "$ID" in
-debian|ubuntu|linuxmint|pop) return 0 ;;
-esac
-case "$ID_LIKE" in
-*debian*|*ubuntu*) return 0 ;;
-esac
-fi
-return 1
+    [[ -r /etc/os-release ]] || return 1
+
+    local id="" id_like=""
+    # shellcheck disable=SC1091
+    . /etc/os-release
+    id="${ID:-}"
+    id_like="${ID_LIKE:-}"
+
+    case "$id" in
+        debian|ubuntu|linuxmint|pop|elementary|zorin) return 0 ;;
+    esac
+
+    [[ " ${id_like,,} " == *" debian "* || " ${id_like,,} " == *" ubuntu "* ]]
 }
 
 is_installed_via_deb() {
-local package_name="${1:-uraam-debian}"
-if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; then
-return 1
-fi
-if command -v dpkg-query >/dev/null 2>&1; then
-local package_status
-package_status=$(dpkg-query -W -f='${Status}' "$package_name" 2>/dev/null || true)
-if [[ "$package_status" == *"install ok installed"* ]]; then
-return 0
-fi
-fi
-return 1
+    local package_name
+    [[ "$IS_TERMUX" == true ]] && return 1
+    have_command dpkg-query || return 1
+
+    for package_name in "${@:-uraam-debian}" uraam-debian uraam; do
+        [[ -n "$package_name" ]] || continue
+        if dpkg-query -W -f='${Status}' "$package_name" 2>/dev/null |
+            grep -q 'install ok installed'; then
+            return 0
+        fi
+    done
+    return 1
 }
 
 device_brand() {
-local tbrand tmodel tandroid_ver
-local ver_suffix=""
+    local brand="" model="" android_version="" vendor="" product=""
 
-tbrand=$(getprop ro.product.manufacturer 2>/dev/null || true)
-tmodel=$(getprop ro.product.model 2>/dev/null || true)
-tandroid_ver=$(getprop ro.build.version.release 2>/dev/null || true)
+    if have_command getprop; then
+        brand="$(getprop ro.product.manufacturer 2>/dev/null || true)"
+        model="$(getprop ro.product.model 2>/dev/null || true)"
+        android_version="$(getprop ro.build.version.release 2>/dev/null || true)"
+    fi
 
-if [ -n "$tbrand" ]; then
-[ -n "$tandroid_ver" ] && ver_suffix=" (Android ${tandroid_ver})"
-CURRENT_MODEL="${tbrand^} ${tmodel}${ver_suffix}"
-elif is_installed_via_deb; then
-CURRENT_MODEL="$(cat /sys/devices/virtual/dmi/id/sys_vendor 2>/dev/null) $(cat/sys/devices/virtual/dmi/id/product_name 2>/dev/null) $(uname-s) $(uname -m)"
-else
-CURRENT_MODEL=""
-fi
+    if [[ -n "$brand" || -n "$model" ]]; then
+        [[ -n "$android_version" ]] && android_version=" (Android ${android_version})"
+        CURRENT_MODEL="${brand:+${brand^} }${model}${android_version}"
+        return
+    fi
+
+    if [[ -r /sys/devices/virtual/dmi/id/sys_vendor ]]; then
+        vendor="$(cat /sys/devices/virtual/dmi/id/sys_vendor 2>/dev/null || true)"
+    fi
+    if [[ -r /sys/devices/virtual/dmi/id/product_name ]]; then
+        product="$(cat /sys/devices/virtual/dmi/id/product_name 2>/dev/null || true)"
+    fi
+
+    CURRENT_MODEL="$(printf '%s ' "$vendor" "$product" "$(uname -s)" "$(uname -m)" |
+        sed 's/[[:space:]]*$//')"
 }
 
 show_logo() {
-clear
-echo -e "${PURPLE}"
-cat << 'EOF'
+    device_brand
+    [[ -t 1 ]] && clear 2>/dev/null || true
+
+    printf '%b' "$PURPLE"
+    cat <<'EOF'
 ::| ::|::::::\ ::::\  ::::\ ::::::|
-::|_::|::|,::|::|,::|::|,::|:::"::|
+::|\_::|::|,::|::|,::|::|,::|:::"::|
 `:::::|::| ::\::| ::|::| ::|::| ::|
 EOF
-echo -e "${NC}"
-printf "%b\n" "${BLUE}====================================================${NC}"
-printf "%b\n" "     Automated Installer & Manager for URAAM CLI"
-[ -n "$CURRENT_MODEL" ] && printf "%b\n" "Target: ${CYAN}${CURRENT_MODEL}${NC}"
-printf "%b\n" "${BLUE}====================================================${NC}"
-echo ""
+    printf '%b\n' "$NC"
+    msg "${BLUE}====================================================${NC}"
+    msg "     Automated Installer & Manager for URAAM CLI"
+    [[ -n "$CURRENT_MODEL" ]] && msg "Target: ${CYAN}${CURRENT_MODEL}${NC}"
+    msg "Version: ${CURRENT_VERSION}"
+    msg "${BLUE}====================================================${NC}"
+    printf '\n'
 }
 
+# ------------------------------------------------------------------------------
+# Platform and dependency handling
+# ------------------------------------------------------------------------------
+
 term_set_storage() {
-if [ -d "/data/data/com.termux" ] || { [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; };then
-IS_TERMUX=true
-[ -z "$PREFIX" ] && PREFIX="/data/data/com.termux/files/usr"
-if [ ! -d "$HOME/storage" ] && command -v termux-setup-storage >/dev/null 2>&1; then
-echo -e "${YELLOW}[!] Storage access is required for backups, please grant permission...${NC}"
-termux-setup-storage
-fi
-else
-IS_TERMUX=false
-fi
+    if is_termux; then
+        IS_TERMUX=true
+        PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
+
+        if [[ ! -d "$HOME/storage" ]] &&
+           have_command termux-setup-storage; then
+            msg "${YELLOW}[!] Storage access may be needed for backups and shared files.${NC}"
+            termux-setup-storage || true
+        fi
+    else
+        IS_TERMUX=false
+    fi
+}
+
+install_dependencies() {
+    local missing=("$@")
+
+    ((${#missing[@]} == 0)) && return 0
+
+    msg "${YELLOW}[!] Missing tools: ${missing[*]}${NC}"
+
+    if [[ "$IS_TERMUX" == true ]]; then
+        have_command pkg || {
+            msg "${RED}[X] Termux package manager (pkg) is unavailable.${NC}"
+            return 1
+        }
+        pkg update -y || return 1
+        pkg install -y "${missing[@]}"
+    elif have_command apt-get; then
+        run_as_root apt-get update || return 1
+        run_as_root apt-get install -y "${missing[@]}"
+    elif have_command pacman; then
+        run_as_root pacman -Sy --needed --noconfirm "${missing[@]}"
+    elif have_command dnf; then
+        run_as_root dnf install -y "${missing[@]}"
+    elif have_command zypper; then
+        run_as_root zypper --non-interactive install "${missing[@]}"
+    elif have_command apk; then
+        run_as_root apk add "${missing[@]}"
+    else
+        msg "${RED}[X] No supported package manager found. Install manually: ${missing[*]}${NC}"
+        return 1
+    fi
 }
 
 check_dependencies() {
-term_set_storage
+    term_set_storage
 
-local deps=("git" "curl" "jq" "adb")
-local missing_deps=()
+    # ADB is intentionally not a mandatory installer dependency.
+    # URAAM's runtime can use ADB, ROOT or Shizuku depending on the device.
+    local required=(curl jq)
+    local missing=()
+    local dep
 
-for dep in "${deps[@]}"; do
-if ! command -v "$dep" >/dev/null 2>&1; then
-missing_deps+=("$dep")
-fi
-done
+    for dep in "${required[@]}"; do
+        have_command "$dep" || missing+=("$dep")
+    done
 
-if [ "${#missing_deps[@]}" -gt 0 ]; then
-printf "%b\n" "${YELLOW}[!] Installing required core tools: ${missing_deps[*]}${NC}"
-if [ "$IS_TERMUX" = true ]; then
-pkg update -y
+    if ((${#missing[@]} > 0)); then
+        install_dependencies "${missing[@]}" || {
+            msg "${RED}[X] Could not install required dependencies.${NC}"
+            return 1
+        }
+    fi
 
-for dep in "${missing_deps[@]}"; do
-if [ "$dep" = "adb" ]; then
-pkg install -y android-tools
-else
-pkg install -y "$dep"
-fi
-done
-elif command -v apt >/dev/null 2>&1; then
-sudo apt update && sudo apt install -y "${missing_deps[@]}"
-elif command -v apt-get >/dev/null 2>&1; then
-sudo apt-get update -y && sudo apt-get install -y "${missing_deps[@]}"
-elif command -v pacman >/dev/null 2>&1; then
-sudo pacman -Sy --noconfirm "${missing_deps[@]}"
-elif command -v dnf >/dev/null 2>&1; then
-sudo dnf install -y "${missing_deps[@]}"
-else
-printf "%b\n" "${RED}[X] Could not auto-install dependencies. Please install ${missing_deps[*]} manually.${NC}"
-exit 1
-fi
-fi
+    for dep in "${required[@]}"; do
+        have_command "$dep" || {
+            msg "${RED}[X] Required command still missing: ${dep}${NC}"
+            return 1
+        }
+    done
 }
 
+# ------------------------------------------------------------------------------
+# Standalone installation/update
+# ------------------------------------------------------------------------------
+
 standalone_uraam() {
-show_logo
-printf "%b\n" "${BLUE}--------------------------------------------${NC}"
-printf "%b\n" "   ${CYAN}=== URAAM | Standalone Installer ===${NC}"
-printf "%b\n" "${BLUE}--------------------------------------------${NC}"
-printf "\n%b" "${YELLOW}[?] You are about to update URAAM. Do you want to download and install it? [y/N]: ${NC}"
-read -r confirm
-if [[ ! "$confirm" =~ ^[yY]$ ]]; then
-printf "%b\n" "${BLUE}--------------------------------------------${NC}"
-printf "%b\n" "[X] Update canceled."
-return 0
-fi
+    show_logo
+    msg "${BLUE}--------------------------------------------${NC}"
+    msg "   ${CYAN}=== URAAM | Standalone Installer ===${NC}"
+    msg "${BLUE}--------------------------------------------${NC}"
 
-printf "${YELLOW}[*] Updating existing installation...${NC}\n"
+    if ! confirm_yes "${YELLOW}[?] Download and install/update URAAM?"; then
+        msg "${YELLOW}[!] Update canceled.${NC}"
+        return 0
+    fi
 
-local target_bin
-if [ -n "$PREFIX" ]; then
-target_bin="$PREFIX/bin/uraam"
-else
-target_bin="/usr/local/bin/uraam"
-fi
+    local target_bin target_dir tmp_file
+    if [[ "$IS_TERMUX" == true ]]; then
+        target_bin="${PREFIX}/bin/uraam"
+    elif [[ -n "${PREFIX:-}" && "${PREFIX}" == *"/com.termux"* ]]; then
+        target_bin="${PREFIX}/bin/uraam"
+    else
+        target_bin="/usr/local/bin/uraam"
+    fi
+    target_dir="$(dirname "$target_bin")"
 
-local raw_url="https://raw.githubusercontent.com/Uraam/Uraam/main/uraam.sh"
-local tmp_file
-tmp_file=$(mktemp)
+    tmp_file="$(mktemp "${TMPDIR:-/tmp}/uraam.XXXXXX")" || {
+        msg "${RED}[X] Could not create a temporary file.${NC}"
+        return 1
+    }
 
-if curl -fsSL "$raw_url" -o "$tmp_file"; then
-if [ -w "$(dirname "$target_bin")" ] || [ -w "$target_bin" ]; then
-cp "$tmp_file" "$target_bin"
-chmod +x "$target_bin"
-else
-sudo cp "$tmp_file" "$target_bin"
-sudo chmod +x "$target_bin"
-fi
-rm -f "$tmp_file"
-printf "%b\n" "${GREEN}[✓] URAAM updated successfully.${NC}"
-printf "%b\n" "${CYAN}--------------------------------------------${NC}"
+    msg "${CYAN}[*] Downloading URAAM from ${RAW_SCRIPT_URL}${NC}"
+    if ! curl --fail --location --silent --show-error \
+        --retry 2 --connect-timeout 15 "$RAW_SCRIPT_URL" -o "$tmp_file"; then
+        rm -f -- "$tmp_file"
+        msg "${RED}[X] Download failed. Check the repository URL and connection.${NC}"
+        pause_menu
+        return 1
+    fi
 
-if [ -n "$PREFIX" ] && [ ! -f "$HOME/.shortcuts/URAAM" ]; then
-echo ""
-read -rp"  Create a Termux:Widget home screen shortcut? (y/N): " create_widget
-if [[ "$create_widget" =~ ^[yY]([eE][sS])?$ ]]; then
-mkdir -p "$HOME/.shortcuts"
-cat << 'EOF' > "$HOME/.shortcuts/URAAM"
+    if [[ ! -s "$tmp_file" ]] || ! head -n 1 "$tmp_file" | grep -q '^#!/.*bash'; then
+        rm -f -- "$tmp_file"
+        msg "${RED}[X] Downloaded file does not look like a valid Bash script.${NC}"
+        pause_menu
+        return 1
+    fi
+
+    if ! bash -n "$tmp_file"; then
+        rm -f -- "$tmp_file"
+        msg "${RED}[X] Downloaded script has a Bash syntax error; installation canceled.${NC}"
+        pause_menu
+        return 1
+    fi
+
+    if ! run_as_root mkdir -p "$target_dir"; then
+        rm -f -- "$tmp_file"
+        return 1
+    fi
+
+    if ! run_as_root install -m 0755 "$tmp_file" "$target_bin"; then
+        rm -f -- "$tmp_file"
+        msg "${RED}[X] Could not install URAAM to ${target_bin}.${NC}"
+        return 1
+    fi
+    rm -f -- "$tmp_file"
+
+    msg "${GREEN}[✓] URAAM installed/updated successfully: ${target_bin}${NC}"
+
+    if [[ "$IS_TERMUX" == true && ! -f "$HOME/.shortcuts/URAAM" ]]; then
+        printf '\n'
+        if confirm_yes "Create a Termux:Widget home-screen shortcut?"; then
+            mkdir -p "$HOME/.shortcuts"
+            cat >"$HOME/.shortcuts/URAAM" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
-uraam
+exec uraam "$@"
 EOF
-chmod +x "$HOME/.shortcuts/URAAM"
-printf "%b\n" "${GREEN}[✓]${NC} Shortcut created in ~/.shortcuts/URAAM!"
-printf "%b\n" "    (Available via Termux:Widget or Shortcut Maker)\n"
-printf "%b\n" "${CYAN}--------------------------------------------${NC}"
-fi
-fi
+            chmod 0755 "$HOME/.shortcuts/URAAM"
+            msg "${GREEN}[✓] Shortcut created in ~/.shortcuts/URAAM.${NC}"
+        fi
+    fi
 
-read -rp "Press Enter to restart URAAM..."
-clear
-exec "$target_bin" "$@"
-else
-rm -f "$tmp_file"
-printf "%b\n" "${CYAN}--------------------------------------------${NC}"
-printf "%b\n" "${RED}[X] Download failed. Check your internet connection.${NC}"
-sleep 1
-read -rp "Press Enter to return to main menu"
-return 0
-fi
+    if confirm_yes "Restart URAAM now?"; then
+        exec "$target_bin"
+    fi
+}
+
+# ------------------------------------------------------------------------------
+# Debian package update
+# ------------------------------------------------------------------------------
+
+get_latest_release() {
+    curl --fail --location --silent --show-error \
+        --retry 2 --connect-timeout 15 \
+        -H "Accept: application/vnd.github+json" \
+        -H "User-Agent: URAAM-Installer" \
+        "$API_URL"
+}
+
+version_is_current_or_newer() {
+    local installed="$1"
+    local latest="$2"
+
+    [[ -z "$installed" ]] && return 1
+    [[ "$installed" == "$latest" ]] && return 0
+
+    if have_command dpkg; then
+        dpkg --compare-versions "$installed" ge "$latest"
+    else
+        [[ "$installed" == "$latest" ]]
+    fi
 }
 
 deb_uraam() {
-show_logo
+    show_logo
 
-if ! is_debian_like; then
-standalone_uraam
-return $?
-else
-printf "%b\n" "${BLUE}--------------------------------------------${NC}"
-printf "%b\n" "       ${CYAN}=== URAAM | DEB Installer ===${NC}"
-printf "%b\n" "${BLUE}--------------------------------------------${NC}"
+    if ! is_debian_like; then
+        msg "${YELLOW}[!] This system is not Debian-based; using standalone installation.${NC}"
+        standalone_uraam
+        return $?
+    fi
 
-printf "%b\n" "${CYAN}[*] Debian .deb installation detected.${NC}"
-printf "%b\n" "${CYAN}[*] Checking for updates on GitHub...${NC}"
-fi
+    msg "${BLUE}--------------------------------------------${NC}"
+    msg "       ${CYAN}=== URAAM | DEB Installer ===${NC}"
+    msg "${BLUE}--------------------------------------------${NC}"
+    msg "${CYAN}[*] Checking the latest GitHub release...${NC}"
 
-local api_url
-if [[ "$REPO_URL" == *"api.github.com"* ]]; then
-api_url="${REPO_URL%/}/releases/latest"
-else
-local repo_path
-repo_path=$(echo "$REPO_URL" | sed -E 's#^https?://github.com/##; s#/$##; s#\.git$##')
-api_url="https://api.github.com/repos/${repo_path}/releases/latest"
-fi
+    local release_json latest_tag remote_ver local_ver deb_url tmp_deb
+    if ! release_json="$(get_latest_release)"; then
+        msg "${RED}[X] Unable to contact the GitHub Releases API.${NC}"
+        pause_menu
+        return 1
+    fi
 
-local release_json
-release_json=$(curl -sSL \
--H "Accept: application/vnd.github+json" \
--H "User-Agent: URAAM-Updater" \
-"$api_url")
+    latest_tag="$(jq -r '.tag_name // empty' <<<"$release_json" 2>/dev/null)"
+    if [[ -z "$latest_tag" ]]; then
+        local error_message
+        error_message="$(jq -r '.message // empty' <<<"$release_json" 2>/dev/null)"
+        msg "${RED}[X] No release tag was returned by GitHub.${NC}"
+        [[ -n "$error_message" ]] && msg "${RED}GitHub: ${error_message}${NC}"
+        pause_menu
+        return 1
+    fi
+    remote_ver="${latest_tag#v}"
 
-local latest_tag
-latest_tag=$(echo "$release_json" | jq -r '.tag_name // empty' 2>/dev/null | tr -d '\r')
+    local_ver=""
+    if have_command dpkg-query; then
+        local_ver="$(dpkg-query -W -f='${Version}' uraam 2>/dev/null || true)"
+        [[ -n "$local_ver" ]] ||
+            local_ver="$(dpkg-query -W -f='${Version}' uraam-debian 2>/dev/null || true)"
+    fi
+    local_ver="${local_ver#v}"
 
-if [ -z "$latest_tag" ]; then
-local error_message
-error_message=$(echo "$release_json" | jq-r '.message // empty' 2>/dev/null)
+    msg "${YELLOW}Installed version: ${local_ver:-not installed}${NC}"
+    msg "${GREEN}Latest version:    ${remote_ver}${NC}"
 
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "%b\n" "${RED}[X] Error: Unable to fetch release info from GitHub.${NC}"
+    if version_is_current_or_newer "$local_ver" "$remote_ver"; then
+        msg "${GREEN}[✓] URAAM is already up to date.${NC}"
+        pause_menu
+        return 0
+    fi
 
-if [ -n "$error_message" ]; then
-printf "%b\n" "${RED}[X] GitHub API response: ${error_message}${NC}"
-fi
+    deb_url="$(jq -r '
+        [.assets[]? |
+         select(.name | test("uraam(-debian)?[^/]*\\.deb$"; "i")) |
+         .browser_download_url][0] // empty
+    ' <<<"$release_json" 2>/dev/null)"
 
-read -rp "Press Enter to return to main menu"
-return 1
-fi
+    if [[ -z "$deb_url" ]]; then
+        msg "${RED}[X] Release ${latest_tag} has no matching .deb asset.${NC}"
+        pause_menu
+        return 1
+    fi
 
-local remote_ver="${latest_tag#v}"
+    if ! confirm_yes "${YELLOW}[?] Download and install ${latest_tag}?"; then
+        msg "${YELLOW}[!] Update canceled.${NC}"
+        pause_menu
+        return 0
+    fi
 
-local local_ver
-local_ver=$(dpkg-query -W -f='${Version}' uraam 2>/dev/null |tr -d '\r')
-if [ -z "$local_ver" ]; then
-local_ver=$(dpkg-query -W -f='${Version}' uraam-debian 2>/dev/null |tr -d '\r')
-fi
-local_ver="${local_ver#v}"
+    tmp_deb="$(mktemp "${TMPDIR:-/tmp}/uraam-${remote_ver}.XXXXXX.deb")" || return 1
+    msg "${CYAN}[*] Downloading Debian package...${NC}"
 
-printf "%b\n" "${YELLOW}Current version:${NC} ${local_ver}"
-printf "%b\n" "${GREEN}Latest version:${NC} ${remote_ver}"
+    if ! curl --fail --location --show-error --retry 2 \
+        --connect-timeout 15 --progress-bar -o "$tmp_deb" "$deb_url"; then
+        rm -f -- "$tmp_deb"
+        msg "${RED}[X] Download failed.${NC}"
+        pause_menu
+        return 1
+    fi
 
-if [ "$local_ver" = "$remote_ver" ]; then
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "\n%b\n" "${GREEN}[✓] URAAM is already up to date!${NC}"
-read -rp "Press [Enter] to return to menu..."
-return 0
-fi
+    if ! have_command dpkg-deb || ! dpkg-deb --info "$tmp_deb" >/dev/null 2>&1; then
+        rm -f -- "$tmp_deb"
+        msg "${RED}[X] The downloaded file is not a valid Debian package.${NC}"
+        pause_menu
+        return 1
+    fi
 
-local deb_url
-deb_url=$(echo "$release_json" | jq -r '.assets[] | select(.name | test("uraam-debian*\\.deb$")) | .browser_download_url' | head -n1)
+    msg "${CYAN}[*] Installing package...${NC}"
+    if run_as_root apt-get install -y "$tmp_deb"; then
+        rm -f -- "$tmp_deb"
+        msg "${GREEN}[✓] URAAM successfully updated to ${latest_tag}.${NC}"
+        msg "${YELLOW}[!] Restart URAAM to apply the update.${NC}"
+        pause_menu
+        return 0
+    fi
 
-if [ -z "$deb_url" ] || [ "$deb_url" = "null" ]; then
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "%b\n" "${RED}[!] New version found (${latest_tag}), but no .deb assetis available.${NC}"
-read -rp "Press [Enter] to return to menu..."
-return 1
-fi
-
-printf "\n%b" "${YELLOW}[?] A new update is available. Do you want to download and install it? [y/N]: ${NC}"
-read -r confirm
-if [[ ! "$confirm" =~ ^[yY]$ ]]; then
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "%b\n" "${RED}[X] Update canceled.${NC}"
-read -rp "Press Enter to return to main menu"
-return 0
-fi
-
-local tmp_deb="/tmp/uraam-debian_${remote_ver}_all.deb"
-
-printf "\n%b\n" "${CYAN}[*] Downloading: ${deb_url}${NC}"
-if ! curl -L --progress-bar -o "$tmp_deb" "$deb_url"; then
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "%b\n" "${RED}[X] Download failed.${NC}"
-rm -f "$tmp_deb"
-read -rp "Press Enter to return to main menu"
-return 1
-fi
-
-printf "\n%b\n" "${CYAN}[*] Installing package (sudo required)...${NC}"
-if sudo apt-get install -y "$tmp_deb"; then
-rm -f "$tmp_deb"
-printf "\n%b\n" "${GREEN}[✓]URAAM successfully updated to ${latest_tag}!${NC}"
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "%b\n" "${YELLOW}[!] Please restart URAAM to apply changes.${NC}"
-exit 0
-else
-printf "%b\n" "${BLUE}---------------------------------------${NC}"
-printf "\n%b\n" "${RED}[X] Installation failed.${NC}"
-rm -f "$tmp_deb"
-read -rp "Press Enter to return to main menu"
-return 1
-fi
+    rm -f -- "$tmp_deb"
+    msg "${RED}[X] Package installation failed.${NC}"
+    pause_menu
+    return 1
 }
+
+# ------------------------------------------------------------------------------
+# Uninstallation
+# ------------------------------------------------------------------------------
 
 uninstall_uraam() {
-show_logo
-printf "\n%b" "${RED}[?] Are you sure you want to uninstall URAAM? [y/N]: ${NC}"
-read -r confirm
-if [[ ! "$confirm" =~ ^[yY]$ ]]; then
-printf "%b\n" "${YELLOW}[*] Uninstallation aborted.${NC}"
-read -rp "Press Enter to return to menu..."
-return 0
-fi
+    show_logo
+    if ! confirm_yes "${RED}[?] Are you sure you want to uninstall URAAM?"; then
+        msg "${YELLOW}[*] Uninstallation aborted.${NC}"
+        pause_menu
+        return 0
+    fi
 
-if [ "$IS_TERMUX" = true ]; then
-dpkg -r uraam-termux 2>/dev/null || rm -f "$PREFIX/bin/uraam"
-else
-if is_debian_like && is_installed_via_deb; then
-sudo dpkg -r uraam-debian 2>/dev/null || true
-fi
-sudo rm -f "/usr/local/bin/uraam"
-fi
+    if [[ "$IS_TERMUX" == true ]]; then
+        if have_command dpkg; then
+            dpkg -r uraam-termux 2>/dev/null || true
+        fi
+        rm -f -- "${PREFIX}/bin/uraam"
+    else
+        if is_debian_like && is_installed_via_deb; then
+            if have_command dpkg-query &&
+               dpkg-query -W -f='${Status}' uraam 2>/dev/null |
+                   grep -q 'install ok installed'; then
+                run_as_root apt-get remove -y uraam || true
+            elif dpkg-query -W -f='${Status}' uraam-debian 2>/dev/null |
+                     grep -q 'install ok installed'; then
+                run_as_root apt-get remove -y uraam-debian || true
+            fi
+        fi
 
-printf "%b\n" "${GREEN}[✓] URAAM has been uninstalled.${NC}"
-read -rp "Press Enter to return to menu..."
+        # Remove only the standalone executable in the standard local path.
+        if [[ -e /usr/local/bin/uraam ]]; then
+            run_as_root rm -f -- /usr/local/bin/uraam || return 1
+        fi
+    fi
+
+    msg "${GREEN}[✓] URAAM executable/package has been uninstalled.${NC}"
+    msg "${YELLOW}[!] User configuration, logs and backups were preserved.${NC}"
+    pause_menu
 }
 
+# ------------------------------------------------------------------------------
+# Main menu
+# ------------------------------------------------------------------------------
+
 show_menu() {
-while true; do
-show_logo
-local install_label="1) Install / Update URAAM"
-if is_installed_via_deb; then
-install_label="1) Update/ Reinstall URAAM deb"
-elif command -v uraam >/dev/null 2>&1; then
-install_label="1) Update / Reinstall URAAM"
-fi
+    local choice install_label
 
-echo -e "${YELLOW}Please choose an option:${NC}"
-echo -e "  ${CYAN}${install_label}${NC}"
-echo -e "  ${CYAN}2) Uninstall URAAM${NC}"
-echo -e "  ${CYAN}0) Exit${NC}"
-echo -e "${BLUE}---------------------------------------${NC}"
-read -rp "Enter choice[0-2]: " choice
+    while true; do
+        show_logo
 
-case "$choice" in
-1)
-deb_uraam
-;;
-2)
-uninstall_uraam
-;;
-0)
-clear
-printf "%b\n" "${GREEN}Goodbye!${NC}"
-exit 0
-;;
-*)
-printf "%b\n" "${RED}[!] Invalid choice.${NC}"
-sleep 1
-;;
-esac
-done
+        install_label="1) Install / Update URAAM"
+        if is_installed_via_deb; then
+            install_label="1) Update / Reinstall URAAM (.deb)"
+        elif have_command uraam; then
+            install_label="1) Update / Reinstall URAAM"
+        fi
+
+        msg "${YELLOW}Please choose an option:${NC}"
+        msg "  ${CYAN}${install_label}${NC}"
+        msg "  ${CYAN}2) Uninstall URAAM${NC}"
+        msg "  ${CYAN}0) Exit${NC}"
+        msg "${BLUE}---------------------------------------${NC}"
+
+        read -r -p "Enter choice [0-2]: " choice || choice="0"
+
+        case "$choice" in
+            1) deb_uraam ;;
+            2) uninstall_uraam ;;
+            0)
+                [[ -t 1 ]] && clear 2>/dev/null || true
+                msg "${GREEN}Goodbye!${NC}"
+                return 0
+                ;;
+            *)
+                msg "${RED}[!] Invalid choice.${NC}"
+                sleep 1
+                ;;
+        esac
+    done
 }
 
 main() {
-check_dependencies
-show_menu
+    term_set_storage
+
+    if ! check_dependencies; then
+        msg "${RED}[X] Dependency check failed. Exiting.${NC}"
+        return 1
+    fi
+
+    show_menu
 }
 
 main "$@"
