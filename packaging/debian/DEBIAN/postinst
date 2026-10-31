@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 ln -sf /usr/share/uraam/uraam.sh /usr/bin/uraam
 chmod +x /usr/share/uraam/uraam.sh
 exit 0
