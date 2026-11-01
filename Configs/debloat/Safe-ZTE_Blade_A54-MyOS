@@ -1,0 +1,167 @@
+{
+  "name": "ZTE Blade A54 Debloat",
+  "description": "Safe bloatware, telemetry, Facebook, Spreadtrum diagnostics, and junk removal for ZTE Blade A54",
+  "author": "Ruvyrom",
+  "version": "1.0.0",
+  "apps": [
+    {
+      "packageName": "cn.zte.recorder"
+    },
+    {
+      "packageName": "com.android.cellbroadcast.overlay"
+    },
+    {
+      "packageName": "com.android.egg"
+    },
+    {
+      "packageName": "com.android.providers.partnerbookmarks"
+    },
+    {
+      "packageName": "com.android.remoteprovisioner"
+    },
+    {
+      "packageName": "com.android.theme.font.notoserifsource"
+    },
+    {
+      "packageName": "com.android.traceur"
+    },
+    {
+      "packageName": "com.facebook.appmanager"
+    },
+    {
+      "packageName": "com.facebook.katana"
+    },
+    {
+      "packageName": "com.facebook.orca"
+    },
+    {
+      "packageName": "com.facebook.services"
+    },
+    {
+      "packageName": "com.google.android.adservices.api"
+    },
+    {
+      "packageName": "com.google.android.apps.docs"
+    },
+    {
+      "packageName": "com.google.android.apps.docs.editors.docs"
+    },
+    {
+      "packageName": "com.google.android.apps.docs.editors.sheets"
+    },
+    {
+      "packageName": "com.google.android.apps.maps"
+    },
+    {
+      "packageName": "com.google.android.apps.restore"
+    },
+    {
+      "packageName": "com.google.android.apps.translate"
+    },
+    {
+      "packageName": "com.google.android.apps.youtube.music"
+    },
+    {
+      "packageName": "com.google.android.as"
+    },
+    {
+      "packageName": "com.google.android.as.oss"
+    },
+    {
+      "packageName": "com.google.android.calculator"
+    },
+    {
+      "packageName": "com.google.android.calendar"
+    },
+    {
+      "packageName": "com.google.android.federatedcompute"
+    },
+    {
+      "packageName": "com.google.android.feedback"
+    },
+    {
+      "packageName": "com.google.android.gm"
+    },
+    {
+      "packageName": "com.google.android.gms.location.history"
+    },
+    {
+      "packageName": "com.google.android.gms.supervision"
+    },
+    {
+      "packageName": "com.google.android.gmsintegration"
+    },
+    {
+      "packageName": "com.google.android.keep"
+    },
+    {
+      "packageName": "com.google.android.ondevicepersonalization.services"
+    },
+    {
+      "packageName": "com.google.android.onetimeinitializer"
+    },
+    {
+      "packageName": "com.google.android.tag"
+    },
+    {
+      "packageName": "com.google.mainline.adservices"
+    },
+    {
+      "packageName": "com.instagram.android"
+    },
+    {
+      "packageName": "com.sprd.cameracalibration"
+    },
+    {
+      "packageName": "com.sprd.engineermode"
+    },
+    {
+      "packageName": "com.sprd.linkturbo"
+    },
+    {
+      "packageName": "com.sprd.logmanager"
+    },
+    {
+      "packageName": "com.sprd.srmi"
+    },
+    {
+      "packageName": "com.sprd.uasetting"
+    },
+    {
+      "packageName": "com.sprd.validationtools"
+    },
+    {
+      "packageName": "com.spreadtrum.sgps"
+    },
+    {
+      "packageName": "com.zhiliaoapp.musically"
+    },
+    {
+      "packageName": "com.zte.easymode"
+    },
+    {
+      "packageName": "com.zte.emode"
+    },
+    {
+      "packageName": "com.zte.onekeycp"
+    },
+    {
+      "packageName": "com.zte.privacyzone"
+    },
+    {
+      "packageName": "com.zte.setupwizard"
+    },
+    {
+      "packageName": "com.zte.zbackup.platservice"
+    },
+    {
+      "packageName": "com.zte.zdmdaemon"
+    },
+    {
+      "packageName": "com.zte.zdmdaemon.install"
+    },
+    {
+      "packageName": "zpub.res"
+    }
+  ]
+}
