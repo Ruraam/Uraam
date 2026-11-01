@@ -219,8 +219,8 @@ show_logo() {
             \:::::||:| |:\|:| |:||:| |:||:| |:|
 EOF
     printf '%b' "$NC"
-    msg "         ${BOLD}${WHITE}Universal Ruvomain Android App Manager${NC}"
-    msg "         ${DIM}Installer & Maintenance Engine v${CURRENT_VERSION}${NC}"
+    msg "          ${BOLD}${WHITE}Universal Ruvomain Android App Manager${NC}"
+    msg "          ${DIM}Installer & Maintenance Engine v${CURRENT_VERSION}${NC}"
     printf '\n'
     msg "  ╭─────────────────────────────────────────────────────╮"
     printf "  │  ${BLUE}%-11s${NC} : %-37s│\n" "Platform" "${CURRENT_MODEL:-Linux / Generic}"
