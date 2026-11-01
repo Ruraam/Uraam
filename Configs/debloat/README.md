@@ -19,8 +19,8 @@ You have a specific device? Create your JSON list or Canta restoration JSON list
     {
       "packageName": "your.package.name"
     }
-   ]
-  }
+  ]
+}
 ```
 
 For using your liste with URAAM ruvomain-debloat script:
