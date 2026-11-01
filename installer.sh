@@ -92,7 +92,7 @@ pause_menu() {
 confirm_yes() {
     local prompt="$1"
     local answer=""
-    printf "  ${YELLOW}?${NC} %s ${DIM}[y/N]${NC}: " "$prompt"
+    printf "  ${YELLOW}?${NC} %b ${DIM}[y/N]${NC}: " "$prompt"
     read -r answer || true
     [[ "$answer" =~ ^[yY]([eE][sS])?$ ]]
 }
@@ -225,7 +225,7 @@ EOF
     msg "  ╭─────────────────────────────────────────────────────╮"
     printf "  │  ${BLUE}%-11s${NC} : %-37s│\n" "Platform" "${CURRENT_MODEL:-Linux / Generic}"
     printf "  │  ${BLUE}%-11s${NC} : %-37s│\n" "Repository" "${REPO_OWNER}/${REPO_NAME}"
-    printf "  │  ${BLUE}%-11s${NC} : %-37s              │\n" "Runtime" "$(have_command uraam && printf "${GREEN}Detected${NC}" || printf "${GRAY}Not detected${NC}")"
+    printf "  │  ${BLUE}%-11s${NC} : %-37s               │\n" "Runtime" "$(have_command uraam && printf "${GREEN}Detected${NC}" || printf "${GRAY}Not detected${NC}")"
     msg "  ╰─────────────────────────────────────────────────────╯"
     printf '\n'
 }
