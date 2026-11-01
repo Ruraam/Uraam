@@ -1,0 +1,65 @@
+{
+  "name": "Samsung Galaxy - Battery-Focused Configuration",
+  "description":"Battery optimization preset tested for OneUI 8.0 / Galaxy S25 Edge series. Strips preloaded social apps, heavy Google background sync services, Samsung Gaming/GOS, AR engines, and bloatware while preserving core telephony, Knox, Camera, and Samsung Pay.",
+  "author": "Antisocial",
+  "version": "1.0.0",
+  "apps": [
+    {
+    "packageName": "com.facebook.katana"
+    },
+    {
+    "packageName": "com.facebook.system"
+    },
+    {
+    "packageName": "com.facebook.services"
+    },
+    {
+    "packageName": "com.google.android.apps.youtube.music"
+    },
+    {
+    "packageName": "com.google.android.videos"
+    },
+    {
+    "packageName": "com.google.android.apps.docs"
+    },
+    {
+    "packageName": "com.google.android.apps.photos"
+    },
+    {
+    "packageName": "com.google.android.apps.tachyon"
+    },
+    {
+    "packageName": "com.samsung.android.game.gamehome"
+    },
+    {
+    "packageName": "com.samsung.android.game.gametools"
+    },
+    {
+    "packageName": "com.samsung.android.game.gos"
+    },
+    {
+    "packageName": "com.samsung.android.arzone"
+    },
+    {
+    "packageName": "com.samsung.android.aremoji"
+    },
+    {
+    "packageName": "com.samsung.android.tvplus"
+    },
+    {
+    "packageName": "com.samsung.android.voc"
+    },
+    {
+    "packageName": "com.microsoft.office.outlook"
+    },
+    {
+    "packageName": "com.amazon.mShop.android.shopping"
+    },
+    {
+    "packageName": "com.netflix.mediaclient"
+    },
+    {
+    "packageName": "com.linkedin.android"
+    }
+  ]
+}
