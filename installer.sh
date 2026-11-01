@@ -213,19 +213,19 @@ show_logo() {
 
     printf '%b' "$PURPLE"
     cat <<'EOF'
-             _    _  _____   ___    ___   _   _
-            |:|  |:||:::::\ /:::\  /:::\ |:\ /:|
-            |:|\_|:||:|,|:||:|,|:||:|,|:||:|"|:|
-             \:::::||:| |:\|:| |:||:| |:||:| |:|
+            _    _  _____   ___    ___   _   _
+           |:|  |:||:::::\ /:::\  /:::\ |:\ /:|
+           |:|\_|:||:|,|:||:|,|:||:|,|:||:|"|:|
+            \:::::||:| |:\|:| |:||:| |:||:| |:|
 EOF
     printf '%b' "$NC"
-    msg "            ${BOLD}${WHITE}Universal Ruvomain Android App Manager${NC}"
-    msg "            ${DIM}Installer & Maintenance Engine v${CURRENT_VERSION}${NC}"
+    msg "         ${BOLD}${WHITE}Universal Ruvomain Android App Manager${NC}"
+    msg "         ${DIM}Installer & Maintenance Engine v${CURRENT_VERSION}${NC}"
     printf '\n'
     msg "  ╭─────────────────────────────────────────────────────╮"
     printf "  │  ${BLUE}%-11s${NC} : %-37s│\n" "Platform" "${CURRENT_MODEL:-Linux / Generic}"
     printf "  │  ${BLUE}%-11s${NC} : %-37s│\n" "Repository" "${REPO_OWNER}/${REPO_NAME}"
-    printf "  │  ${BLUE}%-11s${NC} : %-37s               │\n" "Runtime" "$(have_command uraam && printf "${GREEN}Detected${NC}" || printf "${GRAY}Not detected${NC}")"
+    printf "  │  ${BLUE}%-11s${NC} : %-37s              │\n" "Runtime" "$(have_command uraam && printf "${GREEN}Detected${NC}" || printf "${GRAY}Not detected${NC}")"
     msg "  ╰─────────────────────────────────────────────────────╯"
     printf '\n'
 }
