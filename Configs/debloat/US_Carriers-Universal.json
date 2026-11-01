@@ -14,6 +14,39 @@
     "packageName": "com.vcast.mediamanager"
     },
     {
+    "packageName": "com.vzw.apnservice"
+    },
+    {
+    "packageName": "com.vzw.ecid"
+    },
+    {
+    "packageName": "com.vcast.mediamanager"
+    },
+    {
+    "packageName": "com.asurion.android.verizon.vms"
+    },
+    {
+    "packageName": "com.verizon.llkagent"
+    },
+    {
+    "packageName": "com.verizon.services"
+    },
+    {
+    "packageName": "com.verizon.mips.services"
+    },
+    {
+    "packageName": "com.verizon.obdm"
+    },
+    {
+    "packageName": "com.motricity.verizon.ssodownloadable"
+    },
+    {
+    "packageName": "com.verizon.messaging.vzmsgs"
+    },
+    {
+    "packageName": "com.verizon.cloud"
+    },
+    {
     "packageName": "com.att.android.attsmartwifi"
     },
     {
