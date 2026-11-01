@@ -14,13 +14,7 @@
     "packageName": "com.vcast.mediamanager"
     },
     {
-    "packageName": "com.vzw.apnservice"
-    },
-    {
     "packageName": "com.vzw.ecid"
-    },
-    {
-    "packageName": "com.vcast.mediamanager"
     },
     {
     "packageName": "com.asurion.android.verizon.vms"
@@ -60,6 +54,12 @@
     },
     {
     "packageName": "com.tmobile.pr.mytmobile"
+    },
+    }
+    "packageName": "com.tmobile.services.nameid"
+    },
+    {
+    "packageName": "com.tmobile.tmoplus"
     },
     {
     "packageName": "com.sprint.zone"
