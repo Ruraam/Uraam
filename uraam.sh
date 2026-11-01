@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # URAAM - Universal Ruvomain ADB App-Manager
-# Hardened maintenance release based on v4.4.6
+# Hardened maintenance release based on v4.4.7
 #
 # Compatible with: Debian/Linux, Android Termux
 # Backends: ADB, local ROOT, Shizuku (rish)
@@ -54,6 +54,45 @@ CURRENT_MODEL=""
 LOGFILE=""
 BACKEND_SERIAL="${ANDROID_SERIAL:-}"
 
+# ---------------------------------------------------------------------------
+# Strict Safety Whitelist (Anti-Bootloop & Critical Framework Guard)
+# ---------------------------------------------------------------------------
+SAFETY_WHITELIST=(
+    # Core Android Framework & System UI
+    "android"
+    "com.android.systemui"
+    "com.android.settings"
+    "com.android.settings.intelligence"
+    "com.android.keyguard"
+    "com.android.wallpaper.livepicker"
+
+    # Package & Permission Managers (Critical to install/manage anything)
+    "com.android.packageinstaller"
+    "com.android.permissioncontroller"
+    "com.google.android.permissioncontroller"
+    "com.google.android.packageinstaller"
+
+    # Core Telecom & Emergency Layer
+    "com.android.phone"
+    "com.android.server.telecom"
+    "com.android.providers.telephony"
+    "com.android.emergency"
+
+    # Core Data Providers & Cryptographic Store
+    "com.android.providers.settings"
+    "com.android.providers.media"
+    "com.android.providers.downloads"
+    "com.android.providers.contacts"
+    "com.android.keychain"
+    "com.android.certinstaller"
+    "com.android.inputdevices"
+
+    # Google Play Core Architecture
+    "com.google.android.gms"
+    "com.google.android.gsf"
+    "com.android.vending"
+)
+
 # Terminal colors (disabled automatically when output is not a terminal).
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
     BLUE=$'\033[0;34m'; BOLD=$'\033[1m'; CYAN=$'\033[0;36m'
@@ -78,13 +117,23 @@ pause() {
     read -r -p "Press Enter to continue..." _ || true
 }
 
+is_whitelisted() {
+    local target="$1"
+    local safe_pkg
+    for safe_pkg in "${SAFETY_WHITELIST[@]}"; do
+        [[ "$safe_pkg" == "$target" ]] && return 0
+    done
+    return 1
+}
+
 show_logo() {
     [[ -t 1 ]] && clear
     msg "${PURPLE}"
     cat <<'EOF'
-          ::| ::|::::::\ ::::\  ::::\ ::::::|
-          ::|_::|::|,::|::|,::|::|,::|:::"::|
-          `:::::|::| ::\::| ::|::| ::|::| ::|
+  _    _  _____   ___    ___   _   _
+ |:|  |:||:::::\ /:::\  /:::\ |:\ /:|
+ |:|\_|:||:|,|:||:|,|:||:|,|:||:|"|:|
+  \:::::||:| |:\|:| |:||:| |:||:| |:|
 EOF
     msg "${NC}"
 }
@@ -104,7 +153,7 @@ is_installed_via_deb() {
 init_directories() {
     local dir
     for dir in "$USER_DEBLOAT_DIR" "$BACKUPS_DIR" "$APP_DIR" \
-               "$LOGD_DIR" "$LOGB_DIR" "$LOGR_DIR"; do
+        "$LOGD_DIR" "$LOGB_DIR" "$LOGR_DIR"; do
         if ! mkdir -p -- "$dir"; then
             err "Cannot create directory: $dir"
             return 1
@@ -113,7 +162,7 @@ init_directories() {
 
     # Seed bundled configurations only when the user's directory is empty.
     if [[ -d "$SYSTEM_DEBLOAT_DIR" ]] &&
-       ! find "$USER_DEBLOAT_DIR" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null | grep -q .; then
+        ! find "$USER_DEBLOAT_DIR" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null | grep -q .; then
         find "$SYSTEM_DEBLOAT_DIR" -maxdepth 1 -type f -name '*.json' \
             -exec cp -n -- '{}' "$USER_DEBLOAT_DIR/" \; 2>/dev/null || true
     fi
@@ -189,8 +238,6 @@ ensure_jq() {
 
 # ---------------------------------------------------------------------------
 # Device execution layer
-# Do not store commands such as "adb shell" in a string and expand them.
-# Arguments remain distinct for ADB. Root/Shizuku command strings are escaped.
 # ---------------------------------------------------------------------------
 
 shell_quote_args() {
@@ -230,10 +277,10 @@ run_device() {
 device_getprop() {
     local property="$1"
     case "$EXEC_TYPE" in
-        ADB) run_adb getprop "$property" 2>/dev/null ;;
-        ROOT) run_root getprop "$property" 2>/dev/null ;;
+        ADB)     run_adb getprop "$property" 2>/dev/null ;;
+        ROOT)    run_root getprop "$property" 2>/dev/null ;;
         SHIZUKU) run_shizuku getprop "$property" 2>/dev/null ;;
-        *) getprop "$property" 2>/dev/null ;;
+        *)       getprop "$property" 2>/dev/null ;;
     esac
 }
 
@@ -257,7 +304,6 @@ detect_backend_status() {
     EXEC_TYPE=""
     BACKEND_SERIAL="${ANDROID_SERIAL:-}"
 
-    # Prefer an explicitly connected ADB target.
     if command -v adb >/dev/null 2>&1; then
         local devices serial
         devices="$(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {print $1}')"
@@ -274,14 +320,13 @@ detect_backend_status() {
         fi
     fi
 
-    # On-device Termux: use ROOT first, then Shizuku.
     if [[ -z "$EXEC_TYPE" ]] && is_termux; then
         if [[ "$(id -u)" -eq 0 ]]; then
             EXEC_TYPE="ROOT"
         elif command -v su >/dev/null 2>&1 && su -c id >/dev/null 2>&1; then
             EXEC_TYPE="ROOT"
         elif [[ -z "${BACKEND:-}" ]] && command -v rish >/dev/null 2>&1 &&
-             printf 'exit\n' | rish >/dev/null 2>&1; then
+            printf 'exit\n' | rish >/dev/null 2>&1; then
             EXEC_TYPE="SHIZUKU"
         fi
     fi
@@ -425,7 +470,6 @@ wireless_menu() {
 
 # ---------------------------------------------------------------------------
 # JSON configuration parsing
-# Supports legacy Canta/UAD-like forms and URAAM packageName/package objects.
 # ---------------------------------------------------------------------------
 
 validate_json_file() {
@@ -439,22 +483,22 @@ load_packages_from_json() {
     validate_json_file "$file" || return 1
 
     mapfile -t PACKAGES < <(jq -r '
-      def extract:
-        if type == "string" then
-          select(test("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$"))
-        elif type == "object" then
-          (.packageName // .package // .id // empty) |
-          select(type == "string" and test("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$"))
-        elif type == "array" then
-          .[] | extract
-        else empty end;
+        def extract:
+            if type == "string" then
+                select(test("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$"))
+            elif type == "object" then
+                (.packageName // .package // .id // empty) |
+                select(type == "string" and test("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$"))
+            elif type == "array" then
+                .[] | extract
+            else empty end;
 
-      if type == "object" and (.apps | type) == "array" then
-        .apps[] | extract
-      elif type == "object" and (.packages | type) == "array" then
-        .packages[] | extract
-      elif type == "array" then .[] | extract
-      else extract end
+        if type == "object" and (.apps | type) == "array" then
+            .apps[] | extract
+        elif type == "object" and (.packages | type) == "array" then
+            .packages[] | extract
+        elif type == "array" then .[] | extract
+        else extract end
     ' "$file" 2>/dev/null | sort -u)
 
     ((${#PACKAGES[@]} > 0)) || { err "No valid Android package IDs found in $file."; return 1; }
@@ -488,7 +532,7 @@ select_json_file() {
 device_package_list() {
     local mode="${1:-active}"
     case "$mode" in
-        all) run_device pm list packages -u --user 0 ;;
+        all)    run_device pm list packages -u --user 0 ;;
         active) run_device pm list packages --user 0 ;;
         *) return 2 ;;
     esac | sed -n 's/^package://p' | tr -d '\r' | sort -u
@@ -496,7 +540,7 @@ device_package_list() {
 
 package_is_installed() {
     local package="$1" installed="$2"
-    grep -Fxq -- "$package" <<<"$installed"
+    grep -Fxq -- "$package" <<< "$installed"
 }
 
 uraam_debloat() {
@@ -528,9 +572,17 @@ uraam_debloat() {
     start_log debloat "$LOGD_DIR" uraam-debloat || return 1
     installed="$(device_package_list all)" || { err "Cannot query device packages."; return 1; }
 
-    local success=0 skipped=0 failed=0
+    local success=0 skipped=0 failed=0 protected=0
     for pkg in "${PACKAGES[@]}"; do
         printf '%s: ' "$pkg"
+
+        # Intercept critical system framework packages before any operation
+        if is_whitelisted "$pkg"; then
+            err "PROTECTED by Safety Whitelist; operation denied"
+            ((protected+=1))
+            continue
+        fi
+
         if ! package_is_installed "$pkg" "$installed"; then
             warn "not installed; skipped"
             ((skipped+=1))
@@ -557,7 +609,7 @@ uraam_debloat() {
     done
 
     msg "${BLUE}----------------------------------------${NC}"
-    msg "Summary: ${GREEN}$success succeeded${NC}, ${YELLOW}$skipped skipped${NC}, ${RED}$failed failed${NC}."
+    msg "Summary: ${GREEN}$success succeeded${NC}, ${PURPLE}$protected protected${NC}, ${YELLOW}$skipped skipped${NC}, ${RED}$failed failed${NC}."
     msg "Log: $LOGFILE"
     pause
 }
@@ -578,11 +630,13 @@ ubackup() {
 
     comm -23 <(printf '%s\n' "$all_pkgs") <(printf '%s\n' "$active_pkgs") |
         jq -R -s --arg date "$date_str" --arg model "$model" --arg android "$android_ver" '
-          [split("\n")[] | select(test("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$")) | {packageName:.}] as $apps
-          | {name:("Uraam_Restore_List_"+$date),
-             description:"Packages not currently installed for Android user 0",
-             author:"URAAM", version:"4.4.4",
-             device:$model, android_version:$android, created_at:$date, apps:$apps}
+            [split("\n")[] | select(test("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$")) | {packageName:.}] as $apps
+            | {
+                name:("Uraam_Restore_List_"+$date),
+                description:"Packages not currently installed for Android user 0",
+                author:"URAAM", version:"4.4.6",
+                device:$model, android_version:$android, created_at:$date, apps:$apps
+            }
         ' > "$output_file" || { rm -f "$output_file"; return 1; }
 
     local count
@@ -641,8 +695,6 @@ uraam_restore() {
 
 # ---------------------------------------------------------------------------
 # APK installation
-# ADB uses 'adb install' with a host-side path. Local ROOT/Shizuku pushes the
-# APK to a temporary device path, then invokes pm install on that device.
 # ---------------------------------------------------------------------------
 
 install_one_apk() {
@@ -656,8 +708,6 @@ install_one_apk() {
             "${cmd[@]}" install -r -g "$apk"
             ;;
         ROOT)
-            # In local Termux mode, su can read Termux's private app directory.
-            # Copy to a shell-readable temporary location before invoking pm.
             su -c "cp $(printf '%q' "$apk") $(printf '%q' "$remote")" || return 1
             run_device pm install -r -g "$remote"
             local result=$?
@@ -665,8 +715,6 @@ install_one_apk() {
             return "$result"
             ;;
         SHIZUKU)
-            # The Android shell UID cannot normally read Termux's private files.
-            # Stage the APK in shared Downloads, which is accessible to both apps.
             local shared_dir="$HOME/storage/downloads/URAAM"
             local shared_apk="$shared_dir/$(basename "$apk")"
             [[ -d "$HOME/storage" ]] || {
@@ -758,8 +806,6 @@ vl_menu() {
 
 # ---------------------------------------------------------------------------
 # Update engine
-# Non-Debian/script install: update the actual resolved script path.
-# Debian package install: fetch latest GitHub release asset and install it.
 # ---------------------------------------------------------------------------
 
 update_uraam() {
@@ -825,22 +871,22 @@ check_and_update() {
         return 1
     }
 
-    latest_tag="$(jq -r '.tag_name // empty' <<<"$release_json")"
+    latest_tag="$(jq -r '.tag_name // empty' <<< "$release_json")"
     [[ -n "$latest_tag" ]] || {
         err "No published GitHub release found."
-        jq -r '.message // empty' <<<"$release_json"
+        jq -r '.message // empty' <<< "$release_json"
         pause
         return 1
     }
 
     remote_ver="${latest_tag#v}"
     local_ver="$(dpkg-query -W -f='${Version}' uraam 2>/dev/null || \
-                 dpkg-query -W -f='${Version}' uraam-debian 2>/dev/null || true)"
+        dpkg-query -W -f='${Version}' uraam-debian 2>/dev/null || true)"
     local_ver="${local_ver#v}"
     printf 'Installed: %s\nLatest:    %s\n' "${local_ver:-unknown}" "$remote_ver"
     [[ "$local_ver" == "$remote_ver" ]] && { ok "URAAM is up to date."; pause; return 0; }
 
-    deb_url="$(jq -r '.assets[]? | select(.name | test("uraam-debian.*\\.deb$")) | .browser_download_url' <<<"$release_json" | head -n1)"
+    deb_url="$(jq -r '.assets[]? | select(.name | test("uraam-debian.*\\.deb$")) | .browser_download_url' <<< "$release_json" | head -n1)"
     [[ -n "$deb_url" && "$deb_url" != null ]] || {
         err "A new release exists, but no uraam-debian .deb asset was found."
         pause
@@ -878,7 +924,7 @@ check_and_update() {
 show_main_menu() {
     show_logo
     msg "${BLUE}--------------------------------------------------------${NC}"
-    msg "             ${CYAN}=== URAAM v${URAAM_VERSION} Dashboard ===${NC}"
+    msg "${CYAN}=== URAAM v${URAAM_VERSION} Dashboard ===${NC}"
     msg "${BLUE}--------------------------------------------------------${NC}"
     detect_backend_status || true
     msg "${BLUE}--------------------------------------------------------${NC}"
