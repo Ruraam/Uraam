@@ -1,0 +1,86 @@
+{
+  "name": "Samsung Galaxy Z Fold 8 - OneUI 9 Debloat",
+  "description": "Safe and optional debloat list for Galaxy Z Fold 8 (SM-F971U1 / SM-F971B) and OneUI 9 / Android 17 devices.",
+  "author": "Antisocial",
+  "version": "1.0.0",
+  "apps": [
+    {
+    "packageName": "com.sec.android.widgetapp.easymodecontactswidget"
+    },
+    {
+    "packageName": "com.samsung.android.service.peoplestripe"
+    },
+    {
+    "packageName": "com.samsung.android.coldwalletservice"
+    },
+    {
+    "packageName": "com.samsung.android.warrantycare"
+    },
+    {
+    "packageName": "com.samsung.gpuwatchapp"
+    },
+    {
+    "packageName": "com.google.android.glasses.core"
+    },
+    {
+    "packageName": "com.google.android.apps.accessibility.voiceaccess"
+    },
+    {
+    "packageName": "com.android.virtualization.terminal"
+    },
+    {
+    "packageName": "com.android.egg"
+    },
+    {
+    "packageName": "com.samsung.SMT.lang_es_mx_f00"
+    },
+    {
+    "packageName": "com.samsung.SMT.lang_es_us_l01"
+    },
+    {
+    "packageName": "com.samsung.SMT.lang_pt_br_l01"
+    },
+    {
+    "packageName": "com.samsung.android.smartsuggestions"
+    },
+    {
+    "packageName": "com.samsung.android.app.vex.scanner"
+    },
+    {
+    "packageName": "com.sec.android.app.vepreload"
+    },
+    {
+    "packageName": "com.sec.android.app.magnifier"
+    },
+    {
+    "packageName": "com.samsung.android.fast"
+    },
+    {
+    "packageName": "com.samsung.android.da.daagent"
+    },
+    {
+    "packageName": "com.samsung.accessory.budsunitemgr"
+    },
+    {
+    "packageName": "com.samsung.android.hwresourceshare"
+    },
+    {
+    "packageName": "com.samsung.android.mcf.autohotspot"
+    },
+    {
+    "packageName": "com.samsung.android.drivingplus"
+    },
+    {
+    "packageName": "com.google.android.apps.aiwallpapers"
+    },
+    {
+    "packageName": "com.google.ambient.streaming"
+    },
+    {
+    "packageName": "com.samsung.android.widget.pictureframe"
+    },
+    {
+    "packageName": "com.samsung.android.service.tagservice"
+    }
+  ]
+}
