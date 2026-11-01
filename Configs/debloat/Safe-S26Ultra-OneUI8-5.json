@@ -1,0 +1,155 @@
+{
+  "name": "Galaxy S26 Ultra / OneUI 8.5 Debloat List",
+  "description":"Verified package list for Galaxy S26 Ultra (SM-S948B/U1) running OneUI 8.5 (Android 16). Backward compatible with Galaxy S25 and S26 series.",
+  "author": "Romain",
+  "version": "1.0.0",
+  "apps": [
+    {
+    "packageName": "com.mygalaxy"
+    },
+    {
+    "packageName": "com.samsung.android.app.moments"
+    },
+    {
+    "packageName": "com.samsung.android.app.watchmanagerstub"
+    },
+    {
+    "packageName": "com.samsung.android.beaconmanager"
+    },
+    {
+    "packageName": "com.samsung.android.inputshare"
+    },
+    {
+    "packageName": "com.samsung.android.liveeffectservice"
+    },
+    {
+    "packageName": "com.samsung.android.stickercenter"
+    },
+    {
+    "packageName": "com.samsung.safetyinformation"
+    },
+    {
+    "packageName": "com.sec.android.app.personalization"
+    },
+    {
+    "packageName": "com.google.android.adservices.api"
+    },
+    {
+    "packageName": "com.google.android.apps.restore"
+    },
+    {
+    "packageName": "com.google.android.feedback"
+    },
+    {
+    "packageName": "com.google.android.printservice.recommendation"
+    },
+    {
+    "packageName": "com.google.android.gms.supervision"
+    },
+    {
+    "packageName": "com.touchtype.swiftkey"
+    },
+    {
+    "packageName": "com.swiftkey.swiftkeyconfigurator"
+    },
+    {
+    "packageName": "com.samsung.SMT.lang_ar_ae_m00"
+    },
+    {
+    "packageName": "com.samsung.SMT.lang_de_de_f00"
+    },
+    {
+    "packageName": "com.samsung.SMT.lang_en_gb_f00"
+    },
+    {
+    "packageName": "com.samsung.SMT.lang_es_es_f00"
+    },
+    {
+    "packageName": "com.samsung.SMT.lang_es_mx_f00"
+    },
+    {
+    "packageName": "com.samsung.SMT.lang_es_us_f00"
+    },
+    {
+    "packageName": "com.samsung.SMT.lang_fr_fr_f00"
+    },
+    {
+    "packageName": "com.samsung.SMT.lang_hi_in_f00"
+    },
+    {
+    "packageName": "com.samsung.SMT.lang_id_id_f00"
+    },
+    {
+    "packageName": "com.samsung.SMT.lang_it_it_f00"
+    },
+    {
+    "packageName": "com.samsung.SMT.lang_pl_pl_f00"
+    },
+    {
+    "packageName": "com.samsung.SMT.lang_pt_br_f00"
+    },
+    {
+    "packageName": "com.samsung.SMT.lang_ru_ru_f00"
+    },
+    {
+    "packageName": "com.samsung.SMT.lang_th_th_f00"
+    },
+    {
+    "packageName": "com.samsung.SMT.lang_vi_vn_f00"
+    },
+    {
+    "packageName": "com.samsung.android.smartsuggestions"
+    },
+    {
+    "packageName": "com.hiya.star"
+    },
+    {
+    "packageName": "com.samsung.petservice"
+    },
+    {
+    "packageName":"com.samsung.android.scloud"
+    },
+    {
+    "packageName": "com.sec.spp.push"
+    },
+    {
+    "packageName": "com.sec.location.nsflp2"
+    },
+    {
+    "packageName": "com.samsung.android.mcfds"
+    },
+    {
+    "packageName": "com.samsung.android.mdm"
+    },
+    {
+    "packageName": "com.samsung.android.bbc.bbcagent"
+    },
+    {
+    "packageName": "com.samsung.oda.agent"
+    },
+    {
+    "packageName": "com.samsung.oda.service"
+    },
+    {
+    "packageName": "com.samsung.sait.sohservice"
+    },
+    {
+    "packageName": "com.google.android.verifier"
+    },
+    {
+    "packageName": "com.sec.android.app.SecSetupWizard"
+    },
+    {
+    "packageName": "com.sec.android.app.setupwizardlegalprovider"
+    },
+    {
+    "packageName": "com.samsung.android.mhs.ai"
+    },
+    {
+    "packageName": "com.samsung.android.mocca"
+    },
+    {
+    "packageName": "com.samsung.android.moaiapc"
+    }
+  ]
+}
