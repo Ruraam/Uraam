@@ -293,11 +293,13 @@ Stable environment. No critical system crashes or UI stutters detected in daily 
 *I am not responsible for any issues resulting from system modifications. Always perform a data backup before deployment.*
 
 ---
-#### My other project on github
 
-*[ULPM - Universal Linux Package Manager & Autonomous Containerized Bundle Engine](https://github.com/Ruraam/ulpm)*
+## 🛠️ Related Projects
 
-*[Debup - Search, discover, track, install, and upgrade .deb packages directly from APT & GitHub Releases simultaneously](https://github.com/Ruraam/debup)*
+* [**BubbleOS - An experimental Linux operating system built around theLinux kernel and the ULPM/LPK ecosystem**](https://github.com/Ruraam/Bubbleos) [![Stars](https://img.shields.io/github/stars/Ruraam/Bubbleos?style=flat-square&logo=github&color=yellow)](https://github.com/Ruraam/Bubbleos/stargazers)
 
+* [**ULPM - Universal Linux Package Manager & Autonomous Containerized Bundle Engine**](https://github.com/Ruraam/ulpm) [![Stars](https://img.shields.io/github/stars/Ruraam/ulpm?style=flat-square&logo=github&color=yellow)](https://github.com/Ruraam/ulpm/stargazers)
+
+* [**Debup - Search, discover, track, install, and upgrade .deb packages directly from APT & GitHub Releases simultaneously**](https://github.com/Ruraam/debup) [![Stars](https://img.shields.io/github/stars/Ruraam/debup?style=flat-square&logo=github&color=yellow)](https://github.com/Ruraam/debup/stargazers)
 
 
