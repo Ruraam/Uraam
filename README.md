@@ -3,7 +3,7 @@
 </p>
 
 <div align="center" style="background-color: #151B22; display: inline-block">
-<img src="assets/uraam_logo.jpg" width="200">
+<img src="https://raw.githubusercontent.com/Ruraam/Uraam/4185dd1cf55c773c79963ea467fbca92600c41c5/assets/uraam_logo.svg" width="500">
 </div>
 
 &nbsp;
@@ -25,9 +25,9 @@
 <img src="https://img.shields.io/badge/ License GPLv3-black?style=for-the-badge&color=151B22" alt="License"height="25">
 </p>
 
-# URAAM - Universal Ruvomain ADB App Manager</p>
+---
 
-URAAM is a lightweight, fully open-source Bash toolkit that lets you safely **debloat**, **disable**, **backup** and **restore** Android applications.
+### URAAM is a lightweight, fully open-source Bash toolkit that lets you safely **debloat**, **disable**, **backup** and **restore** Android applications.
 
 - Works on **Termux** (Wireless ADB / Shizuku / Root)
 - Works on **Linux, macOS and WSL** via ADB
