@@ -292,10 +292,10 @@ Stable environment. No critical system crashes or UI stutters detected in daily 
 
 ## 🛠️ Related Projects
 
-* [**BubbleOS - An experimental Linux operating system built around theLinux kernel and the ULPM/LPK ecosystem**](https://github.com/Ruraam/Bubbleos) [![Stars](https://img.shields.io/github/stars/Ruraam/Bubbleos?style=flat-square&logo=github&color=yellow)](https://github.com/Ruraam/Bubbleos/stargazers)
+* [**BubbleOS**](https://github.com/Ruraam/Bubbleos) <img src="https://raw.githubusercontent.com/Ruraam/Bubbleos/5a6cc5b1f9812674dcfc11f04e8ee0af17e24ed6/assets/bubbleos-logo.svg" width="30"/> [![Stars](https://img.shields.io/github/stars/Ruraam/Bubbleos?style=flat-square&logo=github&color=yellow)](https://github.com/Ruraam/Bubbleos/stargazers) — BubbleOS is an experimental Linux operatingsystem built around the Linux kernel and the ULPM/LPK ecosystem.
 
-* [**ULPM - Universal Linux Package Manager & Autonomous Containerized Bundle Engine**](https://github.com/Ruraam/ulpm) [![Stars](https://img.shields.io/github/stars/Ruraam/ulpm?style=flat-square&logo=github&color=yellow)](https://github.com/Ruraam/ulpm/stargazers)
+*  [**Universal Linux Package Manager [ULPM]**](https://github.com/Ruraam/ulpm) <img src="https://raw.githubusercontent.com/Ruraam/ulpm/703cc478f9f814ef7b4ec0830230b2e7830d6460/assets/ulpm-logo4.svg" width="30"/> [![Stars](https://img.shields.io/github/stars/Ruraam/ulpm?style=flat-square&logo=github&color=yellow)](https://github.com/Ruraam/ulpm/stargazers) —Lightweight, rootless, zero-daemon, sandboxed `application/read-only OS runtime` for any Linux distribution. Lighter thanFlatpak or Snap.
 
-* [**Debup - Search, discover, track, install, and upgrade .deb packages directly from APT & GitHub Releases simultaneously**](https://github.com/Ruraam/debup) [![Stars](https://img.shields.io/github/stars/Ruraam/debup?style=flat-square&logo=github&color=yellow)](https://github.com/Ruraam/debup/stargazers)
+* [**Debup**](https://github.com/Ruraam/debup) <img src="https://raw.githubusercontent.com/Ruraam/debup/6c95ca64c20dff710e76a4cd3e85943b1ed4c8b2/assets/debup-icon.svg" width="30"/> [![Stars](https://img.shields.io/github/stars/Ruraam/debup?style=flat-square&logo=github&color=yellow)](https://github.com/Ruraam/debup/stargazers) - Search, discover, track, install, and upgrade .deb packages directly from APT & GitHub Releases simultaneously
 
 
