@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+<defs>
+<linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+<stop offset="0%" style="stop-color:#1E2A35;stop-opacity:1" />
+<stop offset="100%" style="stop-color:#151B22;stop-opacity:1" />
+</linearGradient>
+<linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+<stop offset="0%" style="stop-color:#4A90D9;stop-opacity:1" />
+<stop offset="100%" style="stop-color:#3DDC84;stop-opacity:1" />
+</linearGradient>
+
+<linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+<stop offset="0%" style="stop-color:#4A90D9;stop-opacity:1" />
+<stop offset="100%" style="stop-color:#3DDC84;stop-opacity:1" />
+</linearGradient>
+</defs>
+
+<circle cx="256" cy="230" r="180" fill="none" stroke="url(#ringGrad)" stroke-width="4" opacity="0.8"/>
+<circle cx="256" cy="230" r="170" fill="url(#bgGrad)" stroke="#2A3A4A" stroke-width="2"/>
+
+<path d="M 176 187 A 80 80 0 0 1 336 187 Z" fill="#3DDC84"/>
+
+<line x1="205" y1="122" x2="190" y2="87" stroke="#3DDC84" stroke-width="6" stroke-linecap="round"/>
+<line x1="307" y1="122" x2="322" y2="87" stroke="#3DDC84" stroke-width="6" stroke-linecap="round"/>
+
+<circle cx="225" cy="147" r="8" fill="#151B22"/>
+<circle cx="287" cy="147" r="8" fill="#151B22"/>
+
+<path d="M 176 195 L 336 195 L 336 315 A 20 20 0 0 1 316 335 L 196 335 A 20 20 0 0 1 176 315 Z" fill="#3DDC84"/>
+
+<rect x="142" y="198" width="28" height="100" rx="14" fill="#3DDC84"/>
+<rect x="342" y="198" width="28" height="100" rx="14" fill="#3DDC84"/>
+
+<rect x="202" y="335" width="28" height="50" rx="14" fill="#3DDC84"/>
+<rect x="282" y="335" width="28" height="50" rx="14" fill="#3DDC84"/>
+
+<rect x="196" y="215" width="120" height="90" rx="8" fill="#0D1117" stroke="#2A3A4A" stroke-width="1.5"/>
+
+<rect x="208" y="230" width="40" height="4" rx="2" fill="#3DDC84"/>
+<rect x="208" y="243" width="70" height="4" rx="2" fill="#4A90D9"/>
+<rect x="208" y="256" width="55" height="4" rx="2" fill="#FFC517"/>
+<rect x="208" y="269" width="80" height="4" rx="2" fill="#FFFFFF" opacity="0.7"/>
+
+<rect x="292" y="269" width="8" height="10" fill="#3DDC84">
+<animate attributeName="opacity" values="1;0;1" dur="1s" repeatCount="indefinite"/>
+</rect>
+
+<g fill="#FFFFFF" opacity="0.6">
+<rect x="96" y="235" width="24" height="24" rx="4" fill="none" stroke="#4A90D9" stroke-width="2"/>
+<path d="M 104 243 L 112 243 L 108 251 Z" fill="#4A90D9"/>
+
+<path d="M 404 195 L 416 207 L 404 219" stroke="#FFC517" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="416" y1="207" x2="392" y2="207" stroke="#FFC517" stroke-width="3" stroke-linecap="round"/>
+
+<path d="M 106 315 L 106 335 Q 106 345 116 350 Q 126 345 126 335 L 126 315 Z" fill="none" stroke="#3DDC84" stroke-width="2"/>
+<path d="M 111 325 L 114 330 L 121 320" stroke="#3DDC84" stroke-width="2" fill="none" stroke-linecap="round"/>
+</g>
+
+<text x="256" y="435" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="52" font-weight="700" fill="url(#textGrad)" text-anchor="middle" letter-spacing="4">URAAM</text>
+
+<text x="256" y="465" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="16" fill="#8B9DAE" text-anchor="middle" letter-spacing="2">UNIVERSAL RUVOMAIN ADB APP MANAGER</text>
+</svg>
