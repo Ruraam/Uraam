@@ -3,7 +3,7 @@
 </p>
 
 <div align="center" style="background-color: #151B22; display: inline-block">
-<img src="https://raw.githubusercontent.com/Ruraam/Uraam/4185dd1cf55c773c79963ea467fbca92600c41c5/assets/uraam_logo.svg" width="500">
+<img src="https://raw.githubusercontent.com/Ruraam/Uraam/4185dd1cf55c773c79963ea467fbca92600c41c5/assets/uraam_logo.svg" width="480">
 </div>
 
 &nbsp;
