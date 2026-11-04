@@ -24,7 +24,7 @@
 
 ---
 
-### URAAM is a lightweight, fully open-source Bash toolkit that lets you safely **debloat**, **disable**, **backup** and **restore** Android applications.
+### <img src="https://raw.githubusercontent.com/Ruraam/Uraam/8661b39541a259689e88eedc71ad98837ce4b3c4/assets/uraam_logo.svg" width="40"/> URAAM is a lightweight, fully open-source Bash toolkit that lets you safely **debloat**, **disable**, **backup** and **restore** Android applications.
 
 - Works on **Termux** (Wireless ADB / Shizuku / Root)
 - Works on **Linux, macOS and WSL** via ADB
