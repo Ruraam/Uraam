@@ -1,5 +1,5 @@
 <p align="center">
-<img src="https://img.shields.io/badge/Status | Stable-000000?logo=github&logoColor=white&style=for-the-badge&color=151B22" alt="Status"height="25"> &nbsp; <img src="https://img.shields.io/badge/Clones | 4406 (14 last days)-%23121011.svg?logo=github&logoColor=white&style=for-the-badge&color=151B22" alt="Total clones"height="25">
+<img src="https://img.shields.io/badge/Status | Stable-000000?logo=github&logoColor=white&style=for-the-badge&color=151B22" alt="Status"height="25"> &nbsp; <img src="https://img.shields.io/badge/Clones | 4406 (last 14 days)-%23121011.svg?logo=github&logoColor=white&style=for-the-badge&color=151B22" alt="Total clones"height="25">
 </p>
 <div align="center" style="background-color: #151B22; display: inline-block">
 <img src="https://raw.githubusercontent.com/Ruraam/Uraam/8661b39541a259689e88eedc71ad98837ce4b3c4/assets/uraam_logo.svg" width="480">
@@ -56,7 +56,7 @@ Designed to be simple, fast, and respectful of your device integrity.
 * 💾 **Smart Backup (JSON):** Export your current device state and package configuration to a portable JSON file.
 * 🔄 **Restore (JSON-Driven):** Revert uninstalled apps or reinstall packages seamlessly from previous backups.
 * 📶 **Wireless ADB Assistant:** Built-in pairing & connection helper for seamless PC-free or cable-free setup.
-* 🚀 **Self-Updater:** Keep URAAM up to date directly fromthe official repository with a single keypress.
+* 🚀 **Self-Updater:** Keep URAAM up to date directly from the official repository with a single keypress.
 * 📜 **Integrated Logs Viewer:** Inspect terminal history and debug operations instantly without leaving the dashboard.
 
 ## 🚀 Ready to deploy?
@@ -91,7 +91,7 @@ or
 
 ## 📁 File Layout (`~/.Uraam/`)
 
-| Folder | Purpose|| On Debian/Ubuntu with DEB version |
+| Folder | Purpose || On Debian/Ubuntu with DEB version |
 | :--- | :--- | :--- | :--- |
 | Configs | `Configs/debloat/` | Place debloat lists here (*Canta/UAD, raw JSON supported*) | $HOME/.local/share/uraam/Configs
 | Apps | `Apps/` | Place APKs to batch-install | $HOME/.local/share/uraam/Apps
@@ -175,8 +175,7 @@ Launch URAAM with this command:
 ```bash
 uraam
 ```
-> **Note:** On first run (`uraam`), accept the ADB prompt that appears on your phone screen to allowlocal device control.
-
+> **Note:** On first run (`uraam`), accept the ADB prompt that appears on your phone screen to allow local device control.
 
 ---
 
@@ -190,7 +189,7 @@ uraam
 ---
 ## Dictionary: Technical Context
 <details>
-<summary><b>⚙️ What is ADB? (Forbeginners)</b></summary>
+<summary><b>⚙️ What is ADB? (For beginners)</b></summary>
 
 ADB (Android Debug Bridge) is the core command-line utility that creates a bridge between your computer and your phone’s operating system.
 
@@ -200,13 +199,13 @@ For URAAM, ADB is our primary "privileged channel." It allows us to execute shel
 <details>
 <summary><b>🐚 What is Bash? (Why we use it)</b></summary>
 
-Bash is the scripting language that powers URAAM. We chose it for one reason: <b>transparency</b>. Unlike closed-source tools that hide their logic in a "blackbox," our Bash scripts are written in plain, readable text. This means you can personally audit, verify, and understand every single command before it touches your device. It is the foundation of a truly trust-based and auditable system.
+Bash is the scripting language that powers URAAM. We chose it for one reason: <b>transparency</b>. Unlike closed-source tools that hide their logic in a "black box," our Bash scripts are written in plain, readable text. This means you can personally audit, verify, and understand every single command before it touches your device. It is the foundation of a truly trust-based and auditable system.
 </details>
 
 <details>
 <summary><b>📄 What is JSON? (Our configuration layer)</b></summary>
 
-JSON acts as our "configuration layer." It is a simple, human-readable format that holds the data for the protocol, essentially acting as a map that tells the scripts exactly which packages to target. By separating our data (the JSON files) from our logic (the Bashscripts), we keep the protocol modular and incredibly easy to customize. You don't need to be a coder to manage these lists; you just need to edit the map.
+JSON acts as our "configuration layer." It is a simple, human-readable format that holds the data for the protocol, essentially acting as a map that tells the scripts exactly which packages to target. By separating our data (the JSON files) from our logic (the Bash scripts), we keep the protocol modular and incredibly easy to customize. You don't need to be a coder to manage these lists; you just need to edit the map.
 </details>
 
 <details>
