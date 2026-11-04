@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1E2A35;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#151B22;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="androidGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#5EE6A0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3DDC84;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4A90D9;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3DDC84;stop-opacity:1" />
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Anneau lumineux extérieur -->
+  <circle cx="256" cy="230" r="180" fill="none" stroke="url(#ringGrad)" stroke-width="4" opacity="0.8"/>
+  <circle cx="256" cy="230" r="170" fill="url(#bgGrad)" stroke="#2A3A4A" stroke-width="2"/>
+
+  <!-- Corps du robot Android -->
+  <rect x="176" y="180" width="160" height="140" rx="20" fill="url(#androidGrad)" filter="url(#glow)"/>
+  
+  <!-- Tête du robot -->
+  <rect x="186" y="130" width="140" height="70" rx="35" fill="url(#androidGrad)"/>
+  
+  <!-- Antennes -->
+  <line x1="210" y1="120" x2="195" y2="95" stroke="#3DDC84" stroke-width="6" stroke-linecap="round"/>
+  <line x1="302" y1="120" x2="317" y2="95" stroke="#3DDC84" stroke-width="6" stroke-linecap="round"/>
+  
+  <!-- Yeux -->
+  <circle cx="225" cy="160" r="8" fill="#151B22"/>
+  <circle cx="287" cy="160" r="8" fill="#151B22"/>
+  
+  <!-- Bras -->
+  <rect x="146" y="190" width="30" height="100" rx="15" fill="url(#androidGrad)"/>
+  <rect x="336" y="190" width="30" height="100" rx="15" fill="url(#androidGrad)"/>
+  
+  <!-- Jambes -->
+  <rect x="200" y="320" width="30" height="50" rx="15" fill="url(#androidGrad)"/>
+  <rect x="282" y="320" width="30" height="50" rx="15" fill="url(#androidGrad)"/>
+
+  <!-- Écran terminal sur le corps du robot -->
+  <rect x="196" y="200" width="120" height="90" rx="8" fill="#0D1117" stroke="#2A3A4A" stroke-width="1.5"/>
+  
+  <!-- Lignes de terminal -->
+  <rect x="208" y="215" width="40" height="4" rx="2" fill="#3DDC84"/>
+  <rect x="208" y="228" width="70" height="4" rx="2" fill="#4A90D9"/>
+  <rect x="208" y="241" width="55" height="4" rx="2" fill="#FFC517"/>
+  <rect x="208" y="254" width="80" height="4" rx="2" fill="#FFFFFF" opacity="0.7"/>
+  
+  <!-- Curseur terminal clignotant -->
+  <rect x="292" y="254" width="8" height="10" fill="#3DDC84">
+    <animate attributeName="opacity" values="1;0;1" dur="1s" repeatCount="indefinite"/>
+  </rect>
+
+  <!-- Symboles de paquets/apps autour -->
+  <g fill="#FFFFFF" opacity="0.6">
+    <!-- Icône APK (carré avec coin arrondi) à gauche -->
+    <rect x="100" y="220" width="24" height="24" rx="4" fill="none" stroke="#4A90D9" stroke-width="2"/>
+    <path d="M108 228 L116 228 L112 236 Z" fill="#4A90D9"/>
+    
+    <!-- Icône flèche backup/restaurer en haut à droite -->
+    <path d="M400 180 L412 192 L400 204" stroke="#FFC517" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="412" y1="192" x2="388" y2="192" stroke="#FFC517" stroke-width="3" stroke-linecap="round"/>
+    
+    <!-- Icône bouclier sécurité en bas à gauche -->
+    <path d="M110 300 L110 320 Q110 330 120 335 Q130 330 130 320 L130 300 Z" fill="none" stroke="#3DDC84" stroke-width="2"/>
+    <path d="M115 310 L118 315 L125 305" stroke="#3DDC84" stroke-width="2" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <!-- Texte URAAM -->
+  <text x="256" y="420" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="52" font-weight="700" fill="#FFFFFF" text-anchor="middle" letter-spacing="4">URAAM</text>
+  
+  <!-- Sous-titre -->
+  <text x="256" y="450" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="16" fill="#8B9DAE" text-anchor="middle" letter-spacing="2">UNIVERSAL RUVOMAIN ADB APP MANAGER</text>
+</svg>
