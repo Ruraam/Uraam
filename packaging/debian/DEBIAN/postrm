@@ -1,6 +1,6 @@
 #!/bin/sh
 set -e
-rm -f /usr/bin/uraam
+rm -f /usr/bin/uraam /usr/share/applications/uraam.desktop
 if command -v update-desktop-database >/dev/null 2>&1; then
     update-desktop-database -q /usr/share/applications || true
 fi
