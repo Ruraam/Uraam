@@ -160,9 +160,6 @@
       "packageName": "com.samsung.android.audiomirroring"
     },
     {
-      "packageName": "com.sec.android.app.bluetoothagent"
-    },
-    {
       "packageName": "com.android.bluetoothmidiservice"
     },
     {
@@ -215,9 +212,6 @@
     },
     {
       "packageName": "com.samsung.android.authfw"
-    },
-    {
-      "packageName": "com.samsung.android.knox.attestation"
     },
     {
       "packageName": "com.samsung.android.knox.er"
