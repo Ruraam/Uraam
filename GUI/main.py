@@ -437,7 +437,7 @@ class UraamWindow(Gtk.ApplicationWindow):
             permission_names = [str(item) for item in requested if isinstance(item, str)]
             permission_value = f"{len(permission_names)} requested"
             permission_detail = (
-                "\\n".join(permission_names)
+                "\n".join(permission_names)
                 if permission_names else "No permission names parsed from the requested-permissions block"
             )
         else:
