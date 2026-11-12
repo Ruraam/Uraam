@@ -18,7 +18,7 @@ mkdir -p "$TMP_DIR/mockbin"
 cat > "$TMP_DIR/mockbin/timeout" <<'MOCK'
 #!/usr/bin/env bash
 [[ "$1" == "--signal=TERM" && "$2" == "--kill-after=5" ]] || exit 2
-shift 3
+shift 2
 [[ "$1" == "30s" ]] || exit 2
 shift
 [[ "${MOCK_TIMEOUT_MODE:-success}" != "expire" ]] || exit 124
