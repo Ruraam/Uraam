@@ -5,6 +5,7 @@ on:
     paths:
       - "uraam.sh"
       - "README.md"
+      - "Configs/uad/**"
       - "tests/**"
       - ".github/workflows/shell-safety.yml"
   push:
@@ -13,6 +14,7 @@ on:
       - "feat/**"
     paths:
       - "uraam.sh"
+      - "Configs/uad/**"
       - "tests/**"
       - ".github/workflows/shell-safety.yml"
   workflow_dispatch:
@@ -37,9 +39,13 @@ jobs:
         run: |
           bash -n uraam.sh
           bash -n tests/test-preview-dry-run.sh
+          python3 -m py_compile tests/validate_uad_metadata.py
 
       - name: Run ShellCheck
         run: shellcheck --severity=error uraam.sh tests/test-preview-dry-run.sh
+
+      - name: Validate bundled UAD-NG metadata
+        run: python3 tests/validate_uad_metadata.py
 
       - name: Test preview and dry-run safety
         run: bash tests/test-preview-dry-run.sh
