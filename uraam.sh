@@ -813,7 +813,7 @@ uraam_debloat() {
 
     local action mode confirm installed pkg operation_count ready_count initial_device_model
     local selection token risk category description metadata index relation oem_family oem_status rom_info rom_name rom_version initial_rom_info
-    local success=0 skipped=0 failed=0
+    local success=0 skipped=0 failed=0 remaining
     local -a pkg_dependencies=() pkg_needed_by=()
     local -a PREVIEW_PROTECTED=() PREVIEW_MISSING=()
     local -a PREVIEW_UNSAFE=() PREVIEW_UNKNOWN=() CANDIDATE_PACKAGES=() CANDIDATE_RISKS=()
