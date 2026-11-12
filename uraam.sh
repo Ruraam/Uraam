@@ -129,10 +129,10 @@ SAFETY_PACKAGE_PATTERNS=(
 is_whitelisted() {
     local target="$1"
     local safe_pkg pattern
-    for safe_pkg in "\${SAFETY_WHITELIST[@]}"; do
+    for safe_pkg in "${SAFETY_WHITELIST[@]}"; do
         [[ "$safe_pkg" == "$target" ]] && return 0
     done
-    for pattern in "\${SAFETY_PACKAGE_PATTERNS[@]}"; do
+    for pattern in "${SAFETY_PACKAGE_PATTERNS[@]}"; do
         [[ "$target" =~ $pattern ]] && return 0
     done
     return 1
@@ -543,7 +543,7 @@ select_json_file() {
 # ---------------------------------------------------------------------------
 
 device_package_list() {
-    local mode="\${1:-active}" raw
+    local mode="${1:-active}" raw
     case "$mode" in
         all)    raw="$(run_device pm list packages -u --user 0)" || return 1 ;;
         active) raw="$(run_device pm list packages --user 0)" || return 1 ;;
@@ -563,10 +563,10 @@ package_is_installed() {
 
 uraam_debloat() {
     show_logo
-    msg "\${BLUE}------------------------------------------\${NC}"
-    msg "        \${CYAN}=== URAAM | DEBLOATER ===\${NC}"
+    msg "${BLUE}------------------------------------------${NC}"
+    msg "        ${CYAN}=== URAAM | DEBLOATER ===${NC}"
     msg "Configurations: $USER_DEBLOAT_DIR"
-    msg "\${BLUE}------------------------------------------\${NC}"
+    msg "${BLUE}------------------------------------------${NC}"
     require_backend || return 1
     select_json_file "$CONFIGS_DIR" "Available debloat configurations:" || return 1
     local file="$SELECTED_FILE"
@@ -588,7 +588,7 @@ uraam_debloat() {
         err "Cannot obtain a reliable package inventory; no changes made."
         return 1
     }
-    for pkg in "\${PACKAGES[@]}"; do
+    for pkg in "${PACKAGES[@]}"; do
         if is_whitelisted "$pkg"; then
             PREVIEW_PROTECTED+=("$pkg")
         elif package_is_installed "$pkg" "$installed"; then
@@ -598,25 +598,25 @@ uraam_debloat() {
         fi
     done
 
-    operation_count="\${#PREVIEW_PRESENT[@]}"
+    operation_count="${#PREVIEW_PRESENT[@]}"
     msg ""
-    msg "\${BOLD}=== URAAM | OPERATION PREVIEW ===\${NC}"
-    printf 'Device: %s' "\${CURRENT_MODEL:-Unknown device}"
+    msg "${BOLD}=== URAAM | OPERATION PREVIEW ===${NC}"
+    printf 'Device: %s' "${CURRENT_MODEL:-Unknown device}"
     [[ -n "$BACKEND_SERIAL" ]] && printf ' (%s)' "$BACKEND_SERIAL"
-    printf '\nBackend: %s | Android user: 0\n' "\${EXEC_TYPE:-unknown}"
+    printf '\nBackend: %s | Android user: 0\n' "${EXEC_TYPE:-unknown}"
     printf 'Action: %s\n\n' "$action"
-    for pkg in "\${PREVIEW_PRESENT[@]}"; do
-        printf '  [WILL %s] %s\n' "\${action^^}" "$pkg"
+    for pkg in "${PREVIEW_PRESENT[@]}"; do
+        printf '  [WILL %s] %s\n' "${action^^}" "$pkg"
     done
-    for pkg in "\${PREVIEW_PROTECTED[@]}"; do
+    for pkg in "${PREVIEW_PROTECTED[@]}"; do
         printf '  [PROTECTED] %s\n' "$pkg"
     done
-    for pkg in "\${PREVIEW_MISSING[@]}"; do
+    for pkg in "${PREVIEW_MISSING[@]}"; do
         printf '  [NOT INSTALLED] %s\n' "$pkg"
     done
     msg ""
     printf 'Preview totals: %d to process, %d protected, %d absent, %d in source list.\n' \
-        "$operation_count" "\${#PREVIEW_PROTECTED[@]}" "\${#PREVIEW_MISSING[@]}" "\${#PACKAGES[@]}"
+        "$operation_count" "${#PREVIEW_PROTECTED[@]}" "${#PREVIEW_MISSING[@]}" "${#PACKAGES[@]}"
     (( operation_count > 0 )) || {
         warn "No eligible installed packages. Nothing can be changed."
         return 0
@@ -646,7 +646,7 @@ uraam_debloat() {
         return 1
     }
     ready_count=0
-    for pkg in "\${PREVIEW_PRESENT[@]}"; do
+    for pkg in "${PREVIEW_PRESENT[@]}"; do
         if ! is_whitelisted "$pkg" && package_is_installed "$pkg" "$installed"; then
             ((ready_count+=1))
         fi
@@ -658,7 +658,7 @@ uraam_debloat() {
     fi
 
     start_log debloat "$LOGD_DIR" uraam-debloat || return 1
-    for pkg in "\${PREVIEW_PRESENT[@]}"; do
+    for pkg in "${PREVIEW_PRESENT[@]}"; do
         printf '%s: ' "$pkg"
         if is_whitelisted "$pkg"; then
             err "became protected; skipped"
@@ -683,8 +683,8 @@ uraam_debloat() {
             fi
         fi
     done
-    msg "\${BLUE}----------------------------------------\${NC}"
-    msg "Summary: \${GREEN}$success succeeded\${NC}, \${YELLOW}$skipped skipped\${NC}, \${RED}$failed failed\${NC}."
+    msg "${BLUE}----------------------------------------${NC}"
+    msg "Summary: ${GREEN}$success succeeded${NC}, ${YELLOW}$skipped skipped${NC}, ${RED}$failed failed${NC}."
     msg "Log: $LOGFILE"
     pause
 }
