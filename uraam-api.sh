@@ -20,11 +20,13 @@ URAAM JSON API (read-only)
 Usage:
   uraam-api.sh device-info
   uraam-api.sh list-packages
+  uraam-api.sh package-info:<package.id>
   uraam-api.sh --help
 
 Commands:
   device-info    Return the selected backend and device identity.
   list-packages  Return the installed package inventory for Android user 0.
+  package-info   Return read-only APK path and version metadata for one package.
 
 This initial API intentionally does not expose debloat, install, restore, or
 other state-changing operations. Those require a separately reviewed API.
@@ -40,6 +42,13 @@ main() {
     case "$action" in
         -h|--help|help) usage; return 0 ;;
         device-info|list-packages) ;;
+        package-info:*)
+            PACKAGE_ID="${action#package-info:}"
+            [[ "$PACKAGE_ID" =~ ^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$ ]] || {
+                json_error "Invalid Android package identifier." 2
+                return $?
+            }
+            ;;
         *) json_error "Unsupported command. Use --help." 2; return $? ;;
     esac
 
@@ -91,6 +100,33 @@ main() {
                 --arg rom "$rom" \
                 --arg rom_version "$rom_version" \
                 '{status:"connected",version:$version,backend:$backend,serial:(if $serial == "" then null else $serial end),model:$model,oem:$oem,rom:{name:$rom,version:$rom_version}}'
+            ;;
+        package-info:*)
+            local package_id paths_raw dump_raw version_name version_code line
+            local -a apk_paths=()
+            package_id="${action#package-info:}"
+            paths_raw="$(run_device_bounded pm path --user 0 "$package_id" 2>/dev/null)" || {
+                json_error "Android could not resolve this package." 5
+                return $?
+            }
+            while IFS= read -r line; do
+                line="${line#package:}"
+                [[ "$line" == /* ]] && apk_paths+=("$line")
+            done <<< "$paths_raw"
+            (("${#apk_paths[@]}" > 0)) || {
+                json_error "Package is not installed for Android user 0, or Android returned an invalid APK path." 5
+                return $?
+            }
+            dump_raw="$(run_device_bounded dumpsys package "$package_id" 2>/dev/null || true)"
+            version_name="$(sed -n 's/.*versionName=\([^[:space:]]*\).*/\1/p' <<< "$dump_raw" | head -n 1)"
+            version_code="$(sed -n 's/.*versionCode=\([0-9][0-9]*\).*/\1/p' <<< "$dump_raw" | head -n 1)"
+            jq -n --arg package "$package_id" --arg backend "$EXEC_TYPE" \
+                --arg version_name "$version_name" --arg version_code "$version_code" \
+                --args "${apk_paths[@]}" \
+                '{status:"ok",package:$package,backend:$backend,paths:$ARGS.positional,
+                  version_name:(if $version_name == "" then null else $version_name end),
+                  version_code:(if $version_code == "" then null else $version_code end),
+                  metadata_source:"dumpsys package",read_only:true}'
             ;;
         list-packages)
             local packages system_packages user_packages
