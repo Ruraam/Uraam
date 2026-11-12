@@ -29,6 +29,30 @@ if device_package_list all >/dev/null 2>&1; then
 fi
 pass "package inventory parsing fails closed and uses installed-only mode"
 
+# Exercise the real backend transport probe for ADB and Shizuku.
+MOCK_ADB_STATE="device"
+adb() {
+    [[ "$1 $2 $3" == "-s TEST-SERIAL get-state" ]] || return 2
+    printf '%s\n' "$MOCK_ADB_STATE"
+}
+EXEC_TYPE="ADB"
+BACKEND_SERIAL="TEST-SERIAL"
+backend_is_available || fail "ADB device state 'device' should be available"
+MOCK_ADB_STATE="offline"
+if backend_is_available; then fail "offline ADB transport must be unavailable"; fi
+
+MOCK_RISH_AVAILABLE=1
+rish() {
+    [[ "$1 $2" == "-c id" ]] && (( MOCK_RISH_AVAILABLE ))
+}
+EXEC_TYPE="SHIZUKU"
+backend_is_available || fail "active Shizuku transport should be available"
+MOCK_RISH_AVAILABLE=0
+if backend_is_available; then fail "inactive Shizuku transport must be unavailable"; fi
+EXEC_TYPE="ADB"
+BACKEND_SERIAL="TEST-SERIAL"
+pass "ADB and Shizuku transport health checks"
+
 is_whitelisted com.android.systemui || fail "exact whitelist not enforced"
 is_whitelisted com.samsung.android.bluetooth || fail "Bluetooth family pattern not enforced"
 is_whitelisted com.samsung.android.knox.kpecore || fail "Knox family pattern not enforced"
