@@ -867,34 +867,57 @@ update_uraam() {
     [[ "$confirm" =~ ^[yY]$ ]] || { warn "Update cancelled."; return 0; }
 
     command -v curl >/dev/null 2>&1 || { err "curl is required."; return 1; }
-    local target_bin="$SOURCE"
-    local raw_url="https://raw.githubusercontent.com/Ruraam/Uraam/main/uraam.sh"
-    local tmp_file
-    tmp_file="$(mktemp)" || return 1
+    command -v bash >/dev/null 2>&1 || { err "bash is required."; return 1; }
 
-    if ! curl -fL --retry 2 --connect-timeout 15 "$raw_url" -o "$tmp_file"; then
-        rm -f "$tmp_file"
-        err "Download failed."
+    local target_bin="$SOURCE"
+    local target_dir tmp_file tmp_target first_line
+    local raw_url="https://raw.githubusercontent.com/Ruraam/Uraam/main/uraam.sh"
+    target_dir="$(dirname "$target_bin")"
+    tmp_file="$(mktemp)" || { err "Unable to create a temporary download file."; return 1; }
+    tmp_target=""
+
+    if ! curl --proto '=https' --tlsv1.2 --fail --location --silent --show-error \
+        --retry 2 --connect-timeout 15 --max-time 180 "$raw_url" -o "$tmp_file"; then
+        rm -f -- "$tmp_file"
+        err "Download failed; current installation was not changed."
         return 1
     fi
-    bash -n "$tmp_file" || {
-        rm -f "$tmp_file"
-        err "Downloaded script has a Bash syntax error; current installation was not changed."
-        return 1
-    }
 
-    if [[ -w "$target_bin" ]]; then
-        if ! install -m 0755 "$tmp_file" "$target_bin"; then
-            rm -f "$tmp_file"
+    first_line="$(head -n 1 "$tmp_file" 2>/dev/null)"
+    if [[ "$first_line" != '#!/usr/bin/env bash' ]] || [[ ! -s "$tmp_file" ]] || ! bash -n "$tmp_file"; then
+        rm -f -- "$tmp_file"
+        err "Downloaded file failed validation; current installation was not changed."
+        return 1
+    fi
+
+    # Stage the replacement beside the target, then rename atomically.
+    if [[ -w "$target_dir" ]]; then
+        tmp_target="$(mktemp "${target_bin}.tmp.XXXXXX")" || {
+            rm -f -- "$tmp_file"
+            err "Unable to stage the update beside the installed script."
+            return 1
+        }
+        if ! install -m 0755 "$tmp_file" "$tmp_target" || ! mv -f -- "$tmp_target" "$target_bin"; then
+            rm -f -- "$tmp_file" "$tmp_target"
+            err "Could not replace the installed script; the original was preserved."
             return 1
         fi
     else
-        sudo install -m 0755 "$tmp_file" "$target_bin" || {
-            rm -f "$tmp_file"
+        tmp_target="$(run_as_admin mktemp "${target_bin}.tmp.XXXXXX")" || {
+            rm -f -- "$tmp_file"
+            err "Unable to create a privileged staging file."
             return 1
         }
+        if ! run_as_admin install -m 0755 "$tmp_file" "$tmp_target" ||
+            ! run_as_admin mv -f -- "$tmp_target" "$target_bin"; then
+            run_as_admin rm -f -- "$tmp_target" >/dev/null 2>&1 || true
+            rm -f -- "$tmp_file"
+            err "Could not replace the installed script; the original was preserved."
+            return 1
+        fi
     fi
-    rm -f "$tmp_file"
+
+    rm -f -- "$tmp_file"
     ok "URAAM script updated."
     read -r -p "Press Enter to restart..."
     exec "$target_bin" "$@"
