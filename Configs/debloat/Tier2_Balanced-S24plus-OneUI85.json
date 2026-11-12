@@ -187,10 +187,7 @@
       "packageName": "com.sec.android.app.chromecustomizations"
     },
     {
-      "packageName": "com.android.wallpaperbackup"
-    },
-    {
-      "packageName": "com.android.calllogbackup"
+      "packageName": "com.android.wallpaperba
     },
     {
       "packageName": "com.samsung.slsi.telephony.silentlogging"
