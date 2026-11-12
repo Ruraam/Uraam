@@ -1,7 +1,7 @@
 {
   "name": "Samsung Android Debloat List",
-  "description": "https:\/\/github.com\/Willie169\/Samsung-Android-Debloat-List",
-  "author": "Willie169"
+  "description": "https://github.com/Willie169/Samsung-Android-Debloat-List",
+  "author": "Willie169",
   "version": "1.0",
   "apps": [
     {
@@ -159,9 +159,6 @@
     },
     {
       "packageName": "com.google.android.safetycenter.resources"
-    },
-    {
-      "packageName": "com.google.android.setupwizard"
     },
     {
       "packageName": "com.google.android.tts"
@@ -371,15 +368,6 @@
       "packageName": "com.samsung.android.knox.analytics.uploader"
     },
     {
-      "packageName": "com.samsung.android.knox.attestation"
-    },
-    {
-      "packageName": "com.samsung.android.knox.containercore"
-    },
-    {
-      "packageName": "com.samsung.android.knox.kpecore"
-    },
-    {
       "packageName": "com.samsung.android.knox.mpos"
     },
     {
@@ -426,9 +414,6 @@
     },
     {
       "packageName": "com.samsung.android.networkdiagnostic"
-    },
-    {
-      "packageName": "com.samsung.android.nfc"
     },
     {
       "packageName": "com.samsung.android.privateaccesstokens"
@@ -563,13 +548,7 @@
       "packageName": "com.sec.android.RilServiceModeApp"
     },
     {
-      "packageName": "com.sec.android.app.SecSetupWizard"
-    },
-    {
       "packageName": "com.sec.android.app.billing"
-    },
-    {
-      "packageName": "com.sec.android.app.bluetoothagent"
     },
     {
       "packageName": "com.sec.android.app.camera"
@@ -603,9 +582,6 @@
     },
     {
       "packageName": "com.sec.android.app.servicemodeapp"
-    },
-    {
-      "packageName": "com.sec.android.app.setupwizardlegalprovider"
     },
     {
       "packageName": "com.sec.android.app.soundalive"

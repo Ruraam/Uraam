@@ -44,9 +44,6 @@
       "packageName": "com.verizon.services"
     },
     {
-      "packageName": "org.lineageos.setupwizard"
-    },
-    {
       "packageName": "org.lineageos.audiofx"
     },
     {
@@ -110,9 +107,6 @@
       "packageName": "com.android.dialer.auto_generated_rro_product__"
     },
     {
-      "packageName": "com.android.emergency.auto_generated_rro_product__"
-    },
-    {
       "packageName": "com.android.federatedcompute.services"
     },
     {
@@ -123,9 +117,6 @@
     },
     {
       "packageName": "com.android.health.connect.backuprestore"
-    },
-    {
-      "packageName": "com.android.imsserviceentitlement"
     },
     {
       "packageName": "com.android.imsserviceentitlement.auto_generated_rro_product__"
@@ -155,9 +146,6 @@
       "packageName": "com.android.ons.overlay.vendor.raviole"
     },
     {
-      "packageName": "com.android.permissioncontroller.overlay"
-    },
-    {
       "packageName": "com.android.phone.auto_generated_characteristics_rro"
     },
     {
@@ -170,15 +158,6 @@
       "packageName": "com.android.providers.partnerbookmarks"
     },
     {
-      "packageName": "com.android.providers.settings.auto_generated_rro_product__"
-    },
-    {
-      "packageName": "com.android.providers.settings.overlay.product.gs101"
-    },
-    {
-      "packageName": "com.android.providers.telephony.overlay.product.gs101"
-    },
-    {
       "packageName": "com.android.safetyregulatoryinfo.overlay.product.gs101"
     },
     {
@@ -186,9 +165,6 @@
     },
     {
       "packageName": "com.android.sdm.plugins.diagmon"
-    },
-    {
-      "packageName": "com.android.server.telecom.overlay.product.gs101"
     },
     {
       "packageName": "com.android.settings.overlay.gb7n6"
@@ -209,27 +185,6 @@
       "packageName": "com.android.storagemanager.auto_generated_rro_product__"
     },
     {
-      "packageName": "com.android.systemui.accessibility.accessibilitymenu"
-    },
-    {
-      "packageName": "com.android.systemui.overlay.product.gs101"
-    },
-    {
-      "packageName": "com.android.systemui.overlay.product.oriole"
-    },
-    {
-      "packageName": "com.android.systemui.overlay.vendor.gs101"
-    },
-    {
-      "packageName": "com.android.systemui.overlay.vendor.oriole"
-    },
-    {
-      "packageName": "com.android.systemui.overlay.vendor.raviole"
-    },
-    {
-      "packageName": "com.android.systemui.plugin.globalactions.wallet"
-    },
-    {
       "packageName": "com.android.wallpaperbackup"
     },
     {
@@ -239,22 +194,7 @@
       "packageName": "com.google.android.euiccoverlay"
     },
     {
-      "packageName": "com.google.android.grilservice"
-    },
-    {
       "packageName": "com.google.android.hardwareinfo"
-    },
-    {
-      "packageName": "com.google.android.nfc.overlay.common"
-    },
-    {
-      "packageName": "com.google.android.nfc.overlay.gs101"
-    },
-    {
-      "packageName": "com.google.android.nfc.overlay.oriole"
-    },
-    {
-      "packageName": "com.google.android.nfc.overlay.raviole"
     },
     {
       "packageName": "com.google.android.overlay.DeviceAsWebcam"
@@ -266,12 +206,6 @@
       "packageName": "com.google.android.overlay.glanceablehubsettings"
     },
     {
-      "packageName": "com.google.android.overlay.permissioncontroller.safetycenter"
-    },
-    {
-      "packageName": "com.google.android.systemui.overlay.glanceablehubconfig"
-    },
-    {
       "packageName": "com.google.euiccpixel.overlay.gs101"
     },
     {
@@ -279,9 +213,6 @@
     },
     {
       "packageName": "com.google.pixel.camera.services"
-    },
-    {
-      "packageName": "com.samsung.slsi.telephony.oemril"
     },
     {
       "packageName": "com.android.adservices.api"
@@ -347,12 +278,6 @@
       "packageName": "com.android.deskclock"
     },
     {
-      "packageName": "com.shannon.imsservice"
-    },
-    {
-      "packageName": "com.android.emergency"
-    },
-    {
       "packageName": "org.lineageos.camelot"
     },
     {
@@ -401,9 +326,6 @@
       "packageName": "org.lineageos.overlay.font.googlesansflex"
     },
     {
-      "packageName": "org.lineageos.setupwizard.auto_generated_rro_product__"
-    },
-    {
       "packageName": "org.protonaosp.deviceconfig.overlay.gs101"
     },
     {
@@ -419,16 +341,10 @@
       "packageName": "com.shannon.qualifiednetworksservice"
     },
     {
-      "packageName": "com.samsung.slsi.telephony.oem.oemrilhookservice"
-    },
-    {
       "packageName": "com.shannon.rcsservice"
     },
     {
       "packageName": "com.android.safetycenter.resources"
-    },
-    {
-      "packageName": "com.google.RilConfigService"
     },
     {
       "packageName": "com.android.healthconnect.controller"
@@ -443,9 +359,6 @@
       "packageName": "com.stevesoltys.seedvault"
     },
     {
-      "packageName": "com.android.wallpaper.livepicker"
-    },
-    {
       "packageName": "com.android.bips"
     },
     {
@@ -453,12 +366,6 @@
     },
     {
       "packageName": "com.android.DeviceAsWebcam"
-    },
-    {
-      "packageName": "com.android.nfc"
-    },
-    {
-      "packageName": "com.android.phone"
     },
     {
       "packageName": "com.android.simappdialog"
@@ -479,9 +386,6 @@
       "packageName": "com.android.apps.tag"
     },
     {
-      "packageName": "com.android.dialer"
-    },
-    {
       "packageName": "com.android.virtualization.terminal"
     },
     {
@@ -490,5 +394,6 @@
     {
       "packageName": "com.android.htmlviewer"
     }
-  ]
+  ],
+  "author": "Ruvyrom"
 }

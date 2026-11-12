@@ -160,9 +160,6 @@
       "packageName": "com.samsung.android.audiomirroring"
     },
     {
-      "packageName": "com.sec.android.app.bluetoothagent"
-    },
-    {
       "packageName": "com.android.bluetoothmidiservice"
     },
     {
@@ -190,13 +187,8 @@
       "packageName": "com.android.wallpaperbackup"
     },
     {
-      "packageName": "com.android.calllogbackup"
-    },
-    {
-      "packageName": "com.samsung.slsi.telephony.silentlogging"
-    },
-    {
       "packageName": "com.sec.android.app.qsfastpairoverlay"
     }
-   ]
-  }
+  ],
+  "author": "Ruvyrom"
+}

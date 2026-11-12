@@ -77,6 +77,28 @@ SAFETY_WHITELIST=(
     "com.android.server.telecom"
     "com.android.providers.telephony"
     "com.android.emergency"
+    "com.android.dialer"
+    "com.android.nfc"
+    "com.android.setupwizard"
+    "com.google.android.setupwizard"
+    "org.lineageos.setupwizard"
+    "com.sec.android.app.SecSetupWizard"
+    "com.android.emergency.auto_generated_rro_product__"
+    "com.android.providers.settings.auto_generated_rro_product__"
+    "com.android.providers.settings.overlay.product.gs101"
+    "com.android.providers.telephony.overlay.product.gs101"
+    "com.android.server.telecom.overlay.product.gs101"
+    "org.lineageos.setupwizard.auto_generated_rro_product__"
+    "com.android.imsserviceentitlement"
+    "com.google.android.grilservice"
+    "com.samsung.slsi.telephony.oemril"
+    "com.samsung.slsi.telephony.oem.oemrilhookservice"
+    "com.shannon.imsservice"
+    "com.google.RilConfigService"
+    "com.sec.android.app.bluetoothagent"
+    "com.sec.android.app.setupwizardlegalprovider"
+    "com.samsung.android.knox.attestation"
+    "com.telstra.telephony.exttelephony"
 
     # Core Data Providers & Cryptographic Store
     "com.android.providers.settings"
@@ -117,11 +139,25 @@ pause() {
     read -r -p "Press Enter to continue..." _ || true
 }
 
+# Pattern guards cover OEM-specific variants and resource overlays that
+# cannot be exhaustively represented by a short exact-name whitelist.
+SAFETY_PACKAGE_PATTERNS=(
+    '^com\.android\.providers\.(settings|telephony|media|downloads|contacts)(\.|$)'
+    '(^|\.)(telephony[^.]*|telecom|ims|imsservice|ril)(\.|$)'
+    '(^|\.)(setupwizard|permissioncontroller|packageinstaller|systemui|keyguard|emergency)(\.|$)'
+    '(^|\.)(bluetooth|bluetoothagent|bluetoothservice|nfc)(\.|$)'
+    '^com\.android\.(providers\.(settings|telephony)|server\.telecom|emergency|systemui|permissioncontroller).*overlay'
+    '^com\.samsung\.android\.knox\.(attestation|containercore|kpecore)(\.|$)'
+)
+
 is_whitelisted() {
     local target="$1"
-    local safe_pkg
+    local safe_pkg pattern
     for safe_pkg in "${SAFETY_WHITELIST[@]}"; do
         [[ "$safe_pkg" == "$target" ]] && return 0
+    done
+    for pattern in "${SAFETY_PACKAGE_PATTERNS[@]}"; do
+        [[ "$target" =~ $pattern ]] && return 0
     done
     return 1
 }
@@ -191,17 +227,34 @@ start_log() {
 # Dependency handling
 # ---------------------------------------------------------------------------
 
+run_as_admin() {
+    if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
+        "$@"
+    elif command -v sudo >/dev/null 2>&1; then
+        sudo "$@"
+    elif command -v doas >/dev/null 2>&1; then
+        doas "$@"
+    else
+        err "Administrative privileges required (run as root or install sudo/doas)."
+        return 1
+    fi
+}
+
 install_package() {
     local package="$1"
     if is_termux; then
         command -v pkg >/dev/null 2>&1 || { err "Termux pkg is unavailable."; return 1; }
         pkg install -y "$package"
     elif command -v apt-get >/dev/null 2>&1; then
-        sudo apt-get install -y "$package"
+        run_as_admin apt-get install -y "$package"
     elif command -v pacman >/dev/null 2>&1; then
-        sudo pacman -S --needed --noconfirm "$package"
+        run_as_admin pacman -S --needed --noconfirm "$package"
     elif command -v dnf >/dev/null 2>&1; then
-        sudo dnf install -y "$package"
+        run_as_admin dnf install -y "$package"
+    elif command -v zypper >/dev/null 2>&1; then
+        run_as_admin zypper --non-interactive install "$package"
+    elif command -v apk >/dev/null 2>&1; then
+        run_as_admin apk add "$package"
     elif command -v brew >/dev/null 2>&1; then
         brew install "$package"
     else
@@ -241,9 +294,16 @@ ensure_jq() {
 # ---------------------------------------------------------------------------
 
 shell_quote_args() {
-    local arg
-    printf -v _QUOTED_ARGS '%q ' "$@"
-    printf '%s' "${_QUOTED_ARGS% }"
+    local arg quoted
+    local -a quoted_args=()
+
+    # POSIX single-quote escaping is understood by Android shells such as mksh.
+    for arg in "$@"; do
+        quoted="${arg//\'/\'\\\'\'}"
+        quoted_args+=("'$quoted'")
+    done
+
+    printf '%s' "${quoted_args[*]}"
 }
 
 run_adb() {
@@ -305,18 +365,38 @@ detect_backend_status() {
     BACKEND_SERIAL="${ANDROID_SERIAL:-}"
 
     if command -v adb >/dev/null 2>&1; then
-        local devices serial
-        devices="$(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {print $1}')"
+        local selection
+        local -a ready_devices=()
+        mapfile -t ready_devices < <(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {print $1}')
+
         if [[ -n "$BACKEND_SERIAL" ]]; then
-            if printf '%s\n' "$devices" | grep -Fxq "$BACKEND_SERIAL"; then
+            if printf '%s\n' "${ready_devices[@]}" | grep -Fxq -- "$BACKEND_SERIAL"; then
                 EXEC_TYPE="ADB"
+            else
+                err "ANDROID_SERIAL='$BACKEND_SERIAL' is not an authorized, connected ADB device."
+                return 1
             fi
-        else
-            serial="$(printf '%s\n' "$devices" | head -n1)"
-            if [[ -n "$serial" ]]; then
-                BACKEND_SERIAL="$serial"
-                EXEC_TYPE="ADB"
+        elif (("${#ready_devices[@]}" == 1)); then
+            BACKEND_SERIAL="${ready_devices[0]}"
+            EXEC_TYPE="ADB"
+        elif (("${#ready_devices[@]}" > 1)); then
+            warn "Multiple ADB devices are connected; refusing to select one automatically."
+            local i
+            for i in "${!ready_devices[@]}"; do
+                printf '  [%d] %s\n' "$((i + 1))" "${ready_devices[$i]}"
+            done
+            if [[ ! -t 0 ]]; then
+                err "Set ANDROID_SERIAL to the target device and retry."
+                return 1
             fi
+            read -r -p "Select target device [1-${#ready_devices[@]}]: " selection
+            [[ "$selection" =~ ^[0-9]+$ ]] || { err "Invalid device selection."; return 1; }
+            (( selection >= 1 && selection <= ${#ready_devices[@]} )) || {
+                err "Device selection is out of range."
+                return 1
+            }
+            BACKEND_SERIAL="${ready_devices[$((selection - 1))]}"
+            EXEC_TYPE="ADB"
         fi
     fi
 
@@ -348,8 +428,15 @@ detect_backend_status() {
 
 require_backend() {
     show_logo
-    ensure_adb || return 1
     ensure_jq || return 1
+
+    # Root and Shizuku are local Termux backends; neither requires ADB.
+    # Keep the ADB installation prompt as a fallback when no local backend works.
+    if ! command -v adb >/dev/null 2>&1; then
+        if ! is_termux || ! detect_backend_status; then
+            ensure_adb || return 1
+        fi
+    fi
 
     if ! detect_backend_status; then
         msg "${BLUE}--------------------------------------------------------${NC}"
@@ -476,6 +563,35 @@ validate_json_file() {
     local file="$1"
     [[ -f "$file" ]] || { err "File not found: $file"; return 1; }
     jq empty "$file" >/dev/null 2>&1 || { err "Invalid JSON: $file"; return 1; }
+
+    # Accept the documented apps/packages formats and Canta-style package
+    # entries, but reject malformed entries instead of silently skipping them.
+    if ! jq -e '
+        def valid_id:
+            type == "string" and
+            test("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$");
+        def validate_entry:
+            if type == "array" then
+                .[] | validate_entry
+            elif type == "string" then
+                if valid_id then . else error("invalid package ID") end
+            elif type == "object" then
+                (.packageName // .package // .id) as $pkg |
+                if ($pkg | valid_id) then $pkg
+                else error("missing or invalid package ID") end
+            else
+                error("unsupported package entry")
+            end;
+
+        (if type == "object" and (.apps | type) == "array" then .apps
+         elif type == "object" and (.packages | type) == "array" then .packages
+         elif type == "array" then .
+         else error("expected apps/packages array or package array") end)
+        | [ .[] | validate_entry ] | length > 0
+    ' "$file" >/dev/null 2>&1; then
+        err "Invalid configuration structure or Android package ID: $file"
+        return 1
+    fi
 }
 
 load_packages_from_json() {
@@ -630,11 +746,11 @@ ubackup() {
 
     comm -23 <(printf '%s\n' "$all_pkgs") <(printf '%s\n' "$active_pkgs") |
         jq -R -s --arg date "$date_str" --arg model "$model" --arg android "$android_ver" '
-            [split("\n")[] | select(test("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$")) | {packageName:.}] as $apps
+            [split("\n")[] | select(test("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$")) | {packageName:.}] as $apps
             | {
                 name:("Uraam_Restore_List_"+$date),
                 description:"Packages not currently installed for Android user 0",
-                author:"URAAM", version:"4.4.6",
+                author:"URAAM", version:"4.4.7",
                 device:$model, android_version:$android, created_at:$date, apps:$apps
             }
         ' > "$output_file" || { rm -f "$output_file"; return 1; }
@@ -708,10 +824,10 @@ install_one_apk() {
             "${cmd[@]}" install -r -g "$apk"
             ;;
         ROOT)
-            su -c "cp $(printf '%q' "$apk") $(printf '%q' "$remote")" || return 1
+            su -c "$(shell_quote_args cp "$apk" "$remote")" || return 1
             run_device pm install -r -g "$remote"
             local result=$?
-            su -c "rm -f $(printf '%q' "$remote")" >/dev/null 2>&1 || true
+            su -c "$(shell_quote_args rm -f "$remote")" >/dev/null 2>&1 || true
             return "$result"
             ;;
         SHIZUKU)
@@ -723,7 +839,7 @@ install_one_apk() {
             }
             mkdir -p "$shared_dir" || return 1
             cp -- "$apk" "$shared_apk" || return 1
-            rish -c "pm install -r -g $(printf '%q' "$shared_apk")"
+            rish -c "$(shell_quote_args pm install -r -g "$shared_apk")"
             local result=$?
             rm -f -- "$shared_apk"
             return "$result"
@@ -816,34 +932,57 @@ update_uraam() {
     [[ "$confirm" =~ ^[yY]$ ]] || { warn "Update cancelled."; return 0; }
 
     command -v curl >/dev/null 2>&1 || { err "curl is required."; return 1; }
-    local target_bin="$SOURCE"
-    local raw_url="https://raw.githubusercontent.com/Ruraam/Uraam/main/uraam.sh"
-    local tmp_file
-    tmp_file="$(mktemp)" || return 1
+    command -v bash >/dev/null 2>&1 || { err "bash is required."; return 1; }
 
-    if ! curl -fL --retry 2 --connect-timeout 15 "$raw_url" -o "$tmp_file"; then
-        rm -f "$tmp_file"
-        err "Download failed."
+    local target_bin="$SOURCE"
+    local target_dir tmp_file tmp_target first_line
+    local raw_url="https://raw.githubusercontent.com/Ruraam/Uraam/main/uraam.sh"
+    target_dir="$(dirname "$target_bin")"
+    tmp_file="$(mktemp)" || { err "Unable to create a temporary download file."; return 1; }
+    tmp_target=""
+
+    if ! curl --proto '=https' --tlsv1.2 --fail --location --silent --show-error \
+        --retry 2 --connect-timeout 15 --max-time 180 "$raw_url" -o "$tmp_file"; then
+        rm -f -- "$tmp_file"
+        err "Download failed; current installation was not changed."
         return 1
     fi
-    bash -n "$tmp_file" || {
-        rm -f "$tmp_file"
-        err "Downloaded script has a Bash syntax error; current installation was not changed."
-        return 1
-    }
 
-    if [[ -w "$target_bin" ]]; then
-        if ! install -m 0755 "$tmp_file" "$target_bin"; then
-            rm -f "$tmp_file"
+    first_line="$(head -n 1 "$tmp_file" 2>/dev/null)"
+    if [[ "$first_line" != '#!/usr/bin/env bash' ]] || [[ ! -s "$tmp_file" ]] || ! bash -n "$tmp_file"; then
+        rm -f -- "$tmp_file"
+        err "Downloaded file failed validation; current installation was not changed."
+        return 1
+    fi
+
+    # Stage the replacement beside the target, then rename atomically.
+    if [[ -w "$target_dir" ]]; then
+        tmp_target="$(mktemp "${target_bin}.tmp.XXXXXX")" || {
+            rm -f -- "$tmp_file"
+            err "Unable to stage the update beside the installed script."
+            return 1
+        }
+        if ! install -m 0755 "$tmp_file" "$tmp_target" || ! mv -f -- "$tmp_target" "$target_bin"; then
+            rm -f -- "$tmp_file" "$tmp_target"
+            err "Could not replace the installed script; the original was preserved."
             return 1
         fi
     else
-        sudo install -m 0755 "$tmp_file" "$target_bin" || {
-            rm -f "$tmp_file"
+        tmp_target="$(run_as_admin mktemp "${target_bin}.tmp.XXXXXX")" || {
+            rm -f -- "$tmp_file"
+            err "Unable to create a privileged staging file."
             return 1
         }
+        if ! run_as_admin install -m 0755 "$tmp_file" "$tmp_target" ||
+            ! run_as_admin mv -f -- "$tmp_target" "$target_bin"; then
+            run_as_admin rm -f -- "$tmp_target" >/dev/null 2>&1 || true
+            rm -f -- "$tmp_file"
+            err "Could not replace the installed script; the original was preserved."
+            return 1
+        fi
     fi
-    rm -f "$tmp_file"
+
+    rm -f -- "$tmp_file"
     ok "URAAM script updated."
     read -r -p "Press Enter to restart..."
     exec "$target_bin" "$@"
@@ -859,13 +998,14 @@ check_and_update() {
     ensure_jq || return 1
     command -v curl >/dev/null 2>&1 || { err "curl is required."; return 1; }
 
-    local repo_path api_url release_json latest_tag remote_ver local_ver deb_url tmp_deb
+    local repo_path api_url release_json latest_tag remote_ver local_ver deb_url deb_digest asset_json tmp_deb actual_digest
     repo_path="${REPO_URL#https://github.com/}"
     repo_path="${repo_path%.git}"
     api_url="https://api.github.com/repos/${repo_path}/releases/latest"
 
-    release_json="$(curl -fsSL --retry 2 -H 'Accept: application/vnd.github+json' \
-        -H 'User-Agent: URAAM-Updater' "$api_url")" || {
+    release_json="$(curl --proto '=https' --tlsv1.2 -fsSL --retry 2 \
+        --connect-timeout 15 --max-time 60 \
+        -H 'Accept: application/vnd.github+json' -H 'User-Agent: URAAM-Updater' "$api_url")" || {
         err "Unable to contact GitHub release API."
         pause
         return 1
@@ -886,9 +1026,21 @@ check_and_update() {
     printf 'Installed: %s\nLatest:    %s\n' "${local_ver:-unknown}" "$remote_ver"
     [[ "$local_ver" == "$remote_ver" ]] && { ok "URAAM is up to date."; pause; return 0; }
 
-    deb_url="$(jq -r '.assets[]? | select(.name | test("uraam-debian.*\\.deb$")) | .browser_download_url' <<< "$release_json" | head -n1)"
+    asset_json="$(jq -c '.assets[]? | select(.name | test("^uraam-debian.*\\.deb$"))' <<< "$release_json" | head -n1)"
+    deb_url="$(jq -r '.browser_download_url // empty' <<< "$asset_json")"
+    deb_digest="$(jq -r '.digest // empty' <<< "$asset_json")"
     [[ -n "$deb_url" && "$deb_url" != null ]] || {
         err "A new release exists, but no uraam-debian .deb asset was found."
+        pause
+        return 1
+    }
+    [[ "$deb_digest" =~ ^sha256:[0-9a-fA-F]{64}$ ]] || {
+        err "The release does not publish a valid SHA-256 digest; refusing an unverifiable update."
+        pause
+        return 1
+    }
+    command -v sha256sum >/dev/null 2>&1 || {
+        err "sha256sum is required to verify the update."
         pause
         return 1
     }
@@ -907,7 +1059,13 @@ check_and_update() {
         err "Downloaded file is not a valid Debian package."
         return 1
     fi
-    if sudo apt-get install -y "$tmp_deb"; then
+    actual_digest="$(sha256sum "$tmp_deb" | awk '{print $1}')"
+    if [[ "${actual_digest,,}" != "${deb_digest#sha256:}" ]]; then
+        rm -f "$tmp_deb"
+        err "SHA-256 verification failed; refusing to install the downloaded package."
+        return 1
+    fi
+    if run_as_admin apt-get install -y "$tmp_deb"; then
         rm -f "$tmp_deb"
         ok "URAAM updated to $latest_tag. Restart the application."
         return 0

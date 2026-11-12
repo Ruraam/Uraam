@@ -3,10 +3,7 @@
   "description": "Removes carrier-specific bloatware, preloaded portals, and telemetry from international carriers (Telstra, Rogers, Bell, SK Telecom, KT Olleh, NTT Docomo).",
   "author": "Ruvyrom",
   "version": "1.0.0",
-  "apps":[
-    {
-      "packageName": "com.telstra.telephony.exttelephony"
-    },
+  "apps": [
     {
       "packageName": "com.rogers.drs.client"
     },
@@ -20,7 +17,7 @@
       "packageName": "com.kt.olleh.storefront"
     },
     {
-      "packageName":"com.nttdocomo.android.dhome"
+      "packageName": "com.nttdocomo.android.dhome"
     }
   ]
 }

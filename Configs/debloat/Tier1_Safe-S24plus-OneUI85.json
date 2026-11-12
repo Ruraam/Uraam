@@ -108,5 +108,6 @@
     {
       "packageName": "com.samsung.android.aware.service"
     }
-   ]
-  }
+  ],
+  "author": "Ruvyrom"
+}

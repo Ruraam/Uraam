@@ -1,0 +1,37 @@
+name: URAAM CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "fix/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shell-validation:
+    name: Bash syntax and ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes shellcheck
+
+      - name: Validate Bash syntax
+        run: |
+          bash -n uraam.sh
+          bash -n installer.sh
+
+      - name: Validate debloat JSON presets
+        run: python3 tests/validate_debloat_configs.py
+
+      - name: Run ShellCheck (errors)
+        run: |
+          shellcheck --severity=error uraam.sh installer.sh

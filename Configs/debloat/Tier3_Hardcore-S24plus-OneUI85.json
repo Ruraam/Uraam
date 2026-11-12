@@ -3,7 +3,7 @@
   "description": "Tier 3 - Replacement Required (Advanced)",
   "createdDate": 1780047654302,
   "apps": [
-        {
+    {
       "packageName": "com.samsung.android.bixby.agent"
     },
     {
@@ -160,9 +160,6 @@
       "packageName": "com.samsung.android.audiomirroring"
     },
     {
-      "packageName": "com.sec.android.app.bluetoothagent"
-    },
-    {
       "packageName": "com.android.bluetoothmidiservice"
     },
     {
@@ -190,22 +187,10 @@
       "packageName": "com.android.wallpaperbackup"
     },
     {
-      "packageName": "com.android.calllogbackup"
-    },
-    {
-      "packageName": "com.samsung.slsi.telephony.silentlogging"
-    },
-    {
       "packageName": "com.sec.android.app.qsfastpairoverlay"
     },
     {
       "packageName": "com.touchtype.swiftkey"
-    },
-    {
-      "packageName": "com.sec.android.app.SecSetupWizard"
-    },
-    {
-      "packageName": "com.google.android.setupwizard"
     },
     {
       "packageName": "android.autoinstalls.config.samsung"
@@ -226,9 +211,6 @@
       "packageName": "com.samsung.android.authfw"
     },
     {
-      "packageName": "com.samsung.android.knox.attestation"
-    },
-    {
       "packageName": "com.samsung.android.knox.er"
     },
     {
@@ -237,5 +219,7 @@
     {
       "packageName": "com.sec.bcservice"
     }
-   ]
+  ],
+  "author": "Ruvyrom",
+  "version": "1.0"
 }
