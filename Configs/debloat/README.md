@@ -139,3 +139,8 @@ If a package command fails while the transport remains available, the failure
 is counted and the next selected package may still be attempted. A real device
 can still change state between checks; inspect the final summary and device
 state after any interrupted operation.
+
+Package inventory parsing is fail-closed: URAAM rejects command failures,
+empty output, and responses containing malformed/error lines even if some
+valid package rows were returned. It will not treat a partial list as a safe
+basis for a destructive preview or apply.
