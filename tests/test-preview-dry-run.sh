@@ -11,6 +11,8 @@ pass() { printf 'PASS: %s\n' "$*"; }
 
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
+
+# Exercise the real inventory parser and ensure preview queries installed-only packages.
 LAST_DEVICE_COMMAND=""
 run_device() {
     LAST_DEVICE_COMMAND="$*"
@@ -25,7 +27,7 @@ run_device() { printf 'device offline\n'; }
 if device_package_list all >/dev/null 2>&1; then
     fail "empty/unrecognized package inventory must be rejected"
 fi
-pass "package inventory parsing fails closed"
+pass "package inventory parsing fails closed and uses installed-only mode"
 
 is_whitelisted com.android.systemui || fail "exact whitelist not enforced"
 is_whitelisted com.samsung.android.bluetooth || fail "Bluetooth family pattern not enforced"
@@ -66,7 +68,10 @@ run_device() {
     return 0
 }
 
-uraam_debloat <<< $'u\nd' > "$TMP_DIR/dry-run.out" 2>&1
+uraam_debloat > "$TMP_DIR/dry-run.out" 2>&1 <<'INPUT'
+u
+d
+INPUT
 grep -Fq '[WILL UNINSTALL] com.example.app' "$TMP_DIR/dry-run.out" ||
     fail "preview did not list the eligible package"
 grep -Fq '[PROTECTED] com.android.systemui' "$TMP_DIR/dry-run.out" ||
@@ -80,19 +85,31 @@ grep -Fq 'DRY RUN complete: 1 package(s)' "$TMP_DIR/dry-run.out" ||
 (( ${#DEVICE_MUTATIONS[@]} == 0 )) || fail "dry-run executed a device mutation"
 pass "dry-run previews exact actions and performs no mutation"
 
-uraam_debloat <<< $'u\na\nAPPLY 1' > "$TMP_DIR/apply.out" 2>&1
+uraam_debloat > "$TMP_DIR/apply.out" 2>&1 <<'INPUT'
+u
+a
+APPLY 1
+INPUT
 (( ${#DEVICE_MUTATIONS[@]} == 1 )) || fail "expected exactly one uninstall command"
 [[ "${DEVICE_MUTATIONS[0]}" == 'pm uninstall -k --user 0 com.example.app' ]] ||
     fail "unexpected command executed: ${DEVICE_MUTATIONS[0]}"
 pass "apply requires exact count and executes only eligible packages"
 
 DEVICE_MUTATIONS=()
-uraam_debloat <<< $'u\na\nAPPLY 4' > "$TMP_DIR/reject.out" 2>&1
+uraam_debloat > "$TMP_DIR/reject.out" 2>&1 <<'INPUT'
+u
+a
+APPLY 4
+INPUT
 (( ${#DEVICE_MUTATIONS[@]} == 0 )) || fail "incorrect confirmation executed a mutation"
 pass "incorrect operation count is rejected"
 
 DEVICE_MUTATIONS=()
-uraam_debloat <<< $'d\na\nAPPLY 1' > "$TMP_DIR/disable.out" 2>&1
+uraam_debloat > "$TMP_DIR/disable.out" 2>&1 <<'INPUT'
+d
+a
+APPLY 1
+INPUT
 (( ${#DEVICE_MUTATIONS[@]} == 1 )) || fail "expected exactly one disable command"
 [[ "${DEVICE_MUTATIONS[0]}" == 'pm disable-user --user 0 com.example.app' ]] ||
     fail "unexpected disable command: ${DEVICE_MUTATIONS[0]}"
@@ -108,54 +125,11 @@ device_package_list() {
         printf '%s\n' 'com.android.systemui' 'com.samsung.android.bluetooth'
     fi
 }
-uraam_debloat <<< $'u\na\nAPPLY 1' > "$TMP_DIR/stale.out" 2>&1
-grep -Fq 'Device package state changed after preview' "$TMP_DIR/stale.out" ||
-    fail "stale preview was not rejected"
-(( ${#DEVICE_MUTATIONS[@]} == 0 )) || fail "stale preview executed a mutation"
-pass "stale preview is rejected before execution"
-d\na\nAPPLY 1' > "$TMP_DIR/disable.out" 2>&1
-(( ${#DEVICE_MUTATIONS[@]} == 1 )) || fail "expected exactly one disable command"
-[[ "${DEVICE_MUTATIONS[0]}" == 'pm disable-user --user 0 com.example.app' ]] ||
-    fail "unexpected disable command: ${DEVICE_MUTATIONS[0]}"
-pass "disable preview and apply path"
-
-DEVICE_MUTATIONS=()
-INVENTORY_CALLS=0
-device_package_list() {
-    (( INVENTORY_CALLS += 1 ))
-    if (( INVENTORY_CALLS == 1 )); then
-        printf '%s\n' 'com.example.app' 'com.android.systemui' 'com.samsung.android.bluetooth'
-    else
-        printf '%s\n' 'com.android.systemui' 'com.samsung.android.bluetooth'
-    fi
-}
-uraam_debloat <<< u\na\nAPPLY 1' > "$TMP_DIR/stale.out" 2>&1
-grep -Fq 'Device package state changed after preview' "$TMP_DIR/stale.out" ||
-    fail "stale preview was not rejected"
-(( ${#DEVICE_MUTATIONS[@]} == 0 )) || fail "stale preview executed a mutation"
-pass "stale preview is rejected before execution"
-u\na\nAPPLY 1' > "$TMP_DIR/stale.out" 2>&1
-grep -Fq 'Device package state changed after preview' "$TMP_DIR/stale.out" ||
-    fail "stale preview was not rejected"
-(( ${#DEVICE_MUTATIONS[@]} == 0 )) || fail "stale preview executed a mutation"
-pass "stale preview is rejected before execution"
-d\na\nAPPLY 1' > "$TMP_DIR/disable.out" 2>&1
-(( ${#DEVICE_MUTATIONS[@]} == 1 )) || fail "expected exactly one disable command"
-[[ "${DEVICE_MUTATIONS[0]}" == 'pm disable-user --user 0 com.example.app' ]] ||
-    fail "unexpected disable command: ${DEVICE_MUTATIONS[0]}"
-pass "disable preview and apply path"
-
-DEVICE_MUTATIONS=()
-INVENTORY_CALLS=0
-device_package_list() {
-    (( INVENTORY_CALLS += 1 ))
-    if (( INVENTORY_CALLS == 1 )); then
-        printf '%s\n' 'com.example.app' 'com.android.systemui' 'com.samsung.android.bluetooth'
-    else
-        printf '%s\n' 'com.android.systemui' 'com.samsung.android.bluetooth'
-    fi
-}
-uraam_debloat <<< u\na\nAPPLY 1' > "$TMP_DIR/stale.out" 2>&1
+uraam_debloat > "$TMP_DIR/stale.out" 2>&1 <<'INPUT'
+u
+a
+APPLY 1
+INPUT
 grep -Fq 'Device package state changed after preview' "$TMP_DIR/stale.out" ||
     fail "stale preview was not rejected"
 (( ${#DEVICE_MUTATIONS[@]} == 0 )) || fail "stale preview executed a mutation"
