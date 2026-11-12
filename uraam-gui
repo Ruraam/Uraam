@@ -9,7 +9,12 @@ while [[ -h "$SOURCE" ]]; do
     [[ "$LINK" != /* ]] && LINK="$DIR/$LINK"
     SOURCE="$LINK"
 done
-ROOT_DIR="$(cd -P -- "$(dirname -- "$SOURCE")" >/dev/null 2>&1 && pwd)"
+SCRIPT_DIR="$(cd -P -- "$(dirname -- "$SOURCE")" >/dev/null 2>&1 && pwd)"
+if [[ -r /usr/share/uraam/GUI/main.py && -r /usr/share/uraam/uraam-api.sh ]]; then
+    ROOT_DIR="/usr/share/uraam"
+else
+    ROOT_DIR="$SCRIPT_DIR"
+fi
 
 command -v python3 >/dev/null 2>&1 || {
     printf '%s\n' "uraam-gui: Python 3 is required." >&2
