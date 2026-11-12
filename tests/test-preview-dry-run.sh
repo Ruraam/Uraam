@@ -6,6 +6,36 @@ export URAAM_TESTING=1
 # shellcheck source=../uraam.sh
 source "$ROOT/uraam.sh"
 
+# Exercise the production timeout wrapper with a mocked GNU timeout command.
+eval "$(declare -f run_device_bounded | sed '1s/run_device_bounded/run_device_bounded_real/')"
+MOCK_TIMEOUT_MODE=success
+timeout() {
+    [[ "$1" == "--signal=TERM" && "$2" == "--kill-after=5" ]] || return 2
+    shift 3
+    [[ "$1" == "30s" ]] || return 2
+    shift
+    if [[ "$MOCK_TIMEOUT_MODE" == "expire" ]]; then return 124; fi
+    "$@"
+}
+adb() {
+    [[ "$1 $2 $3 $4 $5" == "-s TEST-SERIAL shell pm list packages --user" ]] || return 2
+    printf "package:com.example.app\\n"
+}
+EXEC_TYPE="ADB"
+BACKEND_SERIAL="TEST-SERIAL"
+run_device_bounded_real pm list packages --user 0 >/dev/null || fail "a command completing within its timeout was rejected"
+(( DEVICE_COMMAND_TIMED_OUT == 0 )) || fail "successful bounded command was marked timed out"
+MOCK_TIMEOUT_MODE=expire
+if run_device_bounded_real pm list packages --user 0 >/dev/null 2>&1; then
+    fail "a command exceeding its timeout should fail"
+fi
+(( DEVICE_COMMAND_TIMED_OUT == 1 )) || fail "timeout outcome was not recorded"
+pass "bounded commands accept timely responses and identify timeouts"
+
+# The rest of the suite mocks the device backend while keeping the production
+# debloat preview/apply orchestration under test.
+run_device_bounded() { run_device "$@"; }
+
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 pass() { printf 'PASS: %s\n' "$*"; }
 
