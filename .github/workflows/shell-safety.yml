@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "uraam.sh"
+      - "README.md"
       - "tests/**"
       - ".github/workflows/shell-safety.yml"
   push:
