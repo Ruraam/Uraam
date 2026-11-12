@@ -11,7 +11,7 @@ set -uo pipefail
 # ------------------------------------------------------------------------------
 # Configuration & Endpoints
 # ------------------------------------------------------------------------------
-CURRENT_VERSION="4.4.7"
+CURRENT_VERSION="5.0.0"
 REPO_OWNER="Ruraam"
 REPO_NAME="Uraam"
 BRANCH="main"
