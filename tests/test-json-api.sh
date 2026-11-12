@@ -40,16 +40,16 @@ case "$*" in
         printf 'Package [com.example.alpha] (123):\n    versionCode=42 minSdk=23 targetSdk=35\n    versionName=1.2.3\n    requested permissions:\n      android.permission.INTERNET\n      android.permission.CAMERA\n    install permissions:\n      android.permission.INTERNET: granted=true\n    Activities:\n      com.example.alpha/.MainActivity filter abc\n      com.example.alpha/com.example.alpha.SettingsActivity filter def\n    Services:\n      com.example.alpha/.SyncService\n    Receivers:\n      com.example.alpha/.BootReceiver\n    Providers:\n      com.example.alpha/.DataProvider\n'
         ;;
     '-s TEST-SERIAL shell pm path --user 0 com.example.legacy')
-        printf 'package:/data/app/com.example.legacy/base.apk\\n'
+        printf 'package:/data/app/com.example.legacy/base.apk\n'
         ;;
     '-s TEST-SERIAL shell dumpsys package com.example.legacy')
-        printf 'Package [com.example.legacy] (456):\\n    versionName=2.0\\n    Providers:\\n      com.example.legacy/.StoreProvider\\n    Activities:\\n      com.example.legacy/.HomeActivity filter xyz\\n      com.other.app/.ForeignActivity filter xyz\\n      ResolverTableEntry com.example.legacy/.NotAComponent\\n    Services:\\n    Receivers:\\n      com.example.legacy/com.example.legacy.BootReceiver\\n'
+        printf 'Package [com.example.legacy] (456):\n    versionName=2.0\n    Providers:\n      com.example.legacy/.StoreProvider\n    Activities:\n      com.example.legacy/.HomeActivity filter xyz\n      com.other.app/.ForeignActivity filter xyz\n      ResolverTableEntry com.example.legacy/.NotAComponent\n    Services:\n    Receivers:\n      com.example.legacy/com.example.legacy.BootReceiver\n'
         ;;
     '-s TEST-SERIAL shell pm path --user 0 com.example.nosections')
-        printf 'package:/data/app/com.example.nosections/base.apk\\n'
+        printf 'package:/data/app/com.example.nosections/base.apk\n'
         ;;
     '-s TEST-SERIAL shell dumpsys package com.example.nosections')
-        printf 'Package [com.example.nosections] (789):\\n    versionName=3.0\\n    requested permissions:\\n      android.permission.INTERNET\\n'
+        printf 'Package [com.example.nosections] (789):\n    versionName=3.0\n    requested permissions:\n      android.permission.INTERNET\n'
         ;;
     '-s TEST-SERIAL shell getprop '*)
         printf '\n'
