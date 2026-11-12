@@ -31,6 +31,7 @@ class UraamWindow(Gtk.ApplicationWindow):
         self.set_size_request(760, 520)
         self._loading = False
         self._packages: list[str] = []
+        self._package_types: dict[str, str] = {}
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.set_child(outer)
@@ -223,6 +224,12 @@ class UraamWindow(Gtk.ApplicationWindow):
         self.package_search.set_placeholder_text("Search package name…")
         self.package_search.connect("search-changed", self._filter_packages)
         page.append(self.package_search)
+        self.package_filter = Gtk.DropDown.new_from_strings(
+            ["All packages", "System apps", "User apps", "Unclassified"]
+        )
+        self.package_filter.set_selected(0)
+        self.package_filter.connect("notify::selected", self._filter_packages)
+        page.append(self.package_filter)
         scroller = Gtk.ScrolledWindow()
         scroller.set_vexpand(True)
         scroller.set_hexpand(True)
@@ -323,12 +330,24 @@ class UraamWindow(Gtk.ApplicationWindow):
             self.package_summary.set_text(f"Inventory unavailable: {error}")
             self.inventory_label.set_text("The installed-package inventory could not be loaded.")
             self._packages = []
+            self._package_types = {}
             while child := self.package_list.get_first_child():
                 self.package_list.remove(child)
             return
         self._packages = sorted(set(payload.get("packages", [])), key=str.casefold)
+        raw_types = payload.get("package_types", {})
+        self._package_types = {
+            name: raw_types.get(name, "unknown")
+            for name in self._packages
+        } if isinstance(raw_types, dict) else {name: "unknown" for name in self._packages}
+        self.package_filter.set_selected(0)
+        classification = (
+            f"{payload.get('system_count', 0)} system · "
+            f"{payload.get('user_count', 0)} user · "
+            f"{payload.get('unclassified_count', len(self._packages))} unclassified"
+        )
         self.package_summary.set_text(
-            f"{len(self._packages)} installed package(s) · Android user {payload.get('user', 0)} · read-only"
+            f"{len(self._packages)} installed package(s) · {classification} · Android user {payload.get('user', 0)} · read-only"
         )
         self.inventory_label.set_text(
             f"{len(self._packages)} package(s) detected on the connected Android device."
@@ -339,26 +358,35 @@ class UraamWindow(Gtk.ApplicationWindow):
         query = self.package_search.get_text().strip().casefold()
         while child := self.package_list.get_first_child():
             self.package_list.remove(child)
-        visible = [name for name in self._packages if query in name.casefold()]
+        selected = self.package_filter.get_selected()
+        wanted = {1: "system", 2: "user", 3: "unknown"}.get(selected)
+        visible = [
+            name for name in self._packages
+            if query in name.casefold()
+            and (wanted is None or self._package_types.get(name, "unknown") == wanted)
+        ]
         for package in visible:
             row = Gtk.ListBoxRow()
             row.add_css_class("uraam-package-row")
+            line = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+            line.set_margin_top(10)
+            line.set_margin_bottom(10)
+            line.set_margin_start(14)
+            line.set_margin_end(14)
             label = Gtk.Label(label=package, xalign=0)
             label.set_selectable(True)
-            label.set_margin_top(10)
-            label.set_margin_bottom(10)
-            label.set_margin_start(14)
-            label.set_margin_end(14)
-            row.set_child(label)
+            label.set_hexpand(True)
+            line.append(label)
+            kind = self._package_types.get(package, "unknown")
+            kind_label = Gtk.Label(label=kind.upper())
+            kind_label.add_css_class("dim-label")
+            line.append(kind_label)
+            row.set_child(line)
             self.package_list.append(row)
-        if query:
-            self.package_summary.set_text(
-                f"{len(visible)} / {len(self._packages)} package(s) match “{query}”"
-            )
-        else:
-            self.package_summary.set_text(
-                f"{len(self._packages)} installed package(s) · Android user 0 · read-only"
-            )
+        filter_name = ["all", "system", "user", "unclassified"][selected]
+        self.package_summary.set_text(
+            f"{len(visible)} / {len(self._packages)} package(s) · {filter_name} · read-only"
+        )
 
 
 class UraamApplication(Gtk.Application):
