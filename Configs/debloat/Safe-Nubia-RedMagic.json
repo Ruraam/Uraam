@@ -1,0 +1,41 @@
+{
+  "name": "Nubia / RedMagic",
+  "description": "Conservative Nubia profile based on UAD-NG Recommended OEM entries. Optional ads, store, diagnostics, recommendations and bundled apps; preserve face unlock, emergency and SAR components.",
+  "author": "Ruvyrom",
+  "version": "1.0.0",
+  "apps": [
+    {
+      "packageName": "cn.nubia.behaviordetection"
+    },
+    {
+      "packageName": "cn.nubia.identity"
+    },
+    {
+      "packageName": "cn.nubia.neostore"
+    },
+    {
+      "packageName": "cn.nubia.phonemanualintegrate.preset"
+    },
+    {
+      "packageName": "cn.nubia.aftersale"
+    },
+    {
+      "packageName": "cn.nubia.persist"
+    },
+    {
+      "packageName": "cn.nubia.woodpecker"
+    },
+    {
+      "packageName": "cn.nubia.contrycode"
+    },
+    {
+      "packageName": "cn.nubia.entertainmenttoolbox"
+    },
+    {
+      "packageName": "cn.nubia.garbagecleanwidget"
+    },
+    {
+      "packageName": "nubia.camera.dualcamtest"
+    }
+  ]
+}
