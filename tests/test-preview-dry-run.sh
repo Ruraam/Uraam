@@ -9,12 +9,15 @@ source "$ROOT/uraam.sh"
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 pass() { printf 'PASS: %s\n' "$*"; }
 
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "$TMP_DIR"' EXIT
 LAST_DEVICE_COMMAND=""
 run_device() {
     LAST_DEVICE_COMMAND="$*"
     printf 'package:com.example.app\npackage:com.android.systemui\n'
 }
-inventory="$(device_package_list active)" || fail "valid package inventory rejected"
+device_package_list active > "$TMP_DIR/inventory.out" || fail "valid package inventory rejected"
+inventory="$(cat "$TMP_DIR/inventory.out")"
 [[ "$LAST_DEVICE_COMMAND" == 'pm list packages --user 0' ]] ||
     fail "preview inventory must exclude packages uninstalled for user 0"
 grep -Fxq 'com.example.app' <<< "$inventory" || fail "package inventory parsing lost a package"
@@ -29,8 +32,6 @@ is_whitelisted com.samsung.android.bluetooth || fail "Bluetooth family pattern n
 is_whitelisted com.samsung.android.knox.kpecore || fail "Knox family pattern not enforced"
 pass "critical package protections"
 
-TMP_DIR="$(mktemp -d)"
-trap 'rm -rf "$TMP_DIR"' EXIT
 TEST_CONFIG="$TMP_DIR/profile.json"
 cat > "$TEST_CONFIG" <<'JSON'
 {
