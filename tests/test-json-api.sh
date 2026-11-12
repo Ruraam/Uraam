@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-set -x
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP_DIR="$(mktemp -d)"
@@ -84,6 +83,15 @@ fi
 exit 2
 MOCK
 
+cat > "$TMP_DIR/mockbin/dumpsys" <<'MOCK'
+#!/usr/bin/env bash
+[[ "$*" == "package com.example.alpha" ]] || {
+    printf 'Unexpected mocked dumpsys call: %s\n' "$*" >&2
+    exit 2
+}
+printf 'Package [com.example.alpha] (123):\n    versionCode=42 minSdk=23 targetSdk=35\n    versionName=1.2.3\n    requested permissions:\n      android.permission.INTERNET\n    Activities:\n      com.example.alpha/.MainActivity filter abc\n'
+MOCK
+
 cat > "$TMP_DIR/mockbin/pm" <<'MOCK'
 #!/usr/bin/env bash
 case "$*" in
@@ -109,7 +117,7 @@ case "$*" in
 esac
 MOCK
 
-chmod +x "$TMP_DIR/mockbin/adb" "$TMP_DIR/mockbin/su" "$TMP_DIR/mockbin/rish" "$TMP_DIR/mockbin/pm"
+chmod +x "$TMP_DIR/mockbin/adb" "$TMP_DIR/mockbin/su" "$TMP_DIR/mockbin/rish" "$TMP_DIR/mockbin/pm" "$TMP_DIR/mockbin/dumpsys"
 
 export PATH="$TMP_DIR/mockbin:$PATH"
 export ANDROID_SERIAL=TEST-SERIAL
