@@ -1,0 +1,60 @@
+name: Validate debloat configurations
+
+on:
+  pull_request:
+    paths:
+      - "Configs/debloat/**/*.json"
+      - "Configs/debloat/*.json"
+      - "Configs/debloat/README.md"
+      - "Docs/UAD-NG-review-catalog.md"
+      - "scripts/validate-debloat-json.py"
+      - ".github/workflows/validate-debloat-configs.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "Configs/debloat/**/*.json"
+      - "Configs/debloat/*.json"
+      - "scripts/validate-debloat-json.py"
+      - ".github/workflows/validate-debloat-configs.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: JSON schema and Safe package audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Validate changed JSON profiles and UAD classifications
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            diff_range="origin/$BASE_REF...HEAD"
+          else
+            diff_range="$BEFORE_SHA $HEAD_SHA"
+          fi
+          changed_json="$(git diff --name-only $diff_range -- Configs/debloat | grep 'json$' || true)"
+          if [ -z "$changed_json" ]; then
+            echo "ERROR: expected changed debloat JSON profiles, but none were found."
+            exit 1
+          fi
+          mapfile -t files <<< "$changed_json"
+          printf 'Validating %s changed JSON profile(s):\n' "${#files[@]}"
+          printf ' - %s\n' "${files[@]}"
+          python3 scripts/validate-debloat-json.py "${files[@]}"

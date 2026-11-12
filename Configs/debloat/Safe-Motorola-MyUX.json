@@ -1,0 +1,32 @@
+{
+  "name": "Motorola My UX",
+  "description": "Conservative Motorola profile based on UAD-NG Recommended OEM entries. Targets retail demo, feedback, promotional and diagnostic extras; keeps Moto Actions, Moto Display, security and telephony features.",
+  "author": "Ruvyrom",
+  "version": "1.0.0",
+  "apps": [
+    {
+      "packageName": "com.motorola.demo"
+    },
+    {
+      "packageName": "com.motorola.bug2go"
+    },
+    {
+      "packageName": "com.motorola.help.extlog"
+    },
+    {
+      "packageName": "com.motorola.discovery"
+    },
+    {
+      "packageName": "com.motorola.mototour"
+    },
+    {
+      "packageName": "com.motorola.hiddenmenuapp"
+    },
+    {
+      "packageName": "com.aura.oobe.ml"
+    },
+    {
+      "packageName": "com.motorola.iqimotmetrics"
+    }
+  ]
+}

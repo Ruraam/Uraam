@@ -1,0 +1,29 @@
+{
+  "name": "OnePlus OxygenOS",
+  "description": "Conservative OnePlus profile based on UAD-NG Recommended OEM entries. Removes optional store, membership, icon packs and diagnostic extras; keeps core OxygenOS and connectivity.",
+  "author": "Ruvyrom",
+  "version": "1.0.0",
+  "apps": [
+    {
+      "packageName": "com.oneplus.store"
+    },
+    {
+      "packageName": "com.oneplus.membership"
+    },
+    {
+      "packageName": "com.oneplus.minidumpoptimization"
+    },
+    {
+      "packageName": "com.oneplus.dm"
+    },
+    {
+      "packageName": "com.oneplus.iconpack.oneplush2"
+    },
+    {
+      "packageName": "com.oneplus.iconpack.onepluso2"
+    },
+    {
+      "packageName": "com.oneplus.chargingpilar"
+    }
+  ]
+}

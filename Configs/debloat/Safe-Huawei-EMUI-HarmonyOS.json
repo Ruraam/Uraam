@@ -1,0 +1,41 @@
+{
+  "name": "Huawei EMUI / HarmonyOS",
+  "description": "Conservative Huawei profile using UAD-NG Recommended OEM entries. Removes optional promotion, tips, feedback and diagnostic apps only; do not use if you rely on the selected Huawei services.",
+  "author": "Ruvyrom",
+  "version": "1.0.0",
+  "apps": [
+    {
+      "packageName": "com.huawei.android.hwupgradeguide"
+    },
+    {
+      "packageName": "com.huawei.android.tips"
+    },
+    {
+      "packageName": "com.huawei.bd"
+    },
+    {
+      "packageName": "com.huawei.mycenter"
+    },
+    {
+      "packageName": "com.huawei.hwdetectrepair"
+    },
+    {
+      "packageName": "com.huawei.magazine"
+    },
+    {
+      "packageName": "com.huawei.gameassistant"
+    },
+    {
+      "packageName": "com.huawei.fans"
+    },
+    {
+      "packageName": "com.huawei.betaclub"
+    },
+    {
+      "packageName": "com.huawei.mmitest"
+    },
+    {
+      "packageName": "com.huawei.runningtestii"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "name": "ASUS ZenUI",
+  "description": "Conservative ASUS profile based only on UAD-NG OEM packages classified Recommended. Optional ASUS utilities, demo, feedback and diagnostic apps; review feature loss before removal.",
+  "author": "Ruvyrom",
+  "version": "1.0.0",
+  "apps": [
+    {
+      "packageName": "com.asus.livedemoservice"
+    },
+    {
+      "packageName": "com.asus.tips"
+    },
+    {
+      "packageName": "com.asus.loguploader"
+    },
+    {
+      "packageName": "com.asus.loguploaderproxy"
+    },
+    {
+      "packageName": "com.asus.openbeta2"
+    },
+    {
+      "packageName": "com.asus.sysmonitor"
+    },
+    {
+      "packageName": "com.asus.ia.asusapp"
+    },
+    {
+      "packageName": "com.asus.userfeedback"
+    },
+    {
+      "packageName": "com.asus.ims.benchmarkblocker"
+    },
+    {
+      "packageName": "com.asus.atd.smmitest"
+    }
+  ]
+}

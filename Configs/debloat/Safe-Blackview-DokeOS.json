@@ -1,0 +1,41 @@
+{
+  "name": "Blackview DokeOS",
+  "description": "Conservative Blackview profile based on UAD-NG Recommended OEM entries. Optional ad, feedback, AI and bundled apps; keep weather, notes, game mode and file transfer if used.",
+  "author": "Ruvyrom",
+  "version": "1.0.0",
+  "apps": [
+    {
+      "packageName": "com.blackview.artorial.client"
+    },
+    {
+      "packageName": "com.blackview.userfeedback"
+    },
+    {
+      "packageName": "com.blackview.dokegamecenter"
+    },
+    {
+      "packageName": "com.blackview.ai.vidgen"
+    },
+    {
+      "packageName": "com.blackview.ai.doki"
+    },
+    {
+      "packageName": "com.blackview.ai.imagex"
+    },
+    {
+      "packageName": "com.blackview.ai.soundle"
+    },
+    {
+      "packageName": "com.blackview.cplog"
+    },
+    {
+      "packageName": "com.blackview.useguide"
+    },
+    {
+      "packageName": "com.blackview.app.cloudfolder"
+    },
+    {
+      "packageName": "com.blackview.searchcenter"
+    }
+  ]
+}

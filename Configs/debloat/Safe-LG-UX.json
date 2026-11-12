@@ -1,0 +1,29 @@
+{
+  "name": "LG UX",
+  "description": "Conservative LG profile based on UAD-NG Recommended OEM entries. Removes optional diagnostics, feedback and support extras; leaves LG backup, DRM, telephony and core UI untouched.",
+  "author": "Ruvyrom",
+  "version": "1.0.0",
+  "apps": [
+    {
+      "packageName": "com.lge.gnsslogcat"
+    },
+    {
+      "packageName": "com.lge.gnsspostest"
+    },
+    {
+      "packageName": "com.lge.gnsstest"
+    },
+    {
+      "packageName": "com.lge.eltest"
+    },
+    {
+      "packageName": "com.lge.friendsmanager"
+    },
+    {
+      "packageName": "com.lge.qhelp"
+    },
+    {
+      "packageName": "com.rsupport.rs.activity.lge.allinone"
+    }
+  ]
+}

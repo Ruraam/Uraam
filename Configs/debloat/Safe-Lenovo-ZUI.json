@@ -1,0 +1,38 @@
+{
+  "name": "Lenovo ZUI",
+  "description": "Conservative Lenovo profile based on UAD-NG Recommended OEM entries. Removes optional browser, tips, feedback and usage telemetry; preserve account, anti-theft, setup and device input components.",
+  "author": "Ruvyrom",
+  "version": "1.0.0",
+  "apps": [
+    {
+      "packageName": "com.zui.browser"
+    },
+    {
+      "packageName": "com.zui.bugtogo"
+    },
+    {
+      "packageName": "com.zui.continuity"
+    },
+    {
+      "packageName": "com.zui.legalinfo"
+    },
+    {
+      "packageName": "com.zui.thirdparty.sdk"
+    },
+    {
+      "packageName": "com.zui.userexperience"
+    },
+    {
+      "packageName": "com.zui.xlog"
+    },
+    {
+      "packageName": "com.tblenovo.center"
+    },
+    {
+      "packageName": "com.tblenovo.lenovotips"
+    },
+    {
+      "packageName": "com.aura.oobe.lenovo"
+    }
+  ]
+}
