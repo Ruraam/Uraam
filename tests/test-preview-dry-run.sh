@@ -34,6 +34,22 @@ is_whitelisted com.samsung.android.bluetooth || fail "Bluetooth family pattern n
 is_whitelisted com.samsung.android.knox.kpecore || fail "Knox family pattern not enforced"
 pass "critical package protections"
 
+# Mock OEM properties to verify normalization and advisory profile matching.
+device_getprop() {
+    case "$1" in
+        ro.product.manufacturer) printf '%s\n' Xiaomi ;;
+        ro.product.brand) printf '%s\n' Redmi ;;
+        *) printf '\n' ;;
+    esac
+}
+[[ "$(device_oem_family)" == "xiaomi" ]] || fail "Xiaomi/Redmi OEM detection failed"
+[[ "$(oem_profile_status_for_package com.miui.analytics xiaomi)" == "MATCH" ]] ||
+    fail "package present in Xiaomi Safe profile was not recognized"
+[[ "$(oem_profile_status_for_package com.example.app xiaomi)" == "NOT_LISTED" ]] ||
+    fail "package absent from Xiaomi Safe profile was not marked advisory NOT_LISTED"
+[[ "$(oem_profile_status_for_package com.example.app unknown)" == "UNKNOWN" ]] ||
+    fail "unknown OEM should remain UNKNOWN"
+pass "OEM identity normalization and advisory profile matching"
 
 TEST_CONFIG="$TMP_DIR/profile.json"
 UAD_METADATA_FILE="$TMP_DIR/uad_lists.json"
