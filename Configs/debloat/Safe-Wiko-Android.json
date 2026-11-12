@@ -1,0 +1,11 @@
+{
+  "name": "Wiko Android",
+  "description": "Minimal Wiko profile based on UAD-NG Recommended OEM entries. Includes only the optional health counter; does not target setup, legal or package-installer components.",
+  "author": "Ruvyrom",
+  "version": "1.0.0",
+  "apps": [
+    {
+      "packageName": "com.ape.walkfit"
+    }
+  ]
+}
