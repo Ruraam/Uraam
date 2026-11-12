@@ -353,14 +353,21 @@ oem_profile_status_for_package() {
     for dir in "${profile_dirs[@]}"; do
         [[ -d "$dir" ]] || continue
         while IFS= read -r -d '' file; do
-            [[ "${file##*/}" == *"$family"* ]] || continue
+            local profile_name="${file##*/}"
+            profile_name="${profile_name,,}"
+            case "$family:$profile_name" in
+                samsung:*samsung*|samsung:*s[0-9][0-9]*|samsung:*z-fold*) ;;
+                xiaomi:*xiaomi*|google:*pixel*|oneplus:*oneplus*|oppo:*oppo*|oppo:*realme*|motorola:*motorola*|huawei:*huawei*|honor:*honor*|asus:*asus*|sony:*sony*|lenovo:*lenovo*|nothing:*nothing*|blackview:*blackview*|transsion:*tecno*|transsion:*infinix*|transsion:*transsion*|vivo:*vivo*|vivo:*iqoo*|zte:*zte*|zte:*nubia*|zte:*redmagic*) ;;
+                *) continue ;;
+            esac
             found=1
             if command -v jq >/dev/null 2>&1 &&
-                jq -e --arg package "$package"                     'any(.apps[]?; .packageName == $package)' "$file" >/dev/null 2>&1; then
+                jq -e --arg package "$package" \
+                    'any(.apps[]?; .packageName == $package)' "$file" >/dev/null 2>&1; then
                 printf '%s\n' MATCH
                 return 0
             fi
-        done < <(find "$dir" -maxdepth 1 -type f -name 'Safe-*.json' -print0 2>/dev/null)
+        done < <(find "$dir" -maxdepth 1 -type f -name '*.json' -print0 2>/dev/null)
     done
     if (( found )); then printf '%s\n' NOT_LISTED; else printf '%s\n' UNKNOWN; fi
 }
