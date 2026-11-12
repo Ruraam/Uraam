@@ -144,3 +144,22 @@ Package inventory parsing is fail-closed: URAAM rejects command failures,
 empty output, and responses containing malformed/error lines even if some
 valid package rows were returned. It will not treat a partial list as a safe
 basis for a destructive preview or apply.
+
+### Device command timeouts
+
+Package inventory, uninstall and disable commands are run with a host-side
+timeout to prevent a stalled ADB, root or Shizuku session from blocking URAAM
+indefinitely. The default limit is 30 seconds and can be adjusted with
+`URAAM_DEVICE_TIMEOUT` to an integer from 1 to 300 seconds.
+
+The host must provide GNU `timeout` (normally from coreutils) or `gtimeout`
+(commonly installed as `gtimeout` on macOS). If neither command is available,
+URAAM refuses to send the bounded package command and reports the missing
+requirement; it does not silently run without a timeout.
+
+A timed-out uninstall or disable has an **unknown outcome**: Android may have
+applied the operation even if the host lost its response. URAAM therefore
+counts that operation as failed/uncertain, stops the batch, marks all later
+operations as skipped, and never retries the timed-out package automatically.
+Inspect the device and refresh its package inventory before deciding what to
+do next. A timeout is not proof that the package operation did not happen.
