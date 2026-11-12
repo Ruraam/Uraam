@@ -191,17 +191,34 @@ start_log() {
 # Dependency handling
 # ---------------------------------------------------------------------------
 
+run_as_admin() {
+    if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
+        "$@"
+    elif command -v sudo >/dev/null 2>&1; then
+        sudo "$@"
+    elif command -v doas >/dev/null 2>&1; then
+        doas "$@"
+    else
+        err "Administrative privileges required (run as root or install sudo/doas)."
+        return 1
+    fi
+}
+
 install_package() {
     local package="$1"
     if is_termux; then
         command -v pkg >/dev/null 2>&1 || { err "Termux pkg is unavailable."; return 1; }
         pkg install -y "$package"
     elif command -v apt-get >/dev/null 2>&1; then
-        sudo apt-get install -y "$package"
+        run_as_admin apt-get install -y "$package"
     elif command -v pacman >/dev/null 2>&1; then
-        sudo pacman -S --needed --noconfirm "$package"
+        run_as_admin pacman -S --needed --noconfirm "$package"
     elif command -v dnf >/dev/null 2>&1; then
-        sudo dnf install -y "$package"
+        run_as_admin dnf install -y "$package"
+    elif command -v zypper >/dev/null 2>&1; then
+        run_as_admin zypper --non-interactive install "$package"
+    elif command -v apk >/dev/null 2>&1; then
+        run_as_admin apk add "$package"
     elif command -v brew >/dev/null 2>&1; then
         brew install "$package"
     else
