@@ -69,3 +69,26 @@ For privacy, you can block internet connection (via firewall) for these apps wit
 **For view packages list and descriptions see the /docs/[package-list.md](https://github.com/Ruvyrom/Ruvomain-Protocole/blob/main/Docs/package-list.md)**
 
 **⚠️ Before use Tier3, you must read /docs/[REMPLACEMENT.md](https://github.com/Ruvyrom/Ruvomain-Protocole/blob/main/Docs/REMPLACEMENT.md)**
+
+### Safe OEM profiles (UAD-NG)
+
+Conservative manufacturer-specific profiles added to this directory:
+
+- `Safe-ASUS-ZenUI.json`
+- `Safe-Huawei-EMUI-HarmonyOS.json`
+- `Safe-HONOR-MagicOS.json`
+- `Safe-Motorola-MyUX.json`
+- `Safe-LG-UX.json`
+- `Safe-OnePlus-OxygenOS.json`
+- `Safe-OPPO-Realme-ColorOS.json`
+- `Safe-Lenovo-ZUI.json`
+- `Safe-NothingOS.json`
+- `Safe-Nubia-RedMagic.json`
+- `Safe-TECNO-Infinix-Transsion.json`
+- `Safe-Blackview-DokeOS.json`
+- `Safe-Meizu-FlymeOS.json`
+- `Safe-Wiko-Android.json`
+
+**Safety policy:** each package ID was checked against the UAD-NG package database and is classified `list: Oem` and `removal: Recommended` at the source revision below. UAD defines *Recommended* as removable but still advises users to review their own needs. This does not guarantee that every package exists on every firmware or that optional features remain available. These are curated subsets, not universal guarantees. Check the packages present on your device, make a backup, and review the selected list before applying it. Do not combine OEM profiles blindly.
+
+Source: [UAD-NG package database](https://github.com/Universal-Debloater-Alliance/universal-android-debloater-next-generation/blob/9fcad87bf78c52c4270504bc8880139d95a27a29/resources/assets/uad_lists.json) (revision `9fcad87bf78c52c4270504bc8880139d95a27a29`).
