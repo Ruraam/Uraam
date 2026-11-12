@@ -142,12 +142,12 @@ pause() {
 # Pattern guards cover OEM-specific variants and resource overlays that
 # cannot be exhaustively represented by a short exact-name whitelist.
 SAFETY_PACKAGE_PATTERNS=(
-    '^com\\.android\\.providers\\.(settings|telephony|media|downloads|contacts)(\\.|$)'
-    '(^|\\.)(telephony[^.]*|telecom|ims|imsservice|ril)(\\.|$)'
-    '(^|\\.)(setupwizard|permissioncontroller|packageinstaller|systemui|keyguard|emergency)(\\.|$)'
-    '(^|\\.)(bluetooth|bluetoothagent|bluetoothservice|nfc)(\\.|$)'
-    '^com\\.android\\.(providers\\.(settings|telephony)|server\\.telecom|emergency|systemui|permissioncontroller).*overlay'
-    '^com\\.samsung\\.android\\.knox\\.(attestation|containercore|kpecore)(\\.|$)'
+    '^com\.android\.providers\.(settings|telephony|media|downloads|contacts)(\.|$)'
+    '(^|\.)(telephony[^.]*|telecom|ims|imsservice|ril)(\.|$)'
+    '(^|\.)(setupwizard|permissioncontroller|packageinstaller|systemui|keyguard|emergency)(\.|$)'
+    '(^|\.)(bluetooth|bluetoothagent|bluetoothservice|nfc)(\.|$)'
+    '^com\.android\.(providers\.(settings|telephony)|server\.telecom|emergency|systemui|permissioncontroller).*overlay'
+    '^com\.samsung\.android\.knox\.(attestation|containercore|kpecore)(\.|$)'
 )
 
 is_whitelisted() {
