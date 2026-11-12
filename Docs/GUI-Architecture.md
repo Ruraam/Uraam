@@ -1,6 +1,6 @@
 # URAAM Desktop foundation
 
-URAAM Desktop is an optional GTK4 frontend. It does not replace the Bash application and does not contain a second implementation of Android package-management logic.
+URAAM Desktop is an optional GTK4 frontend. It does not replace the Bash CLI and does not contain a second implementation of Android package-management logic. The CLI remains a first-class, independently usable entry point: it must work without Python, PyGObject, GTK4, a graphical session, or the desktop launcher. Installing or launching the GUI is always optional; Termux remains CLI-only.
 
 ## Current scope
 
@@ -31,7 +31,7 @@ Existing Bash engine (uraam.sh)
         +-- Shizuku (rish)
 ```
 
-The GUI invokes the adapter with `subprocess.run([...])`; it does not use a shell to interpolate user-controlled values. The adapter only accepts the documented read-only commands. Unknown commands, including destructive command names, are rejected.
+The GUI invokes the adapter with `subprocess.run([...])`; it does not use a shell to interpolate user-controlled values. The adapter only accepts exactly one documented read-only command. Extra arguments and unknown commands, including destructive command names, are rejected. The adapter sources the engine only in `URAAM_TESTING=1` mode, so the interactive CLI entry point is not started as a side effect.
 
 ## JSON response examples
 
@@ -96,4 +96,4 @@ A future mutating API must call the existing engine's validated operation paths.
 
 `tests/test-json-api.sh` uses a mocked ADB executable to verify device information and the user-0 inventory. It also verifies that unsupported destructive command names are rejected.
 
-The GUI foundation workflow validates Bash syntax, ShellCheck, Python syntax, GTK4 bindings and the mocked JSON API. These tests do not replace testing with real Android devices and each supported backend.
+The GUI foundation workflow validates Bash syntax for the engine, CLI launcher and adapter, ShellCheck, Python syntax, GTK4 bindings, Debian desktop package layout and the mocked JSON API. The shell-safety workflow continues to validate the existing CLI safety and dry-run/recovery suites independently of GTK. These tests do not replace testing with real Android devices and each supported backend.
