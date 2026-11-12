@@ -29,6 +29,9 @@ jobs:
           bash -n uraam.sh
           bash -n installer.sh
 
+      - name: Validate debloat JSON presets
+        run: python3 tests/validate_debloat_configs.py
+
       - name: Run ShellCheck (errors)
         run: |
           shellcheck --severity=error uraam.sh installer.sh
