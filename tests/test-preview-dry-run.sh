@@ -35,11 +35,33 @@ is_whitelisted com.samsung.android.knox.kpecore || fail "Knox family pattern not
 pass "critical package protections"
 
 TEST_CONFIG="$TMP_DIR/profile.json"
+UAD_METADATA_FILE="$TMP_DIR/uad_lists.json"
+cat > "$UAD_METADATA_FILE" <<'JSON'
+{
+  "com.example.app": {
+    "list": "Oem",
+    "description": "A recommended test application.",
+    "removal": "Recommended"
+  },
+  "com.example.expert": {
+    "list": "Google",
+    "description": "An expert-only test application.",
+    "removal": "Expert"
+  },
+  "com.example.unsafe": {
+    "list": "Aosp",
+    "description": "Never remove this critical test package.",
+    "removal": "Unsafe"
+  }
+}
+JSON
 cat > "$TEST_CONFIG" <<'JSON'
 {
   "name": "Preview test",
   "apps": [
     {"packageName": "com.example.app"},
+    {"packageName": "com.example.expert"},
+    {"packageName": "com.example.unsafe"},
     {"packageName": "com.example.missing"},
     {"packageName": "com.android.systemui"},
     {"packageName": "com.samsung.android.bluetooth"}
@@ -56,6 +78,8 @@ select_json_file() { SELECTED_FILE="$TEST_CONFIG"; }
 device_package_list() {
     printf '%s\n' \
         'com.example.app' \
+        'com.example.expert' \
+        'com.example.unsafe' \
         'com.android.systemui' \
         'com.samsung.android.bluetooth'
 }
@@ -70,23 +94,33 @@ run_device() {
 
 uraam_debloat > "$TMP_DIR/dry-run.out" 2>&1 <<'INPUT'
 u
+1
 d
 INPUT
-grep -Fq '[WILL UNINSTALL] com.example.app' "$TMP_DIR/dry-run.out" ||
+grep -Fq '[1] [Recommended] [Oem] com.example.app' "$TMP_DIR/dry-run.out" ||
+    fail "UAD Recommended metadata was not displayed"
+grep -Fq '[2] [Expert] [Google] com.example.expert' "$TMP_DIR/dry-run.out" ||
+    fail "UAD Expert metadata was not displayed"
+grep -Fq '[BLOCKED] [UNSAFE] [Aosp] com.example.unsafe' "$TMP_DIR/dry-run.out" ||
+    fail "Unsafe package was not blocked"
+grep -Fq '[NOT SELECTED] [Expert] com.example.expert' "$TMP_DIR/dry-run.out" ||
+    fail "unselected Expert package was not explicitly excluded"
+grep -Fq '[WILL UNINSTALL] [Recommended] com.example.app' "$TMP_DIR/dry-run.out" ||
     fail "preview did not list the eligible package"
-grep -Fq '[PROTECTED] com.android.systemui' "$TMP_DIR/dry-run.out" ||
+grep -Fq '[PROTECTED BY URAAM] com.android.systemui' "$TMP_DIR/dry-run.out" ||
     fail "preview did not identify exact-whitelist package"
-grep -Fq '[PROTECTED] com.samsung.android.bluetooth' "$TMP_DIR/dry-run.out" ||
+grep -Fq '[PROTECTED BY URAAM] com.samsung.android.bluetooth' "$TMP_DIR/dry-run.out" ||
     fail "preview did not identify OEM-pattern protected package"
 grep -Fq '[NOT INSTALLED] com.example.missing' "$TMP_DIR/dry-run.out" ||
     fail "preview did not identify absent package"
-grep -Fq 'DRY RUN complete: 1 package(s)' "$TMP_DIR/dry-run.out" ||
+grep -Fq 'DRY RUN complete: 1 manually selected package(s)' "$TMP_DIR/dry-run.out" ||
     fail "dry-run summary incorrect"
 (( ${#DEVICE_MUTATIONS[@]} == 0 )) || fail "dry-run executed a device mutation"
 pass "dry-run previews exact actions and performs no mutation"
 
 uraam_debloat > "$TMP_DIR/apply.out" 2>&1 <<'INPUT'
 u
+1
 a
 APPLY 1
 INPUT
@@ -98,6 +132,7 @@ pass "apply requires exact count and executes only eligible packages"
 DEVICE_MUTATIONS=()
 uraam_debloat > "$TMP_DIR/reject.out" 2>&1 <<'INPUT'
 u
+1
 a
 APPLY 4
 INPUT
@@ -107,6 +142,7 @@ pass "incorrect operation count is rejected"
 DEVICE_MUTATIONS=()
 uraam_debloat > "$TMP_DIR/disable.out" 2>&1 <<'INPUT'
 d
+1
 a
 APPLY 1
 INPUT
@@ -126,6 +162,7 @@ device_package_list() {
 }
 if uraam_debloat > "$TMP_DIR/stale.out" 2>&1 <<'INPUT'
 u
+1
 a
 APPLY 1
 INPUT
