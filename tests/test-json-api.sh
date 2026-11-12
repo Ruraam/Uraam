@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-set -x
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP_DIR="$(mktemp -d)"
@@ -252,7 +251,7 @@ grep -Fq 'read-only' <<< "$help_output"
 # Exercise each transport independently. These are host-side command mocks:
 # no physical device, privilege escalation or Shizuku service is contacted.
 export PREFIX="$TMP_DIR/com.termux/files/usr"
-export MOCK_ADB_OFFLINE=1
+export MOCK_ADB_STATE=offline
 unset ANDROID_SERIAL
 
 export MOCK_SU_DENY=0
@@ -276,6 +275,7 @@ jq -e '.status == "ok" and .backend == "SHIZUKU" and .count == 3' <<< "$shizuku_
 shizuku_package="$(bash "$ROOT/uraam-api.sh" package-info:com.example.alpha)"
 jq -e '.status == "ok" and .backend == "SHIZUKU" and .paths == ["/data/app/~~abc/com.example.alpha/base.apk"] and .version_name == "1.2.3" and .read_only == true' <<< "$shizuku_package" >/dev/null
 
+unset MOCK_ADB_STATE
 printf '%s\n' "PASS: mocked ADB, ROOT and SHIZUKU read-only backend paths"
 
 printf '%s\n' "PASS: JSON device information, package inventory, package inspector and strict read-only command boundary"
