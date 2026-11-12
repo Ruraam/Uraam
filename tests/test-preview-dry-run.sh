@@ -42,7 +42,9 @@ cat > "$UAD_METADATA_FILE" <<'JSON'
   "com.example.app": {
     "list": "Oem",
     "description": "A recommended test application.",
-    "removal": "Recommended"
+    "removal": "Recommended",
+    "dependencies": ["com.example.framework"],
+    "neededBy": ["com.example.consumer"]
   },
   "com.example.expert": {
     "list": "Google",
@@ -83,6 +85,8 @@ device_package_list() {
         'com.example.expert' \
         'com.example.unsafe' \
         'com.example.unknown' \
+        'com.example.framework' \
+        'com.example.consumer' \
         'com.android.systemui' \
         'com.samsung.android.bluetooth'
 }
@@ -118,6 +122,12 @@ grep -Fq '[PROTECTED BY URAAM] com.samsung.android.bluetooth' "$TMP_DIR/dry-run.
     fail "preview did not identify OEM-pattern protected package"
 grep -Fq '[NOT INSTALLED] com.example.missing' "$TMP_DIR/dry-run.out" ||
     fail "preview did not identify absent package"
+grep -Fq '[DEPENDENCY INSTALLED] com.example.framework' "$TMP_DIR/dry-run.out" ||
+    fail "selected package dependency was not shown as installed"
+grep -Fq 'Installed dependent may be affected: com.example.consumer relies on com.example.app' "$TMP_DIR/dry-run.out" ||
+    fail "installed reverse dependency warning was not displayed"
+grep -Fq 'Dependency metadata is advisory and non-exhaustive' "$TMP_DIR/dry-run.out" ||
+    fail "non-exhaustive dependency caveat was not displayed"
 grep -Fq 'DRY RUN complete: 1 manually selected package(s)' "$TMP_DIR/dry-run.out" ||
     fail "dry-run summary incorrect"
 (( ${#DEVICE_MUTATIONS[@]} == 0 )) || fail "dry-run executed a device mutation"
