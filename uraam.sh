@@ -1018,39 +1018,75 @@ update_uraam() {
     show_logo
     msg "${BLUE}========================================${NC}"
     msg "${CYAN}=== URAAM | SCRIPT UPDATER ===${NC}"
-    read -r -p "Download and replace the current script? [y/N]: " confirm
+    read -r -p "Download and replace the current script and UAD metadata? [y/N]: " confirm
     [[ "$confirm" =~ ^[yY]$ ]] || { warn "Update cancelled."; return 0; }
 
     command -v curl >/dev/null 2>&1 || { err "curl is required."; return 1; }
+    command -v jq >/dev/null 2>&1 || { err "jq is required."; return 1; }
+
     local target_bin="$SOURCE"
     local raw_url="https://raw.githubusercontent.com/Ruraam/Uraam/main/uraam.sh"
-    local tmp_file
-    tmp_file="$(mktemp)" || return 1
+    local metadata_url="https://raw.githubusercontent.com/Ruraam/Uraam/main/Configs/uad/uad_lists.json"
+    local metadata_target="$SCRIPT_DIR/Configs/uad/uad_lists.json"
+    local metadata_dir="$SCRIPT_DIR/Configs/uad"
+    local tmp_file tmp_metadata
 
-    if ! curl -fL --retry 2 --connect-timeout 15 "$raw_url" -o "$tmp_file"; then
-        rm -f "$tmp_file"
-        err "Download failed."
+    tmp_file="$(mktemp)" || return 1
+    tmp_metadata="$(mktemp)" || { rm -f "$tmp_file"; return 1; }
+
+    if ! curl -fL --retry 2 --connect-timeout 15 --max-time 180 "$raw_url" -o "$tmp_file"; then
+        rm -f "$tmp_file" "$tmp_metadata"
+        err "Script download failed."
+        return 1
+    fi
+    if ! curl -fL --retry 2 --connect-timeout 15 --max-time 180 "$metadata_url" -o "$tmp_metadata"; then
+        rm -f "$tmp_file" "$tmp_metadata"
+        err "UAD-NG metadata download failed; current installation was not changed."
         return 1
     fi
     bash -n "$tmp_file" || {
-        rm -f "$tmp_file"
+        rm -f "$tmp_file" "$tmp_metadata"
         err "Downloaded script has a Bash syntax error; current installation was not changed."
         return 1
     }
+    jq -e 'type == "object" and length > 0 and all(.[]; (.removal == "Recommended" or .removal == "Advanced" or .removal == "Expert" or .removal == "Unsafe") and (.description | type == "string") and (.list | type == "string"))' "$tmp_metadata" >/dev/null || {
+        rm -f "$tmp_file" "$tmp_metadata"
+        err "Downloaded UAD-NG metadata failed validation; current installation was not changed."
+        return 1
+    }
 
-    if [[ -w "$target_bin" ]]; then
-        if ! install -m 0755 "$tmp_file" "$target_bin"; then
-            rm -f "$tmp_file"
+    if [[ -w "$SCRIPT_DIR" ]]; then
+        if ! mkdir -p "$metadata_dir" ||
+            ! install -m 0644 "$tmp_metadata" "$metadata_target" ||
+            ! install -m 0755 "$tmp_file" "$target_bin"; then
+            rm -f "$tmp_file" "$tmp_metadata"
+            err "Could not install the script and UAD metadata."
+            return 1
+        fi
+    elif command -v sudo >/dev/null 2>&1; then
+        if ! sudo mkdir -p "$metadata_dir" ||
+            ! sudo install -m 0644 "$tmp_metadata" "$metadata_target" ||
+            ! sudo install -m 0755 "$tmp_file" "$target_bin"; then
+            rm -f "$tmp_file" "$tmp_metadata"
+            err "Could not install the script and UAD metadata."
+            return 1
+        fi
+    elif command -v doas >/dev/null 2>&1; then
+        if ! doas mkdir -p "$metadata_dir" ||
+            ! doas install -m 0644 "$tmp_metadata" "$metadata_target" ||
+            ! doas install -m 0755 "$tmp_file" "$target_bin"; then
+            rm -f "$tmp_file" "$tmp_metadata"
+            err "Could not install the script and UAD metadata."
             return 1
         fi
     else
-        sudo install -m 0755 "$tmp_file" "$target_bin" || {
-            rm -f "$tmp_file"
-            return 1
-        }
+        rm -f "$tmp_file" "$tmp_metadata"
+        err "Root privileges are required to update this installation."
+        return 1
     fi
-    rm -f "$tmp_file"
-    ok "URAAM script updated."
+
+    rm -f "$tmp_file" "$tmp_metadata"
+    ok "URAAM script and UAD-NG metadata updated."
     read -r -p "Press Enter to restart..."
     exec "$target_bin" "$@"
 }
