@@ -51,6 +51,55 @@ device_getprop() {
     fail "unknown OEM should remain UNKNOWN"
 pass "OEM identity normalization and advisory profile matching"
 
+# ROM/version detection uses vendor build properties and stays conservative.
+device_getprop() {
+    case "$1" in
+        ro.product.manufacturer) printf '%s\n' Samsung ;;
+        ro.product.brand) printf '%s\n' samsung ;;
+        ro.build.version.oneui) printf '%s\n' 8.5 ;;
+        ro.build.version.release) printf '%s\n' 16 ;;
+        *) printf '\n' ;;
+    esac
+}
+[[ "$(device_rom_info)" == "One UI|8.5" ]] ||
+    fail "One UI version detection returned: $(device_rom_info)"
+
+device_getprop() {
+    case "$1" in
+        ro.product.manufacturer) printf '%s\n' Xiaomi ;;
+        ro.product.brand) printf '%s\n' POCO ;;
+        ro.mi.os.version.name) printf '%s\n' 2.0.1 ;;
+        ro.build.version.release) printf '%s\n' 15 ;;
+        *) printf '\n' ;;
+    esac
+}
+[[ "$(device_rom_info)" == "HyperOS|2.0.1" ]] ||
+    fail "HyperOS version detection returned: $(device_rom_info)"
+
+device_getprop() {
+    case "$1" in
+        ro.product.manufacturer) printf '%s\n' Google ;;
+        ro.product.brand) printf '%s\n' Pixel ;;
+        ro.lineage.version) printf '%s\n' 22.2 ;;
+        ro.build.version.release) printf '%s\n' 15 ;;
+        *) printf '\n' ;;
+    esac
+}
+[[ "$(device_rom_info)" == "LineageOS|22.2" ]] ||
+    fail "custom ROM should take precedence over OEM default: $(device_rom_info)"
+
+device_getprop() {
+    case "$1" in
+        ro.product.manufacturer) printf '%s\n' OnePlus ;;
+        ro.product.brand) printf '%s\n' OnePlus ;;
+        ro.build.version.release) printf '%s\n' 16 ;;
+        *) printf '\n' ;;
+    esac
+}
+[[ "$(device_rom_info)" == "Unknown ROM|16" ]] ||
+    fail "unknown vendor ROM must not be guessed: $(device_rom_info)"
+pass "ROM family/version detection and conservative fallback"
+
 TEST_CONFIG="$TMP_DIR/profile.json"
 UAD_METADATA_FILE="$TMP_DIR/uad_lists.json"
 cat > "$UAD_METADATA_FILE" <<'JSON'
