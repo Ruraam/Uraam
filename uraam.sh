@@ -744,7 +744,7 @@ uraam_debloat() {
     info "Selected: $(basename "$file")"
     load_packages_from_json "$file" || { pause; return 1; }
 
-    local action mode confirm installed pkg operation_count ready_count
+    local action mode confirm installed pkg operation_count ready_count initial_device_model
     local selection token risk category description metadata index relation oem_family oem_status rom_info rom_name rom_version initial_rom_info
     local success=0 skipped=0 failed=0
     local -a pkg_dependencies=() pkg_needed_by=()
@@ -766,6 +766,10 @@ uraam_debloat() {
         err "Cannot obtain a reliable package inventory; no changes made."
         return 1
     }
+    # Record the visible hardware identity as well as OEM/ROM properties. This
+    # helps detect a device swap on a reused wireless ADB address.
+    device_brand
+    initial_device_model="$CURRENT_MODEL"
     oem_family="$(device_oem_family)"
     rom_info="$(device_rom_info)"
     initial_rom_info="$rom_info"
@@ -965,8 +969,11 @@ uraam_debloat() {
         err "Cannot refresh package inventory; no changes made."
         return 1
     }
-    if [[ "$(device_oem_family)" != "$oem_family" || "$(device_rom_info)" != "$initial_rom_info" ]]; then
-        warn "Device OEM/ROM identity changed after preview. Run Preview again; no changes made."
+    device_brand
+    if [[ "$CURRENT_MODEL" != "$initial_device_model" ||
+        "$(device_oem_family)" != "$oem_family" ||
+        "$(device_rom_info)" != "$initial_rom_info" ]]; then
+        warn "Device model, OEM or ROM identity changed after preview. Run Preview again; no changes made."
         return 1
     fi
     ready_count=0
