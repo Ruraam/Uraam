@@ -128,9 +128,6 @@
       "packageName": "com.android.ondevicepersonalization.services"
     },
     {
-      "packageName": "com.android.permissioncontroller.overlay"
-    },
-    {
       "packageName": "com.android.phone.overlay.product.gs101"
     },
     {
@@ -167,27 +164,6 @@
       "packageName": "com.android.storagemanager.auto_generated_rro_product__"
     },
     {
-      "packageName": "com.android.systemui.accessibility.accessibilitymenu"
-    },
-    {
-      "packageName": "com.android.systemui.overlay.product.gs101"
-    },
-    {
-      "packageName": "com.android.systemui.overlay.product.oriole"
-    },
-    {
-      "packageName": "com.android.systemui.overlay.vendor.gs101"
-    },
-    {
-      "packageName": "com.android.systemui.overlay.vendor.oriole"
-    },
-    {
-      "packageName": "com.android.systemui.overlay.vendor.raviole"
-    },
-    {
-      "packageName": "com.android.systemui.plugin.globalactions.wallet"
-    },
-    {
       "packageName": "com.android.wallpaperbackup"
     },
     {
@@ -204,12 +180,6 @@
     },
     {
       "packageName": "com.google.android.overlay.glanceablehubsettings"
-    },
-    {
-      "packageName": "com.google.android.overlay.permissioncontroller.safetycenter"
-    },
-    {
-      "packageName": "com.google.android.systemui.overlay.glanceablehubconfig"
     },
     {
       "packageName": "com.google.pixel.camera.services"
