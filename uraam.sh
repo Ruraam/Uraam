@@ -288,6 +288,29 @@ run_device() {
     esac
 }
 
+# Check the transport independently from the package command. A package-level
+# failure must not be confused with a disconnected ADB/Shizuku/root backend.
+backend_is_available() {
+    case "$EXEC_TYPE" in
+        ADB)
+            [[ -n "$BACKEND_SERIAL" ]] || return 1
+            [[ "$(adb -s "$BACKEND_SERIAL" get-state 2>/dev/null)" == "device" ]]
+            ;;
+        ROOT)
+            if [[ "$(id -u)" -eq 0 ]]; then
+                return 0
+            fi
+            command -v su >/dev/null 2>&1 && su -c id >/dev/null 2>&1
+            ;;
+        SHIZUKU)
+            command -v rish >/dev/null 2>&1 && rish -c id >/dev/null 2>&1
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
 device_getprop() {
     local property="$1"
     case "$EXEC_TYPE" in
@@ -993,7 +1016,15 @@ uraam_debloat() {
     fi
 
     start_log debloat "$LOGD_DIR" uraam-debloat || return 1
-    for pkg in "${SELECTED_PACKAGES[@]}"; do
+    for index in "${!SELECTED_PACKAGES[@]}"; do
+        pkg="${SELECTED_PACKAGES[$index]}"
+        if ! backend_is_available; then
+            remaining=$((${#SELECTED_PACKAGES[@]} - index))
+            warn "Backend disconnected before operation; stopping the batch."
+            warn "$remaining operation(s) not attempted."
+            ((skipped+=remaining))
+            break
+        fi
         printf '%s: ' "$pkg"
         if is_whitelisted "$pkg"; then
             err "became protected; skipped"
@@ -1007,6 +1038,13 @@ uraam_debloat() {
             else
                 err "uninstall failed"
                 ((failed+=1))
+                if ! backend_is_available; then
+                    remaining=$((${#SELECTED_PACKAGES[@]} - index - 1))
+                    warn "Backend disconnected during operation; stopping the batch."
+                    warn "$remaining remaining operation(s) not attempted."
+                    ((skipped+=remaining))
+                    break
+                fi
             fi
         else
             if run_device pm disable-user --user 0 "$pkg" >/dev/null 2>&1; then
@@ -1015,6 +1053,13 @@ uraam_debloat() {
             else
                 err "disable failed"
                 ((failed+=1))
+                if ! backend_is_available; then
+                    remaining=$((${#SELECTED_PACKAGES[@]} - index - 1))
+                    warn "Backend disconnected during operation; stopping the batch."
+                    warn "$remaining remaining operation(s) not attempted."
+                    ((skipped+=remaining))
+                    break
+                fi
             fi
         fi
     done
