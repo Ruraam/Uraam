@@ -39,6 +39,7 @@ jobs:
         run: |
           bash -n uraam.sh
           bash -n tests/test-preview-dry-run.sh
+          bash -n tests/test-interrupted-process.sh
           python3 -m py_compile tests/validate_uad_metadata.py
 
       - name: Run ShellCheck
@@ -49,3 +50,6 @@ jobs:
 
       - name: Test preview and dry-run safety
         run: bash tests/test-preview-dry-run.sh
+
+      - name: Test recovery after abrupt process termination
+        run: bash tests/test-interrupted-process.sh
