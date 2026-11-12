@@ -30,7 +30,7 @@ jobs:
           cp GUI/main.py "$PKG_DIR/usr/share/uraam/GUI/"
           cp uraam-gui "$PKG_DIR/usr/bin/uraam-gui"
           cp assets/uraam_logo.svg "$PKG_DIR/usr/share/icons/hicolor/scalable/apps/uraam.svg"
-          cp packaging/debian/uraam.desktop "$PKG_DIR/usr/share/applications/uraam.desktop"
+          cp packaging/debian/uraam.desktop "$PKG_DIR/usr/share/uraam/uraam.desktop"
           chmod 0755 "$PKG_DIR/usr/share/uraam/uraam.sh" "$PKG_DIR/usr/share/uraam/uraam-api.sh" "$PKG_DIR/usr/bin/uraam-gui"
           sed "s/VERSION_PLACEHOLDER/$VERSION/" packaging/debian/DEBIAN/control > "$PKG_DIR/DEBIAN/control"
           cp packaging/debian/DEBIAN/postinst "$PKG_DIR/DEBIAN/"
