@@ -419,9 +419,13 @@ pass "stale preview is rejected before execution"
 # acquires the lock. The under-lock revalidation must prevent stale apply.
 eval "$(declare -f acquire_apply_lock | sed '1s/acquire_apply_lock/acquire_apply_lock_real/')"
 SIMULATE_STATE_CHANGE_ON_LOCK=0
+LOCK_ACQUIRE_CALLS=0
 acquire_apply_lock() {
     acquire_apply_lock_real || return 1
-    if (( SIMULATE_STATE_CHANGE_ON_LOCK )); then
+    ((LOCK_ACQUIRE_CALLS+=1))
+    # uraam_debloat takes one short lock for recovery, then a second lock
+    # immediately before apply. Change the mock state only on that second lock.
+    if (( SIMULATE_STATE_CHANGE_ON_LOCK && LOCK_ACQUIRE_CALLS >= 2 )); then
         STATE_CHANGED_AFTER_LOCK=1
     fi
 }
