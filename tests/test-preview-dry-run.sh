@@ -176,8 +176,20 @@ show_logo() { :; }
 pause() { :; }
 start_log() { LOGFILE="$TMP_DIR/test.log"; return 0; }
 DEVICE_MUTATIONS=()
+SIMULATE_DISCONNECT_ON_MUTATION=0
+backend_is_available() {
+    if (( SIMULATE_DISCONNECT_ON_MUTATION )) &&
+        (( ${#DEVICE_MUTATIONS[@]} >= 1 )); then
+        return 1
+    fi
+    return 0
+}
 run_device() {
     DEVICE_MUTATIONS+=("$*")
+    if (( SIMULATE_DISCONNECT_ON_MUTATION )) &&
+        (( ${#DEVICE_MUTATIONS[@]} == 1 )); then
+        return 1
+    fi
     return 0
 }
 
@@ -303,3 +315,28 @@ grep -Fq 'Device model, OEM or ROM identity changed after preview' "$TMP_DIR/dev
 (( ${#DEVICE_MUTATIONS[@]} == 0 )) || fail "device swap executed a mutation"
 CHANGE_DEVICE_ON_RECHECK=0
 pass "device model changes invalidate stale previews"
+
+# A transport loss during the first operation must stop the rest of the batch.
+DEVICE_MUTATIONS=()
+SIMULATE_DISCONNECT_ON_MUTATION=1
+if uraam_debloat > "$TMP_DIR/disconnect.out" 2>&1 <<'INPUT'
+u
+1
+1,2
+a
+APPLY 2
+INPUT
+then
+    : # Partial batch is reported in the summary; transport loss is fail-safe.
+fi
+(( ${#DEVICE_MUTATIONS[@]} == 1 )) ||
+    fail "a disconnected backend must not receive later package operations"
+grep -Fq 'Backend disconnected during operation; stopping the batch.' "$TMP_DIR/disconnect.out" ||
+    fail "mid-operation backend loss was not reported"
+grep -Fq '1 succeeded' "$TMP_DIR/disconnect.out" && fail "failed first operation was incorrectly counted as success"
+grep -Fq '1 failed' "$TMP_DIR/disconnect.out" ||
+    fail "failed operation was not counted"
+grep -Fq '1 skipped' "$TMP_DIR/disconnect.out" ||
+    fail "remaining package was not counted as skipped"
+SIMULATE_DISCONNECT_ON_MUTATION=0
+pass "backend loss during an operation stops the remaining batch"
