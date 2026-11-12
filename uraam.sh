@@ -1186,9 +1186,8 @@ uraam_debloat() {
         return 1
     fi
 
-    # Revalidate only after acquiring the exclusive lock. The earlier preview
-    # check is intentionally not trusted here: another URAAM process may have
-    # changed the device while this process was waiting for the lock.
+    # Revalidate only after acquiring the exclusive lock. Another URAAM
+    # process may have changed the device while this process waited.
     installed="$(device_package_list active)" || {
         release_apply_lock
         err "Cannot verify package inventory under the apply lock; no changes made."
@@ -1703,7 +1702,7 @@ main() {
 if [[ "${URAAM_TESTING:-0}" != "1" ]]; then
     main "$@"
 fi
-\\t' read -r risk _ _ <<< "$metadata"
+\t' read -r risk _ _ <<< "$metadata"
         if ! is_whitelisted "$pkg" &&
             [[ "$risk" == "Recommended" || "$risk" == "Advanced" || "$risk" == "Expert" ]] &&
             package_is_installed "$pkg" "$installed"; then
