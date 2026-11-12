@@ -64,7 +64,12 @@ if bash "$ROOT/uraam-api.sh" apply >/dev/null 2>&1; then
     exit 1
 fi
 
+if bash "$ROOT/uraam-api.sh" device-info extra-argument >/dev/null 2>&1; then
+    printf '%s\n' "FAIL: unexpected extra API arguments were accepted" >&2
+    exit 1
+fi
+
 help_output="$(bash "$ROOT/uraam-api.sh" --help)"
 grep -Fq 'read-only' <<< "$help_output"
 
-printf '%s\n' "PASS: JSON device information, package inventory and read-only command boundary"
+printf '%s\n' "PASS: JSON device information, package inventory and strict read-only command boundary"
