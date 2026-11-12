@@ -97,16 +97,16 @@ case "$*" in
         printf 'Package [com.example.old] (101):\n    codePath=/data/app/com.example.old\n'
         ;;
     '-s TEST-SERIAL shell dumpsys package com.lab.pixel')
-        printf 'Package [com.lab.pixel] (202):\\n    versionCode=7\\n    versionName=PixelFixture\\n    Activities:\\n      com.lab.pixel/com.lab.pixel.MainActivity filter\\n    Services:\\n      com.lab.pixel/.SyncService\\n'
+        printf 'Package [com.lab.pixel] (202):\n    versionCode=7\n    versionName=PixelFixture\n    Activities:\n      com.lab.pixel/com.lab.pixel.MainActivity filter\n    Services:\n      com.lab.pixel/.SyncService\n'
         ;;
     '-s TEST-SERIAL shell dumpsys package com.lab.xiaomi')
-        printf 'Package [com.lab.xiaomi] (303):\\n    requested permissions:\\n      android.permission.INTERNET\\n    Receivers:\\n      com.lab.xiaomi/.BootReceiver\\n    Providers:\\n      com.lab.xiaomi/com.lab.xiaomi.StoreProvider\\n'
+        printf 'Package [com.lab.xiaomi] (303):\n    requested permissions:\n      android.permission.INTERNET\n    Receivers:\n      com.lab.xiaomi/.BootReceiver\n    Providers:\n      com.lab.xiaomi/com.lab.xiaomi.StoreProvider\n'
         ;;
     '-s TEST-SERIAL shell dumpsys package com.lab.oppo')
-        printf 'Package [com.lab.oppo] (404):\\n    versionName=OppoFixture\\n    Services:\\n      com.lab.oppo/.PushService\\n    Activities:\\n      com.lab.oppo/.HomeActivity\\n'
+        printf 'Package [com.lab.oppo] (404):\n    versionName=OppoFixture\n    Services:\n      com.lab.oppo/.PushService\n    Activities:\n      com.lab.oppo/.HomeActivity\n'
         ;;
     '-s TEST-SERIAL shell dumpsys package com.lab.motorola')
-        printf 'Package [com.lab.motorola] (505):\\n    versionName=MotoFixture\\n    Activities:\\n      com.lab.motorola/com.lab.motorola.LauncherActivity filter\\n    Receivers:\\n      com.lab.motorola/.UpdateReceiver\\n    Providers:\\n      com.lab.motorola/.DataProvider\\n'
+        printf 'Package [com.lab.motorola] (505):\n    versionName=MotoFixture\n    Activities:\n      com.lab.motorola/com.lab.motorola.LauncherActivity filter\n    Receivers:\n      com.lab.motorola/.UpdateReceiver\n    Providers:\n      com.lab.motorola/.DataProvider\n'
         ;;
     '-s TEST-SERIAL shell getprop '*)
         printf '\n'
