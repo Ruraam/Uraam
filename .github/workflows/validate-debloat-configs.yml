@@ -47,7 +47,7 @@ jobs:
           else
             diff_range="$BEFORE_SHA $HEAD_SHA"
           fi
-          changed_json="$(git diff --name-only $diff_range -- Configs/debloat | grep -E '\\.json$' || true)"
+          changed_json="$(git diff --name-only $diff_range -- Configs/debloat | grep 'json$' || true)"
           if [ -z "$changed_json" ]; then
             echo "ERROR: expected changed debloat JSON profiles, but none were found."
             exit 1
