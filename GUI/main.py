@@ -30,6 +30,7 @@ class UraamWindow(Gtk.ApplicationWindow):
         self.set_default_size(1000, 680)
         self.set_size_request(760, 520)
         self._loading = False
+        self._packages: list[str] = []
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.set_child(outer)
@@ -60,10 +61,20 @@ class UraamWindow(Gtk.ApplicationWindow):
         self.stack.set_vexpand(True)
         body.append(self.stack)
 
-        dashboard_button = Gtk.Button(label="Dashboard")
+        brand = Gtk.Label(label="URAAM", xalign=0)
+        brand.add_css_class("uraam-brand")
+        sidebar.append(brand)
+        subtitle = Gtk.Label(label="ANDROID CONTROL CENTER", xalign=0)
+        subtitle.add_css_class("uraam-subtitle")
+        sidebar.append(subtitle)
+        sidebar.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
+
+        dashboard_button = Gtk.Button(label="◈  Dashboard")
+        dashboard_button.add_css_class("uraam-nav-button")
         dashboard_button.connect("clicked", lambda _button: self.stack.set_visible_child_name("dashboard"))
         sidebar.append(dashboard_button)
-        packages_button = Gtk.Button(label="Packages")
+        packages_button = Gtk.Button(label="▦  Applications")
+        packages_button.add_css_class("uraam-nav-button")
         packages_button.connect("clicked", self._on_packages)
         sidebar.append(packages_button)
 
@@ -98,34 +109,94 @@ class UraamWindow(Gtk.ApplicationWindow):
         )
         self._theme_provider = provider
 
+    @staticmethod
+    def _make_card(title: str, value: str, detail: str) -> Gtk.Frame:
+        card = Gtk.Frame()
+        card.add_css_class("uraam-card")
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        content.set_margin_top(16)
+        content.set_margin_bottom(16)
+        content.set_margin_start(18)
+        content.set_margin_end(18)
+        heading = Gtk.Label(label=title.upper(), xalign=0)
+        heading.add_css_class("uraam-card-heading")
+        content.append(heading)
+        value_label = Gtk.Label(label=value, xalign=0)
+        value_label.add_css_class("uraam-card-value")
+        value_label.set_wrap(True)
+        value_label.set_selectable(True)
+        content.append(value_label)
+        detail_label = Gtk.Label(label=detail, xalign=0)
+        detail_label.add_css_class("dim-label")
+        detail_label.set_wrap(True)
+        content.append(detail_label)
+        card.set_child(content)
+        return card
+
+    def _replace_card(self, card: Gtk.Frame, title: str, value: str, detail: str) -> None:
+        content = card.get_child()
+        if not isinstance(content, Gtk.Box):
+            return
+        heading = content.get_first_child()
+        value_label = heading.get_next_sibling() if heading else None
+        detail_label = value_label.get_next_sibling() if value_label else None
+        if isinstance(heading, Gtk.Label):
+            heading.set_text(title.upper())
+        if isinstance(value_label, Gtk.Label):
+            value_label.set_text(value)
+        if isinstance(detail_label, Gtk.Label):
+            detail_label.set_text(detail)
+
     def _build_dashboard(self) -> None:
-        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)
         page.set_margin_top(28)
         page.set_margin_bottom(28)
-        page.set_margin_start(28)
-        page.set_margin_end(28)
-
-        title = Gtk.Label(label="Device overview", xalign=0)
+        page.set_margin_start(30)
+        page.set_margin_end(30)
+        eyebrow = Gtk.Label(label="DEVICE MANAGEMENT / OVERVIEW", xalign=0)
+        eyebrow.add_css_class("uraam-eyebrow")
+        page.append(eyebrow)
+        title = Gtk.Label(label="Command center", xalign=0)
         title.add_css_class("title-1")
         page.append(title)
+        intro = Gtk.Label(label="Android device, connection and application inventory at a glance.", xalign=0)
+        intro.add_css_class("dim-label")
+        page.append(intro)
 
-        self.device_label = Gtk.Label(label="No device information yet", xalign=0)
-        self.device_label.set_selectable(True)
-        page.append(self.device_label)
+        grid = Gtk.Grid()
+        grid.set_column_spacing(14)
+        grid.set_row_spacing(14)
+        grid.set_column_homogeneous(True)
+        self.device_card = self._make_card("Device", "Waiting for device", "Android device identity")
+        self.backend_card = self._make_card("Connection", "Not detected", "ADB · Root · Shizuku")
+        self.rom_card = self._make_card("System", "—", "ROM and Android version")
+        self.version_card = self._make_card("URAAM engine", "5.1.0", "Bash engine · GTK4 frontend")
+        grid.attach(self.device_card, 0, 0, 1, 1)
+        grid.attach(self.backend_card, 1, 0, 1, 1)
+        grid.attach(self.rom_card, 0, 1, 1, 1)
+        grid.attach(self.version_card, 1, 1, 1, 1)
+        page.append(grid)
 
-        self.backend_label = Gtk.Label(label="Backend: —", xalign=0)
-        page.append(self.backend_label)
-
-        self.rom_label = Gtk.Label(label="ROM: —", xalign=0)
-        page.append(self.rom_label)
+        inventory = Gtk.Frame()
+        inventory.add_css_class("uraam-wide-card")
+        inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        inner.set_margin_top(16)
+        inner.set_margin_bottom(16)
+        inner.set_margin_start(18)
+        inner.set_margin_end(18)
+        heading = Gtk.Label(label="APPLICATION INVENTORY", xalign=0)
+        heading.add_css_class("uraam-card-heading")
+        inner.append(heading)
+        self.inventory_label = Gtk.Label(
+            label="Connect an Android device to inspect installed applications.", xalign=0
+        )
+        self.inventory_label.set_wrap(True)
+        inner.append(self.inventory_label)
+        inventory.set_child(inner)
+        page.append(inventory)
 
         note = Gtk.Label(
-            label=(
-                "This initial desktop build is read-only. Package changes, "
-                "debloat, APK installation and restoration remain in the "
-                "existing Bash interface until their GUI workflows receive "
-                "dedicated safety review and tests."
-            ),
+            label="Read-only desktop milestone. Debloating, APK installation and restoration remain protected by the existing Bash workflows.",
             xalign=0,
         )
         note.set_wrap(True)
@@ -137,17 +208,21 @@ class UraamWindow(Gtk.ApplicationWindow):
         page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         page.set_margin_top(28)
         page.set_margin_bottom(28)
-        page.set_margin_start(28)
-        page.set_margin_end(28)
-
-        title = Gtk.Label(label="Installed packages · Android user 0", xalign=0)
+        page.set_margin_start(30)
+        page.set_margin_end(30)
+        eyebrow = Gtk.Label(label="DEVICE MANAGEMENT / APPLICATIONS", xalign=0)
+        eyebrow.add_css_class("uraam-eyebrow")
+        page.append(eyebrow)
+        title = Gtk.Label(label="Installed applications", xalign=0)
         title.add_css_class("title-1")
         page.append(title)
-
-        self.package_summary = Gtk.Label(label="Open this page to load the package inventory.", xalign=0)
+        self.package_summary = Gtk.Label(label="Open this page to load the Android user-0 inventory.", xalign=0)
         self.package_summary.add_css_class("dim-label")
         page.append(self.package_summary)
-
+        self.package_search = Gtk.SearchEntry()
+        self.package_search.set_placeholder_text("Search package name…")
+        self.package_search.connect("search-changed", self._filter_packages)
+        page.append(self.package_search)
         scroller = Gtk.ScrolledWindow()
         scroller.set_vexpand(True)
         scroller.set_hexpand(True)
@@ -206,25 +281,33 @@ class UraamWindow(Gtk.ApplicationWindow):
     def _show_device(self, payload: Any, error: str | None) -> None:
         if error:
             self.status_label.set_text("Bridge unavailable")
-            self.device_label.set_text(error)
-            self.backend_label.set_text("Backend: unavailable")
-            self.rom_label.set_text("ROM: —")
+            self._replace_card(self.device_card, "Device", "Bridge unavailable", error)
+            self._replace_card(self.backend_card, "Connection", "Unavailable", "Check ADB / Root / Shizuku")
+            self._replace_card(self.rom_card, "System", "—", "No system information")
             return
         if payload.get("status") != "connected":
             self.status_label.set_text("No Android device connected")
-            self.device_label.set_text("Connect a device using ADB, Root or Shizuku.")
-            self.backend_label.set_text("Backend: —")
-            self.rom_label.set_text("ROM: —")
+            self._replace_card(self.device_card, "Device", "No device connected", "Connect via ADB, Root or Shizuku")
+            self._replace_card(self.backend_card, "Connection", "Not detected", "ADB · Root · Shizuku")
+            self._replace_card(self.rom_card, "System", "—", "Waiting for device information")
             return
-
         self.status_label.set_text("Android device connected")
-        self.device_label.set_text(payload.get("model") or "Unknown device")
-        self.backend_label.set_text(
-            f"Backend: {payload.get('backend', 'unknown')} · Serial: {payload.get('serial') or 'local'}"
+        self._replace_card(
+            self.device_card, "Device", payload.get("model") or "Unknown device",
+            f"OEM: {payload.get('oem') or 'unknown'}"
+        )
+        self._replace_card(
+            self.backend_card, "Connection", str(payload.get("backend", "unknown")).upper(),
+            f"Serial: {payload.get('serial') or 'local'}"
         )
         rom = payload.get("rom") or {}
-        self.rom_label.set_text(
-            f"ROM: {rom.get('name', 'Unknown')} · Android/ROM version: {rom.get('version', 'unknown')}"
+        self._replace_card(
+            self.rom_card, "System", rom.get("name", "Unknown"),
+            f"Version: {rom.get('version', 'unknown')}"
+        )
+        self._replace_card(
+            self.version_card, "URAAM engine", payload.get("version", "5.1.0"),
+            "Bash engine · GTK4 frontend"
         )
 
     def _on_refresh(self, _button: Gtk.Button) -> None:
@@ -235,23 +318,38 @@ class UraamWindow(Gtk.ApplicationWindow):
         self._run_async("list-packages", self._show_packages)
 
     def _show_packages(self, payload: Any, error: str | None) -> None:
-        while child := self.package_list.get_first_child():
-            self.package_list.remove(child)
         if error:
             self.package_summary.set_text(error)
             return
-        packages = payload.get("packages", [])
-        self.package_summary.set_text(f"{len(packages)} installed package(s) · read-only inventory")
-        for package in packages:
+        self._packages = sorted(set(payload.get("packages", [])), key=str.casefold)
+        self.package_summary.set_text(
+            f"{len(self._packages)} installed package(s) · Android user {payload.get('user', 0)} · read-only"
+        )
+        self.inventory_label.set_text(
+            f"{len(self._packages)} package(s) detected on the connected Android device."
+        )
+        self._filter_packages()
+
+    def _filter_packages(self, _entry: Gtk.SearchEntry | None = None) -> None:
+        query = self.package_search.get_text().strip().casefold()
+        while child := self.package_list.get_first_child():
+            self.package_list.remove(child)
+        visible = [name for name in self._packages if query in name.casefold()]
+        for package in visible:
             row = Gtk.ListBoxRow()
+            row.add_css_class("uraam-package-row")
             label = Gtk.Label(label=package, xalign=0)
             label.set_selectable(True)
-            label.set_margin_top(8)
-            label.set_margin_bottom(8)
-            label.set_margin_start(12)
-            label.set_margin_end(12)
+            label.set_margin_top(10)
+            label.set_margin_bottom(10)
+            label.set_margin_start(14)
+            label.set_margin_end(14)
             row.set_child(label)
             self.package_list.append(row)
+        if query:
+            self.package_summary.set_text(
+                f"{len(visible)} / {len(self._packages)} package(s) match “{query}”"
+            )
 
 
 class UraamApplication(Gtk.Application):
