@@ -3,63 +3,63 @@
   "description": "Removes carrier-specific bloatware,tracking services, and telemetry from US carriers (Verizon, AT&T, T-Mobile, Sprint).",
   "author": "Ruvyrom",
   "version": "1.0",
-  "apps":[
+  "apps": [
     {
-    "packageName": "com.vzw.apnservice"
+      "packageName": "com.vzw.apnservice"
     },
     {
-    "packageName": "com.vzw.ecid"
+      "packageName": "com.vzw.ecid"
     },
     {
-    "packageName": "com.vcast.mediaman
+      "packageName": "com.vcast.mediamanager"
     },
     {
-    "packageName": "com.asurion.android.verizon.vms"
+      "packageName": "com.asurion.android.verizon.vms"
     },
     {
-    "packageName": "com.verizon.llkagent"
+      "packageName": "com.verizon.llkagent"
     },
     {
-    "packageName": "com.verizon.services"
+      "packageName": "com.verizon.services"
     },
     {
-    "packageName": "com.verizon.mips.services"
+      "packageName": "com.verizon.mips.services"
     },
     {
-    "packageName": "com.verizon.obdm"
+      "packageName": "com.verizon.obdm"
     },
     {
-    "packageName": "com.motricity.verizon.ssodownloadable"
+      "packageName": "com.motricity.verizon.ssodownloadable"
     },
     {
-    "packageName": "com.verizon.messaging.vzmsgs"
+      "packageName": "com.verizon.messaging.vzmsgs"
     },
     {
-    "packageName": "com.verizon.cloud"
+      "packageName": "com.verizon.cloud"
     },
     {
-    "packageName": "com.att.android.attsmartwifi"
+      "packageName": "com.att.android.attsmartwifi"
     },
     {
-    "packageName": "com.att.myWireless"
+      "packageName": "com.att.myWireless"
     },
     {
-    "packageName": "com.att.tv"
+      "packageName": "com.att.tv"
     },
     {
-    "packageName": "com.tmobile.pr.adapt"
+      "packageName": "com.tmobile.pr.adapt"
     },
     {
-    "packageName": "com.tmobile.pr.mytmobile"
+      "packageName": "com.tmobile.pr.mytmobile"
     },
     {
-    "packageName": "com.tmobile.services.nameid"
+      "packageName": "com.tmobile.services.nameid"
     },
     {
-    "packageName": "com.tmobile.tmoplus"
+      "packageName": "com.tmobile.tmoplus"
     },
     {
-    "packageName": "com.sprint.zone"
+      "packageName": "com.sprint.zone"
     }
   ]
 }
