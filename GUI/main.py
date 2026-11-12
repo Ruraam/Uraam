@@ -15,7 +15,7 @@ from typing import Any
 import gi
 
 gi.require_version("Gtk", "4.0")
-from gi.repository import GLib, Gtk  # noqa: E402
+from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -25,6 +25,8 @@ API_PATH = ROOT_DIR / "uraam-api.sh"
 class UraamWindow(Gtk.ApplicationWindow):
     def __init__(self, application: Gtk.Application) -> None:
         super().__init__(application=application, title="URAAM Desktop")
+        self.add_css_class("uraam-window")
+        self._load_theme()
         self.set_default_size(1000, 680)
         self.set_size_request(760, 520)
         self._loading = False
@@ -44,6 +46,7 @@ class UraamWindow(Gtk.ApplicationWindow):
         outer.append(body)
 
         sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        sidebar.add_css_class("uraam-sidebar")
         sidebar.set_size_request(190, -1)
         sidebar.set_margin_top(16)
         sidebar.set_margin_bottom(16)
@@ -73,6 +76,27 @@ class UraamWindow(Gtk.ApplicationWindow):
         self._build_packages()
         self.stack.set_visible_child_name("dashboard")
         self._refresh_device()
+
+    def _load_theme(self) -> None:
+        """Load the BubbleOS-derived GTK stylesheet when it is available."""
+        theme_path = Path(__file__).resolve().parent / "theme.css"
+        if not theme_path.is_file():
+            return
+        display = Gdk.Display.get_default()
+        if display is None:
+            return
+        provider = Gtk.CssProvider()
+        try:
+            provider.load_from_path(str(theme_path))
+        except GLib.Error as exc:
+            print(f"URAAM: unable to load GUI theme: {exc}", flush=True)
+            return
+        Gtk.StyleContext.add_provider_for_display(
+            display,
+            provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+        )
+        self._theme_provider = provider
 
     def _build_dashboard(self) -> None:
         page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
