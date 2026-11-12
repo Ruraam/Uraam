@@ -55,6 +55,9 @@ pass "SIGKILL during a mocked device operation leaves the pre-operation journal 
 
 # Restart-side recovery must inspect inventory and require explicit human
 # acknowledgement. It must never call the destructive device command again.
+# The test has no physical Android device. Model a connected ADB
+# transport so recovery can exercise inventory and explicit acknowledgement.
+backend_is_available() { return 0; }
 device_package_list() {
     [[ "$1" == active ]] || return 2
     printf '%s\n' com.example.crash
