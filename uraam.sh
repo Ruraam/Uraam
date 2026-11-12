@@ -77,6 +77,12 @@ SAFETY_WHITELIST=(
     "com.android.server.telecom"
     "com.android.providers.telephony"
     "com.android.emergency"
+    "com.android.dialer"
+    "com.android.nfc"
+    "com.android.setupwizard"
+    "com.google.android.setupwizard"
+    "org.lineageos.setupwizard"
+    "com.sec.android.app.SecSetupWizard"
 
     # Core Data Providers & Cryptographic Store
     "com.android.providers.settings"
@@ -527,6 +533,35 @@ validate_json_file() {
     local file="$1"
     [[ -f "$file" ]] || { err "File not found: $file"; return 1; }
     jq empty "$file" >/dev/null 2>&1 || { err "Invalid JSON: $file"; return 1; }
+
+    # Accept the documented apps/packages formats and Canta-style package
+    # entries, but reject malformed entries instead of silently skipping them.
+    if ! jq -e '
+        def valid_id:
+            type == "string" and
+            test("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$");
+        def validate_entry:
+            if type == "array" then
+                .[] | validate_entry
+            elif type == "string" then
+                if valid_id then . else error("invalid package ID") end
+            elif type == "object" then
+                (.packageName // .package // .id) as $pkg |
+                if ($pkg | valid_id) then $pkg
+                else error("missing or invalid package ID") end
+            else
+                error("unsupported package entry")
+            end;
+
+        (if type == "object" and (.apps | type) == "array" then .apps
+         elif type == "object" and (.packages | type) == "array" then .packages
+         elif type == "array" then .
+         else error("expected apps/packages array or package array") end)
+        | [ .[] | validate_entry ] | length > 0
+    ' "$file" >/dev/null 2>&1; then
+        err "Invalid configuration structure or Android package ID: $file"
+        return 1
+    fi
 }
 
 load_packages_from_json() {
