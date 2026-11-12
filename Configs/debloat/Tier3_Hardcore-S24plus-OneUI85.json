@@ -3,7 +3,7 @@
   "description": "Tier 3 - Replacement Required (Advanced)",
   "createdDate": 1780047654302,
   "apps": [
-        {
+    {
       "packageName": "com.samsung.android.bixby.agent"
     },
     {
@@ -187,7 +187,7 @@
       "packageName": "com.sec.android.app.chromecustomizations"
     },
     {
-      "packageName": "com.android.wallpaperba
+      "packageName": "com.android.wallpaperbackup"
     },
     {
       "packageName": "com.samsung.slsi.telephony.silentlogging"
@@ -234,5 +234,5 @@
     {
       "packageName": "com.sec.bcservice"
     }
-   ]
+  ]
 }
