@@ -279,6 +279,13 @@ recover_pending_operation() {
         err "Current backend/device identity differs from the journal; reconnect the original device."
         return 1
     fi
+    # Refuse reconciliation while the selected transport is already offline.
+    # The inventory command below is still authoritative because the transport
+    # can disappear immediately after this preflight check.
+    backend_is_available || {
+        err "Device backend is unavailable; journal retained."
+        return 1
+    }
     if [[ "$action" == uninstall ]]; then
         inventory="$(device_package_list active)" || { err "Cannot obtain a reliable inventory; journal retained."; return 1; }
         if package_is_installed "$package" "$inventory"; then observed="still present in installed inventory"
