@@ -47,7 +47,7 @@ fi
 pass "bounded commands accept timely responses and identify timeouts"
 # The rest of the suite mocks the device backend while keeping the production
 # debloat preview/apply orchestration under test.
-run_device_bounded() { run_device "$@"; }
+run_device_bounded() { DEVICE_COMMAND_TIMED_OUT=0; run_device "$@"; }
 
 
 # Exercise the real inventory parser and ensure preview queries installed-only packages.
