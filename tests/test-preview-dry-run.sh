@@ -469,6 +469,12 @@ grep -Fq '1 skipped' "$TMP_DIR/disconnect.out" ||
     fail "remaining package was not counted as skipped"
 SIMULATE_DISCONNECT_ON_MUTATION=0
 pass "backend loss during an operation stops the remaining batch"
+# The previous failed transport operation is uncertain; explicitly reconcile it
+# before starting a separate test batch, just as a user must do after a failure.
+recover_pending_operation <<< "RECONCILE com.example.app" ||
+    fail "pending disconnect operation could not be reconciled"
+[[ ! -e "$URAAM_OPERATION_JOURNAL" ]] ||
+    fail "disconnect recovery did not clear the journal"
 
 # A timed-out destructive command has an unknown outcome: never retry it or
 # send subsequent mutations in the same batch.
