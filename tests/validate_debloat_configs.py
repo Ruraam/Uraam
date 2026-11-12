@@ -41,6 +41,22 @@ PROTECTED_PACKAGES = {
     "com.google.android.setupwizard",
     "org.lineageos.setupwizard",
     "com.sec.android.app.SecSetupWizard",
+    "com.android.emergency.auto_generated_rro_product__",
+    "com.android.providers.settings.auto_generated_rro_product__",
+    "com.android.providers.settings.overlay.product.gs101",
+    "com.android.providers.telephony.overlay.product.gs101",
+    "com.android.server.telecom.overlay.product.gs101",
+    "org.lineageos.setupwizard.auto_generated_rro_product__",
+    "com.android.imsserviceentitlement",
+    "com.google.android.grilservice",
+    "com.samsung.slsi.telephony.oemril",
+    "com.samsung.slsi.telephony.oem.oemrilhookservice",
+    "com.shannon.imsservice",
+    "com.google.RilConfigService",
+    "com.sec.android.app.bluetoothagent",
+    "com.sec.android.app.setupwizardlegalprovider",
+    "com.samsung.android.knox.attestation",
+    "com.telstra.telephony.exttelephony",
 }
 
 
