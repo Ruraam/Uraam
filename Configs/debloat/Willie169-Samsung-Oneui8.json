@@ -368,12 +368,6 @@
       "packageName": "com.samsung.android.knox.analytics.uploader"
     },
     {
-      "packageName": "com.samsung.android.knox.containercore"
-    },
-    {
-      "packageName": "com.samsung.android.knox.kpecore"
-    },
-    {
       "packageName": "com.samsung.android.knox.mpos"
     },
     {
@@ -420,9 +414,6 @@
     },
     {
       "packageName": "com.samsung.android.networkdiagnostic"
-    },
-    {
-      "packageName": "com.samsung.android.nfc"
     },
     {
       "packageName": "com.samsung.android.privateaccesstokens"
