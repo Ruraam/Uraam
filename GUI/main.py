@@ -354,7 +354,9 @@ class UraamWindow(Gtk.ApplicationWindow):
         )
         self._filter_packages()
 
-    def _filter_packages(self, _entry: Gtk.SearchEntry | None = None) -> None:
+    def _filter_packages(
+        self, _entry: Gtk.SearchEntry | None = None, _pspec: Any = None
+    ) -> None:
         query = self.package_search.get_text().strip().casefold()
         while child := self.package_list.get_first_child():
             self.package_list.remove(child)
