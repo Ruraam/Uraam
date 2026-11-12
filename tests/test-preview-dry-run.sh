@@ -525,6 +525,27 @@ recover_pending_operation <<< "RECONCILE com.example.crash" ||
 (( ${#DEVICE_MUTATIONS[@]} == 1 )) || fail "recovery replayed a destructive command"
 pass "crash journal requires inventory review and explicit reconciliation without replay"
 
+# A reused ADB serial must not allow recovery on a different physical model.
+write_operation_journal started uninstall com.example.swap 1 1 ||
+    fail "could not create device-identity recovery journal"
+RECOVERY_INVENTORY_CALLS=0
+device_package_list() {
+    ((RECOVERY_INVENTORY_CALLS+=1))
+    printf '%s\\n' com.example.swap
+}
+CURRENT_MODEL="Different Android device"
+if recover_pending_operation <<< "RECONCILE com.example.swap" >/dev/null 2>&1; then
+    fail "recovery accepted a different model on a reused ADB serial"
+fi
+(( RECOVERY_INVENTORY_CALLS == 0 )) ||
+    fail "inventory was queried before device identity was validated"
+[[ -f "$URAAM_OPERATION_JOURNAL" ]] ||
+    fail "device-identity mismatch removed the pending journal"
+CURRENT_MODEL="Mock Android device"
+recover_pending_operation <<< "RECONCILE com.example.swap" >/dev/null ||
+    fail "recovery on the original device identity was rejected"
+pass "recovery rejects a changed device model even when the ADB serial is reused"
+
 # Corrupt journals must fail closed.
 printf '{invalid json' > "$URAAM_OPERATION_JOURNAL"
 if recover_pending_operation >/dev/null 2>&1; then
