@@ -135,10 +135,12 @@ applying a preview. A model change invalidates the preview.
 During a confirmed multi-package apply, URAAM checks the selected ADB, root or
 Shizuku transport before each package operation. If the transport is no longer
 available, it stops the batch and reports the unattempted packages as skipped.
-If a package command fails while the transport remains available, the failure
-is counted and the next selected package may still be attempted. A real device
-can still change state between checks; inspect the final summary and device
-state after any interrupted operation.
+If a package command fails, URAAM marks that operation as uncertain and stops
+the batch, even if the transport still responds. A failed host response does
+not prove Android made no change. Inspect the device and reconcile the pending
+journal before starting another destructive batch. A real device can still
+change state between checks; inspect the final summary and device state after
+any interrupted operation.
 
 Package inventory parsing is fail-closed: URAAM rejects command failures,
 empty output, and responses containing malformed/error lines even if some
