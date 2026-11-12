@@ -146,8 +146,14 @@ main() {
                 return $?
             }
             while IFS= read -r line; do
+                # Accept only Package Manager's documented package:/absolute/path
+                # form. Reject raw paths, relative paths, whitespace/control
+                # characters and dot-segment traversal before exposing a path.
+                [[ "$line" == package:/* ]] || continue
                 line="${line#package:}"
-                [[ "$line" == /* ]] && apk_paths+=("$line")
+                [[ "$line" =~ ^(/[A-Za-z0-9._~+=,@%-]+)+$ ]] || continue
+                [[ "$line" != *"/./"* && "$line" != *"/../"* && "$line" != */. && "$line" != */.. ]] || continue
+                apk_paths+=("$line")
             done <<< "$paths_raw"
             (("${#apk_paths[@]}" > 0)) || {
                 json_error "Package is not installed for Android user 0, or Android returned an invalid APK path." 5
