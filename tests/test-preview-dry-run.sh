@@ -429,9 +429,9 @@ STATE_CHANGED_AFTER_LOCK=0
 SIMULATE_STATE_CHANGE_ON_LOCK=1
 device_package_list() {
     if (( STATE_CHANGED_AFTER_LOCK )); then
-        printf '%s\\n' 'com.example.expert' 'com.android.systemui' 'com.samsung.android.bluetooth'
+        printf '%s\n' 'com.example.expert' 'com.android.systemui' 'com.samsung.android.bluetooth'
     else
-        printf '%s\\n' 'com.example.app' 'com.example.expert' 'com.example.unsafe' 'com.example.unknown' 'com.example.framework' 'com.example.consumer' 'com.android.systemui' 'com.samsung.android.bluetooth'
+        printf '%s\n' 'com.example.app' 'com.example.expert' 'com.example.unsafe' 'com.example.unknown' 'com.example.framework' 'com.example.consumer' 'com.android.systemui' 'com.samsung.android.bluetooth'
     fi
 }
 DEVICE_MUTATIONS=()
