@@ -103,6 +103,7 @@ main() {
             ;;
         package-info:*)
             local package_id paths_raw dump_raw version_name version_code line
+            local activities_json services_json receivers_json providers_json
             local -a apk_paths=()
             package_id="${action#package-info:}"
             paths_raw="$(run_device_bounded pm path --user 0 "$package_id" 2>/dev/null)" || {
