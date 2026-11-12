@@ -16,7 +16,7 @@
 set -o pipefail
 umask 077
 
-URAAM_VERSION="5.0.0"
+URAAM_VERSION="5.1.0"
 SOURCE="${BASH_SOURCE[0]}"
 while [[ -h "$SOURCE" ]]; do
     DIR="$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)"
