@@ -187,9 +187,6 @@
       "packageName": "com.android.wallpaperbackup"
     },
     {
-      "packageName": "com.samsung.slsi.telephony.silentlogging"
-    },
-    {
       "packageName": "com.sec.android.app.qsfastpairoverlay"
     }
   ],
