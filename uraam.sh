@@ -600,7 +600,7 @@ uraam_debloat() {
     local selection token risk category description metadata index
     local success=0 skipped=0 failed=0
     local -a PREVIEW_PRESENT=() PREVIEW_PROTECTED=() PREVIEW_MISSING=()
-    local -a PREVIEW_UNSAFE=() CANDIDATE_PACKAGES=() CANDIDATE_RISKS=()
+    local -a PREVIEW_UNSAFE=() PREVIEW_UNKNOWN=() CANDIDATE_PACKAGES=() CANDIDATE_RISKS=()
     local -a CANDIDATE_CATEGORIES=() CANDIDATE_DESCRIPTIONS=()
     local -a SELECTED_PACKAGES=() requested_indices=()
     local -A selected_indices=()
@@ -734,7 +734,13 @@ uraam_debloat() {
             info "No uninstall, disable, install, or package-state command was executed."
             return 0
             ;;
-        a|A) ;;
+        a|A)
+            if [[ ! -r "$UAD_METADATA_FILE" ]] ||
+                ! jq -e 'type == "object" and length > 0' "$UAD_METADATA_FILE" >/dev/null 2>&1; then
+                err "Cannot apply changes without a valid bundled UAD-NG risk catalogue."
+                return 1
+            fi
+            ;;
         *) warn "Operation cancelled; no changes made."; return 0 ;;
     esac
 
@@ -754,7 +760,7 @@ uraam_debloat() {
         metadata="$(uad_metadata_for_package "$pkg")" || return 1
         IFS=$'\t' read -r risk _ _ <<< "$metadata"
         if ! is_whitelisted "$pkg" &&
-            [[ "$risk" != "Unsafe" ]] &&
+            [[ "$risk" == "Recommended" || "$risk" == "Advanced" || "$risk" == "Expert" ]] &&
             package_is_installed "$pkg" "$installed"; then
             ((ready_count+=1))
         fi
