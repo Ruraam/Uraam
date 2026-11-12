@@ -81,7 +81,7 @@ Use the latest `.deb` asset from the [GitHub Releases](https://github.com/Ruraam
 sudo apt install ./uraam-debian_VERSION_all.deb
 ```
 
-Replace the filename with the exact asset downloaded. APT resolves declared package dependencies.
+Replace the filename with the exact asset downloaded. APT resolves declared package dependencies. To get the interactive GUI opt-in, GTK4 dependency installation and desktop-menu registration, use the universal installer above; a direct `.deb` installation does not enable the optional GUI menu entry automatically.
 
 ### Run from a clone
 
