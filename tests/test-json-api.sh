@@ -37,7 +37,7 @@ case "$*" in
         printf 'package:/data/app/~~abc/com.example.alpha/base.apk\n'
         ;;
     '-s TEST-SERIAL shell dumpsys package com.example.alpha')
-        printf 'Package [com.example.alpha] (123):\n    versionCode=42 minSdk=23 targetSdk=35\n    versionName=1.2.3\n    requested permissions:\n      android.permission.INTERNET\n      android.permission.CAMERA\n    install permissions:\n      android.permission.INTERNET: granted=true\n'
+        printf 'Package [com.example.alpha] (123):\n    versionCode=42 minSdk=23 targetSdk=35\n    versionName=1.2.3\n    requested permissions:\n      android.permission.INTERNET\n      android.permission.CAMERA\n    install permissions:\n      android.permission.INTERNET: granted=true\n    Activities:\n      com.example.alpha/.MainActivity filter abc\n      com.example.alpha/com.example.alpha.SettingsActivity filter def\n    Services:\n      com.example.alpha/.SyncService\n    Receivers:\n      com.example.alpha/.BootReceiver\n    Providers:\n      com.example.alpha/.DataProvider\n'
         ;;
     '-s TEST-SERIAL shell getprop '*)
         printf '\n'
@@ -71,6 +71,11 @@ jq -e '
     .version_code == "42" and
     .requested_permissions == ["android.permission.INTERNET", "android.permission.CAMERA"] and
     .permissions_semantics == "requested_only_not_grant_status" and
+    .components.activities == ["com.example.alpha/.MainActivity", "com.example.alpha/com.example.alpha.SettingsActivity"] and
+    .components.services == ["com.example.alpha/.SyncService"] and
+    .components.receivers == ["com.example.alpha/.BootReceiver"] and
+    .components.providers == ["com.example.alpha/.DataProvider"] and
+    .components_semantics == "entries_from_matching_dumpsys_sections_only" and
     .paths == ["/data/app/~~abc/com.example.alpha/base.apk"] and
     .read_only == true
 ' <<< "$package_info" >/dev/null
