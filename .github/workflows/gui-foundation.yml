@@ -1,0 +1,54 @@
+name: URAAM GUI foundation CI
+
+on:
+  pull_request:
+    paths:
+      - "uraam-api.sh"
+      - "uraam-gui"
+      - "GUI/**"
+      - "tests/test-json-api.sh"
+      - ".github/workflows/gui-foundation.yml"
+  push:
+    branches:
+      - "feat/**"
+    paths:
+      - "uraam-api.sh"
+      - "uraam-gui"
+      - "GUI/**"
+      - "tests/test-json-api.sh"
+      - ".github/workflows/gui-foundation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gui-foundation:
+    name: Validate read-only bridge and GTK4 frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install validation dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes jq shellcheck python3-gi gir1.2-gtk-4.0
+
+      - name: Validate Bash syntax
+        run: |
+          bash -n uraam.sh
+          bash -n uraam-api.sh
+          bash -n uraam-gui
+          bash -n tests/test-json-api.sh
+
+      - name: Run ShellCheck
+        run: shellcheck --severity=error uraam.sh uraam-api.sh uraam-gui tests/test-json-api.sh
+
+      - name: Validate Python syntax and GTK4 bindings
+        run: |
+          python3 -m py_compile GUI/main.py
+          python3 -c "import gi; gi.require_version('Gtk', '4.0'); from gi.repository import Gtk; print(Gtk.get_major_version(), Gtk.get_minor_version())"
+
+      - name: Test read-only JSON API
+        run: bash tests/test-json-api.sh

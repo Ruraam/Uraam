@@ -47,6 +47,7 @@ It is designed to keep operations visible: URAAM shows the packages it intends t
 - **Backup / restore lists:** save packages missing for Android user 0 and ask Android to re-enable/reinstall existing system package records.
 - **Batch APK installation:** install APK files placed in the configured Apps directory.
 - **Logs and updater:** inspect operation logs and use the built-in updater where supported.
+- **Optional desktop foundation:** an experimental GTK4 frontend can display device status and the installed user-0 package inventory; the Bash CLI remains the complete interface for package operations.
 
 ## Supported environments
 
@@ -89,6 +90,17 @@ git clone https://github.com/Ruraam/Uraam.git
 cd Uraam
 bash ./uraam.sh
 ```
+
+### Optional GTK4 desktop (experimental)
+
+The first desktop milestone is read-only and is available from a source checkout:
+
+```bash
+sudo apt install python3 python3-gi gir1.2-gtk-4.0 jq adb
+bash ./uraam-gui
+```
+
+It displays device identity and the installed Android user-0 package inventory. Debloat, Apply, APK installation and restoration remain in the Bash interface. See [URAAM Desktop architecture](Docs/GUI-Architecture.md) for the API boundary and current limitations.
 
 Do not run an unreviewed script as root. Use the least-privileged backend that meets your needs.
 
@@ -167,6 +179,7 @@ For installed paths, `XDG_DATA_HOME` and `XDG_CONFIG_HOME` are respected when se
 | [Shizuku and Wireless ADB](Docs/Shizuku_wireless.md) | Pairing and connection setup |
 | [Configuration format](Configs/debloat/README.md) | JSON profiles, validation and OEM profile rules |
 | [Contributing](Contributing.md) | Code, documentation and profile contributions |
+| [URAAM Desktop architecture](Docs/GUI-Architecture.md) | GTK4 frontend, read-only JSON bridge and safety boundaries |
 
 ## Development and tests
 
