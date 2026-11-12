@@ -1,32 +1,71 @@
 # Contributing to URAAM
 
-Thanks for your interest in improving URAAM!
+Thank you for helping improve URAAM. Contributions may include bug fixes, tests, documentation, translations and carefully reviewed Android package profiles.
 
-**You have a specific device?**
+## Before opening a pull request
 
-- Create your own JSON list manually or with Backup or Canta/UAD list and place it in `./Configs/backup-restore`, and submit a Pull Request.
+1. Search existing issues and pull requests for related work.
+2. Describe the problem and the expected behavior.
+3. Keep changes focused; avoid unrelated formatting or path changes.
+4. Update documentation when user-visible behavior, dependencies, menu prompts or data paths change.
+5. Add regression tests for safety-sensitive behavior.
+6. Never claim real-device validation when only mocks or CI were used.
 
-OR
+## Shell changes
 
-- Create a json file with Canta, rename it follow the "Naming Convention for Imports" below, place it in `./Configs/debloat` and submit a Pull Request.
+For changes to `uraam.sh` or shell tests, run:
 
-Your configuration will then be available to the entire community.
+```bash
+bash -n uraam.sh
+bash -n tests/test-preview-dry-run.sh
+bash -n tests/test-interrupted-process.sh
+shellcheck --severity=error uraam.sh tests/test-preview-dry-run.sh tests/test-interrupted-process.sh
+bash tests/test-preview-dry-run.sh
+bash tests/test-interrupted-process.sh
+```
 
-**Create a JSON file [following the protocol schema](/Docs/structure-example.json).
+If UAD metadata is modified, also run:
 
-Please ensure:
-- The JSON syntax is valid.
-- You have tested the debloat list on your own device.
-- You keep the minimalist philosophy of the project.
+```bash
+python3 tests/validate_uad_metadata.py
+```
 
-**Naming Convention for Imports:**
-`[Philosophy]-[DeviceName]-[OSVersion].json`
+Do not weaken a safety check merely to make a test pass. A mock must model the intended boundary precisely and must not replace production logic under test.
 
-*Example:*
+## Debloat profile contributions
 
-*Baremetal-Pixel6-LOS232.json*
+Profile files belong in `Configs/debloat/`. Follow the schema and policy in [Configs/debloat/README.md](Configs/debloat/README.md), and validate JSON before submitting.
 
-*Degoogle-OP15-OxyOS*.json*
+A profile is a suggested package list, not a universal removal guarantee. Include the device family, model, Android version and firmware context in the description or pull request. Test on the intended device and clearly state what was tested.
 
-# Note for skeptics:
-This structure is designed to be auditable, not just automated. Everything here is hand-coded to ensure 0-day debloat safety.
+Do not label a profile Safe solely because a package is marked Recommended by UAD-NG. Do not submit bulk Google, AOSP, Carrier or Misc removal lists as universal profiles.
+
+## UAD-NG metadata
+
+The bundled catalogue is pinned to an upstream commit. Any update must include:
+
+- the exact upstream revision and source URL;
+- an updated `Configs/uad/source.json` manifest;
+- the upstream attribution/licence;
+- the intentional validator revision/count update;
+- a review of changed classifications and affected profiles.
+
+See [the UAD-NG review policy](Docs/UAD-NG-review-catalog.md).
+
+## Documentation contributions
+
+- Write instructions for the current implementation, not historical versions.
+- Prefer exact commands and current repository-relative links.
+- State platform-specific requirements explicitly.
+- Explain destructive effects, confirmation prompts and recovery paths.
+- Separate verified behavior from assumptions and limitations.
+- Avoid absolute claims such as “100% safe”, “risk-free” or “guaranteed reversible”.
+
+## Pull request checklist
+
+- [ ] Scope and motivation are clear.
+- [ ] Existing paths and user data layouts are preserved unless a migration is explicitly included.
+- [ ] Shell syntax and relevant tests pass.
+- [ ] Safety-sensitive paths have regression coverage.
+- [ ] Documentation and examples match the code.
+- [ ] Real-device testing is reported accurately, including device model, Android version and backend.
