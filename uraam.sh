@@ -196,9 +196,94 @@ term_set_storage() {
 start_log() {
     local kind="$1" dir="$2" prefix="$3"
     mkdir -p -- "$dir" || return 1
-    find "$dir" -maxdepth 1 -type f -name "${prefix}-*.log" -mtime +30 -delete 2>/dev/null || true
-    LOGFILE="$dir/${prefix}-$(date +%Y%m%d_%H%M%S).log"
+    find "$dir" -maxdepth 1 -type f -name "\${prefix}-*.log" -mtime +30 -delete 2>/dev/null || true
+    LOGFILE="$dir/\${prefix}-$(date +%Y%m%d_%H%M%S).log"
     exec > >(tee -a "$LOGFILE") 2>&1
+}
+
+URAAM_OPERATION_JOURNAL="$LOGD_DIR/active-operation.json"
+URAAM_APPLY_LOCK="$LOGD_DIR/apply.lock"
+URAAM_LOCK_FD=""
+
+acquire_apply_lock() {
+    mkdir -p -- "$LOGD_DIR" || return 1
+    command -v flock >/dev/null 2>&1 || { err "flock (util-linux) is required for safe apply locking."; return 1; }
+    exec {URAAM_LOCK_FD}>"$URAAM_APPLY_LOCK" || return 1
+    chmod 600 "$URAAM_APPLY_LOCK" 2>/dev/null || true
+    if ! flock -n "$URAAM_LOCK_FD"; then
+        exec {URAAM_LOCK_FD}>&-
+        URAAM_LOCK_FD=""
+        err "Another URAAM apply session holds the device lock."
+        return 1
+    fi
+}
+
+release_apply_lock() {
+    [[ -n "$URAAM_LOCK_FD" ]] || return 0
+    flock -u "$URAAM_LOCK_FD" 2>/dev/null || true
+    exec {URAAM_LOCK_FD}>&-
+    URAAM_LOCK_FD=""
+}
+
+write_operation_journal() {
+    local state="$1" action="$2" package="$3" index="$4" total="$5" temp_file
+    mkdir -p -- "$LOGD_DIR" || return 1
+    temp_file="$(mktemp "$LOGD_DIR/.active-operation.XXXXXX")" || return 1
+    if ! jq -n --arg state "$state" --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        --arg backend "$EXEC_TYPE" --arg serial "$BACKEND_SERIAL" --arg model "$CURRENT_MODEL" \
+        --arg action "$action" --arg package "$package" --argjson index "$index" --argjson total "$total" \
+        '{version:1,state:$state,timestamp:$timestamp,backend:$backend,serial:$serial,model:$model,action:$action,package:$package,index:$index,total:$total}' > "$temp_file"; then
+        rm -f -- "$temp_file"
+        return 1
+    fi
+    chmod 600 "$temp_file" || { rm -f -- "$temp_file"; return 1; }
+    mv -f -- "$temp_file" "$URAAM_OPERATION_JOURNAL" || { rm -f -- "$temp_file"; return 1; }
+}
+
+clear_operation_journal() { rm -f -- "$URAAM_OPERATION_JOURNAL"; }
+
+recover_pending_operation() {
+    [[ -e "$URAAM_OPERATION_JOURNAL" ]] || return 0
+    local state action package backend serial model observed answer inventory
+    if ! jq -e 'type == "object" and .version == 1 and
+        (.state == "started" or .state == "uncertain") and
+        (.action == "uninstall" or .action == "disable") and
+        (.package | type == "string" and test("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$")) and
+        (.backend == "ADB" or .backend == "ROOT" or .backend == "SHIZUKU")' \
+        "$URAAM_OPERATION_JOURNAL" >/dev/null 2>&1; then
+        err "Pending-operation journal is invalid or corrupted: $URAAM_OPERATION_JOURNAL"
+        err "Destructive operations are blocked until it is inspected manually."
+        return 1
+    fi
+    state="$(jq -r '.state' "$URAAM_OPERATION_JOURNAL")"
+    action="$(jq -r '.action' "$URAAM_OPERATION_JOURNAL")"
+    package="$(jq -r '.package' "$URAAM_OPERATION_JOURNAL")"
+    backend="$(jq -r '.backend' "$URAAM_OPERATION_JOURNAL")"
+    serial="$(jq -r '.serial' "$URAAM_OPERATION_JOURNAL")"
+    model="$(jq -r '.model' "$URAAM_OPERATION_JOURNAL")"
+    warn "Unfinished operation found ($state): $action $package"
+    printf 'Recorded backend: %s | device: %s | serial: %s\n' "$backend" "\${model:-unknown}" "\${serial:-local}"
+    warn "URAAM will not replay this operation automatically."
+    if [[ "$backend" != "$EXEC_TYPE" || ( "$backend" == "ADB" && "$serial" != "$BACKEND_SERIAL" ) ]]; then
+        err "Current backend/device differs from the journal; reconnect the original device."
+        return 1
+    fi
+    if [[ "$action" == uninstall ]]; then
+        inventory="$(device_package_list active)" || { err "Cannot obtain a reliable inventory; journal retained."; return 1; }
+        if package_is_installed "$package" "$inventory"; then observed="still present in installed inventory"
+        else observed="absent from installed inventory"; fi
+    else
+        inventory="$(device_package_list disabled)" || { err "Cannot obtain a reliable disabled inventory; journal retained."; return 1; }
+        if package_is_installed "$package" "$inventory"; then observed="listed as disabled by Android"
+        else observed="not listed as disabled by Android"; fi
+    fi
+    printf 'Current inventory: %s\n' "$observed"
+    warn "Inventory is evidence, not proof. Inspect the device manually before acknowledging."
+    printf 'Type exactly "RECONCILE %s" after inspection: ' "$package"
+    read -r answer || return 1
+    [[ "$answer" == "RECONCILE $package" ]] || { warn "Journal retained; reconciliation not confirmed."; return 1; }
+    clear_operation_journal || return 1
+    ok "Journal acknowledged. No command was replayed."
 }
 
 # ---------------------------------------------------------------------------
@@ -746,19 +831,18 @@ select_json_file() {
 # ---------------------------------------------------------------------------
 
 device_package_list() {
-    local mode="${1:-active}" raw
+    local mode="\${1:-active}" raw allow_empty=0
     case "$mode" in
-        all)    raw="$(run_device_bounded pm list packages -u --user 0)" || return 1 ;;
+        all) raw="$(run_device_bounded pm list packages -u --user 0)" || return 1 ;;
         active) raw="$(run_device_bounded pm list packages --user 0)" || return 1 ;;
+        disabled) raw="$(run_device_bounded pm list packages -d --user 0)" || return 1; allow_empty=1 ;;
         *) return 2 ;;
     esac
-    # Do not accept a partial inventory mixed with transport/PM errors.
-    # A single valid package line is not proof that the response is complete.
-    if ! printf '%s\n' "$raw" | tr -d '\r' | awk '
+    if ! printf '%s\n' "$raw" | tr -d '\r' | awk -v allow_empty="$allow_empty" '
         NF == 0 { next }
         /^package:[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$/ { count++; next }
         { invalid = 1 }
-        END { if (invalid || count == 0) exit 1 }
+        END { if (invalid || (!allow_empty && count == 0)) exit 1 }
     '; then
         err "Android returned an incomplete or malformed package inventory; refusing to continue."
         return 1
@@ -817,6 +901,7 @@ uraam_debloat() {
     msg "Configurations: $USER_DEBLOAT_DIR"
     msg "${BLUE}------------------------------------------${NC}"
     require_backend || return 1
+    recover_pending_operation || return 1
     select_json_file "$CONFIGS_DIR" "Available debloat configurations:" || return 1
     local file="$SELECTED_FILE"
     info "Selected: $(basename "$file")"
@@ -1071,6 +1156,12 @@ uraam_debloat() {
     fi
 
     start_log debloat "$LOGD_DIR" uraam-debloat || return 1
+    acquire_apply_lock || return 1
+    if [[ -e "$URAAM_OPERATION_JOURNAL" ]]; then
+        release_apply_lock
+        err "A pending operation appeared before apply; run preview/reconciliation again."
+        return 1
+    fi
     for index in "${!SELECTED_PACKAGES[@]}"; do
         pkg="${SELECTED_PACKAGES[$index]}"
         if ! backend_is_available; then
@@ -1086,11 +1177,25 @@ uraam_debloat() {
             ((skipped+=1))
             continue
         fi
+        if ! write_operation_journal started "$action" "$pkg" "$((index+1))" "$operation_count"; then
+            err "Could not persist the operation journal; no device command was sent."
+            remaining=$((${#SELECTED_PACKAGES[@]} - index))
+            ((skipped+=remaining))
+            break
+        fi
         if [[ "$action" == uninstall ]]; then
             if run_device_bounded pm uninstall -k --user 0 "$pkg" >/dev/null 2>&1; then
+                clear_operation_journal || {
+                    err "Operation succeeded but journal cleanup failed; inspect device before continuing."
+                    ((success+=1))
+                    remaining=$((${#SELECTED_PACKAGES[@]} - index - 1))
+                    ((skipped+=remaining))
+                    break
+                }
                 ok "uninstalled for user 0"
                 ((success+=1))
             else
+                write_operation_journal uncertain "$action" "$pkg" "$((index+1))" "$operation_count" || true
                 ((failed+=1))
                 if (( DEVICE_COMMAND_TIMED_OUT )); then
                     warn "Uninstall timed out; its outcome is unknown. Do not retry this package; inspect the device and refresh inventory."
@@ -1110,9 +1215,17 @@ uraam_debloat() {
             fi
         else
             if run_device_bounded pm disable-user --user 0 "$pkg" >/dev/null 2>&1; then
+                clear_operation_journal || {
+                    err "Operation succeeded but journal cleanup failed; inspect device before continuing."
+                    ((success+=1))
+                    remaining=$((${#SELECTED_PACKAGES[@]} - index - 1))
+                    ((skipped+=remaining))
+                    break
+                }
                 ok "disabled"
                 ((success+=1))
             else
+                write_operation_journal uncertain "$action" "$pkg" "$((index+1))" "$operation_count" || true
                 ((failed+=1))
                 if (( DEVICE_COMMAND_TIMED_OUT )); then
                     warn "Disable timed out; its outcome is unknown. Do not retry this package; inspect the device and refresh inventory."
@@ -1132,6 +1245,7 @@ uraam_debloat() {
             fi
         fi
     done
+    release_apply_lock
     msg "${BLUE}----------------------------------------${NC}"
     msg "Summary: ${GREEN}$success succeeded${NC}, ${YELLOW}$skipped skipped${NC}, ${RED}$failed failed${NC}."
     msg "Log: $LOGFILE"
@@ -1487,6 +1601,9 @@ show_main_menu() {
     msg ".      ${CYAN}=== URAAM v${URAAM_VERSION} Dashboard ===${NC}"
     msg "${BLUE}--------------------------------------------------------${NC}"
     detect_backend_status || true
+    if [[ -e "$URAAM_OPERATION_JOURNAL" ]]; then
+        warn "An unfinished package operation requires inspection before the next debloat apply."
+    fi
     msg "${BLUE}--------------------------------------------------------${NC}"
     printf 'Debloat configurations: %s\n' "${USER_DEBLOAT_DIR/#$HOME/~}"
     printf 'APK directory:          %s\n' "${APP_DIR/#$HOME/~}"
