@@ -234,11 +234,45 @@ class UraamWindow(Gtk.ApplicationWindow):
         scroller.set_vexpand(True)
         scroller.set_hexpand(True)
         self.package_list = Gtk.ListBox()
-        self.package_list.set_selection_mode(Gtk.SelectionMode.NONE)
+        self.package_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.package_list.set_activate_on_single_click(True)
+        self.package_list.connect("row-activated", self._on_package_activated)
         self.package_list.add_css_class("boxed-list")
         scroller.set_child(self.package_list)
         page.append(scroller)
         self.stack.add_named(page, "packages")
+
+        details = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        details.set_margin_top(28)
+        details.set_margin_bottom(28)
+        details.set_margin_start(30)
+        details.set_margin_end(30)
+        back = Gtk.Button(label="←  Back to applications")
+        back.set_halign(Gtk.Align.START)
+        back.connect("clicked", lambda _button: self.stack.set_visible_child_name("packages"))
+        details.append(back)
+        detail_title = Gtk.Label(label="Application inspector", xalign=0)
+        detail_title.add_css_class("title-1")
+        details.append(detail_title)
+        self.package_detail_name = Gtk.Label(label="Select an application", xalign=0)
+        self.package_detail_name.add_css_class("uraam-card-value")
+        self.package_detail_name.set_selectable(True)
+        details.append(self.package_detail_name)
+        self.package_detail_status = Gtk.Label(label="Read-only Android package information", xalign=0)
+        self.package_detail_status.add_css_class("dim-label")
+        details.append(self.package_detail_status)
+        self.package_detail_version = self._make_card("Version", "Not loaded", "Reported by Android Package Manager")
+        self.package_detail_path = self._make_card("APK location", "Not loaded", "Installed APK path(s)")
+        details.append(self.package_detail_version)
+        details.append(self.package_detail_path)
+        safety_note = Gtk.Label(
+            label="Information only. System/user classification is not a removal recommendation. No package changes are available in this inspector.",
+            xalign=0,
+        )
+        safety_note.set_wrap(True)
+        safety_note.add_css_class("dim-label")
+        details.append(safety_note)
+        self.stack.add_named(details, "package-detail")
 
     def _api_call(self, command: str) -> dict[str, Any]:
         if not API_PATH.is_file():
@@ -353,6 +387,41 @@ class UraamWindow(Gtk.ApplicationWindow):
             f"{len(self._packages)} package(s) detected on the connected Android device."
         )
         self._filter_packages()
+
+    def _on_package_activated(self, _listbox: Gtk.ListBox, row: Gtk.ListBoxRow) -> None:
+        child = row.get_child()
+        package_label = child.get_first_child() if isinstance(child, Gtk.Box) else None
+        if not isinstance(package_label, Gtk.Label):
+            return
+        package = package_label.get_text()
+        self.package_detail_name.set_text(package)
+        self.package_detail_status.set_text("Querying Android using read-only commands…")
+        self._replace_card(self.package_detail_version, "Version", "Loading…", "Reported by Android Package Manager")
+        self._replace_card(self.package_detail_path, "APK location", "Loading…", "Installed APK path(s)")
+        self.stack.set_visible_child_name("package-detail")
+        self._run_async(f"package-info:{package}", self._show_package_info)
+
+    def _show_package_info(self, payload: Any, error: str | None) -> None:
+        if error:
+            self.package_detail_status.set_text(f"Details unavailable: {error}")
+            self._replace_card(self.package_detail_version, "Version", "Unavailable", "Android did not provide version metadata")
+            self._replace_card(self.package_detail_path, "APK location", "Unavailable", "No verified APK path returned")
+            return
+        version_name = payload.get("version_name") or "Not reported"
+        version_code = payload.get("version_code") or "Not reported"
+        self._replace_card(
+            self.package_detail_version, "Version", str(version_name),
+            f"Version code: {version_code}"
+        )
+        paths = payload.get("paths") if isinstance(payload.get("paths"), list) else []
+        self._replace_card(
+            self.package_detail_path, "APK location",
+            f"{len(paths)} path(s) reported",
+            "\n".join(str(path) for path in paths) if paths else "Android returned no APK paths"
+        )
+        self.package_detail_status.set_text(
+            f"Backend: {str(payload.get('backend', 'unknown')).upper()} · Read-only inspection"
+        )
 
     def _filter_packages(
         self, _entry: Gtk.SearchEntry | None = None, _pspec: Any = None
