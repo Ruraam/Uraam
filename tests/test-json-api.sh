@@ -95,6 +95,12 @@ case "$*" in
     'list packages -3 --user 0')
         printf 'package:com.example.alpha\npackage:com.example.beta\n'
         ;;
+    'path --user 0 com.example.alpha')
+        printf 'package:/data/app/~~abc/com.example.alpha/base.apk\n'
+        ;;
+    'dumpsys package com.example.alpha')
+        printf 'Package [com.example.alpha] (123):\n    versionCode=42 minSdk=23 targetSdk=35\n    versionName=1.2.3\n    requested permissions:\n      android.permission.INTERNET\n    Activities:\n      com.example.alpha/.MainActivity filter abc\n'
+        ;;
     *)
         printf 'Unexpected mocked Package Manager call: %s\n' "$*" >&2
         exit 2
@@ -199,12 +205,16 @@ root_info="$(bash "$ROOT/uraam-api.sh" device-info)"
 jq -e '.status == "connected" and .backend == "ROOT" and .serial == null' <<< "$root_info" >/dev/null
 root_packages="$(bash "$ROOT/uraam-api.sh" list-packages)"
 jq -e '.status == "ok" and .backend == "ROOT" and .count == 3' <<< "$root_packages" >/dev/null
+root_package="$(bash "$ROOT/uraam-api.sh" package-info:com.example.alpha)"
+jq -e '.status == "ok" and .backend == "ROOT" and .paths == ["/data/app/~~abc/com.example.alpha/base.apk"] and .version_name == "1.2.3" and .read_only == true' <<< "$root_package" >/dev/null
 
 export MOCK_SU_DENY=1
 shizuku_info="$(bash "$ROOT/uraam-api.sh" device-info)"
 jq -e '.status == "connected" and .backend == "SHIZUKU" and .serial == null' <<< "$shizuku_info" >/dev/null
 shizuku_packages="$(bash "$ROOT/uraam-api.sh" list-packages)"
 jq -e '.status == "ok" and .backend == "SHIZUKU" and .count == 3' <<< "$shizuku_packages" >/dev/null
+shizuku_package="$(bash "$ROOT/uraam-api.sh" package-info:com.example.alpha)"
+jq -e '.status == "ok" and .backend == "SHIZUKU" and .paths == ["/data/app/~~abc/com.example.alpha/base.apk"] and .version_name == "1.2.3" and .read_only == true' <<< "$shizuku_package" >/dev/null
 
 printf '%s\n' "PASS: mocked ADB, ROOT and SHIZUKU read-only backend paths"
 
