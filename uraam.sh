@@ -704,11 +704,18 @@ device_package_list() {
         active) raw="$(run_device pm list packages --user 0)" || return 1 ;;
         *) return 2 ;;
     esac
-    [[ "$raw" == *"package:"* ]] || {
-        err "Android returned no package records; refusing to continue."
+    # Do not accept a partial inventory mixed with transport/PM errors.
+    # A single valid package line is not proof that the response is complete.
+    if ! printf '%s\n' "$raw" | tr -d '\r' | awk '
+        NF == 0 { next }
+        /^package:[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$/ { count++; next }
+        { invalid = 1 }
+        END { if (invalid || count == 0) exit 1 }
+    '; then
+        err "Android returned an incomplete or malformed package inventory; refusing to continue."
         return 1
-    }
-    printf '%s\n' "$raw" | sed -n 's/^package://p' | tr -d '\r' | sort -u
+    fi
+    printf '%s\n' "$raw" | tr -d '\r' | sed -n 's/^package://p' | sort -u
 }
 
 package_is_installed() {
