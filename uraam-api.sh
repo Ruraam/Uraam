@@ -147,7 +147,7 @@ main() {
                   version_code:(if $version_code == "" then null else $version_code end),
                   requested_permissions:$requested_permissions,
                   permissions_semantics:"requested_only_not_grant_status",
-                  metadata_source:"dumpsys package",read_only:true}' \\
+                  metadata_source:"dumpsys package",read_only:true}' \
                 "${apk_paths[@]}"
             ;;
         list-packages)
