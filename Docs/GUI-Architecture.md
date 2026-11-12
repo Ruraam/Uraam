@@ -7,7 +7,8 @@ URAAM Desktop is an optional GTK4 frontend. It does not replace the Bash CLI and
 The first foundation milestone is deliberately read-only:
 
 - `uraam-api.sh device-info` reports the selected backend and device identity.
-- `uraam-api.sh list-packages` returns the installed package inventory for Android user 0.
+- `uraam-api.sh list-packages` returns the installed package inventory for Android user 0, plus best-effort system / third-party classification from Android Package Manager.
+- The GUI provides All / System / User / Unclassified filters. Classification is informational only; it does not imply that an app is safe to remove.
 - `uraam-gui` launches the optional Python / GTK4 desktop interface.
 - The GUI can display connection information and the package inventory.
 
@@ -64,11 +65,19 @@ Package inventory:
   "packages": [
     "com.example.first",
     "com.example.second"
-  ]
+  ],
+  "package_types": {
+    "com.example.first": "user",
+    "com.example.second": "system"
+  },
+  "classification_available": true,
+  "system_count": 1,
+  "user_count": 1,
+  "unclassified_count": 0
 }
 ```
 
-When no backend is connected, `device-info` returns `status: disconnected`. The package inventory command fails closed and returns a JSON error instead of presenting an empty inventory as valid.
+When no backend is connected, `device-info` returns `status: disconnected`. The package inventory command fails closed and returns a JSON error instead of presenting an empty inventory as valid. If Android cannot provide reliable system / third-party subsets, the package names remain visible and are marked unclassified rather than guessed.
 
 ## Run from a source checkout
 
