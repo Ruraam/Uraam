@@ -16,6 +16,10 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html) wh
 - Added wireless ADB and Shizuku setup documentation.
 - Added contribution guidance in `Contributing.md`.
 - Added documentation for the debloat configuration directory.
+- Added an optional GTK4 desktop frontend foundation in `GUI/` with a source-checkout launcher.
+- Added a read-only JSON bridge for device information and the Android user-0 package inventory.
+- Added mocked JSON API regression coverage and a dedicated GUI foundation CI workflow.
+- Added `Docs/GUI-Architecture.md` to document the frontend boundary and safety limitations.
 
 ### Changed
 - Reworked the root `README.md` to provide a clearer project overview and navigation to the guides.
@@ -23,6 +27,7 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html) wh
 - Clarified backup and restore limitations: restoring a package with `pm install-existing` does not constitute a full APK or application-data backup.
 - Organized historical documentation as archived material.
 - Kept `Docs/Safety-&-Auditing.md` as a compatibility pointer to `Docs/Safety-and-Recovery.md`.
+- Documented that the first GUI milestone is read-only; all package-changing workflows remain in the Bash interface.
 
 ### Security
 - Documented the safeguards surrounding destructive package operations, including explicit user selection, preview, confirmation, fresh inventory checks, and operation locking.
@@ -32,7 +37,8 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html) wh
 ### Validation
 - Verified internal Markdown documentation links and their target paths.
 - Existing shell-safety and debloat-configuration validation workflows passed for the documentation pull request.
-- No URAAM runtime code or user-data paths were changed by this documentation refresh.
+- The GUI foundation does not change the existing `uraam.sh` runtime or user-data paths.
+- The JSON bridge rejects unsupported and destructive command names; mocked ADB tests cover device information and package inventory responses.
 
 ## Release history
 
