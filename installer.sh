@@ -327,13 +327,14 @@ install_standalone_gui() {
     tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/uraam-gui.XXXXXX")" || return 1
     base_url="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${BRANCH}"
     log_info "Downloading URAAM Desktop components..."
-    if ! curl --fail --location --silent --show-error --retry 2 --connect-timeout 15 "$base_url/uraam-api.sh" -o "$tmp_dir/uraam-api.sh" ||
+    if ! curl --fail --location --silent --show-error --retry 2 --connect-timeout 15 "$base_url/uraam.sh" -o "$tmp_dir/uraam.sh" ||
+       ! curl --fail --location --silent --show-error --retry 2 --connect-timeout 15 "$base_url/uraam-api.sh" -o "$tmp_dir/uraam-api.sh" ||
        ! curl --fail --location --silent --show-error --retry 2 --connect-timeout 15 "$base_url/uraam-gui" -o "$tmp_dir/uraam-gui" ||
        ! curl --fail --location --silent --show-error --retry 2 --connect-timeout 15 "$base_url/GUI/main.py" -o "$tmp_dir/main.py" ||
        ! curl --fail --location --silent --show-error --retry 2 --connect-timeout 15 "$base_url/assets/uraam_logo.svg" -o "$tmp_dir/uraam.svg"; then
         rm -rf -- "$tmp_dir"; log_error "Unable to download all desktop components."; return 1
     fi
-    if ! bash -n "$tmp_dir/uraam-api.sh" "$tmp_dir/uraam-gui" || ! python3 -m py_compile "$tmp_dir/main.py" || ! grep -q '<svg' "$tmp_dir/uraam.svg"; then
+    if ! bash -n "$tmp_dir/uraam.sh" || ! bash -n "$tmp_dir/uraam-api.sh" || ! bash -n "$tmp_dir/uraam-gui" || ! python3 -m py_compile "$tmp_dir/main.py" || ! grep -q '<svg' "$tmp_dir/uraam.svg"; then
         rm -rf -- "$tmp_dir"; log_error "Desktop component validation failed."; return 1
     fi
     mkdir -p "$tmp_dir/GUI" || { rm -rf -- "$tmp_dir"; return 1; }
@@ -354,7 +355,8 @@ EOF
     if ! run_as_root install -d /usr/local/share/uraam/GUI /usr/local/bin /usr/local/share/applications /usr/local/share/icons/hicolor/scalable/apps; then
         rm -rf -- "$tmp_dir"; return 1
     fi
-    if ! run_as_root install -m 0644 "$tmp_dir/uraam-api.sh" /usr/local/share/uraam/uraam-api.sh ||
+    if ! run_as_root install -m 0755 "$tmp_dir/uraam.sh" /usr/local/share/uraam/uraam.sh ||
+       ! run_as_root install -m 0644 "$tmp_dir/uraam-api.sh" /usr/local/share/uraam/uraam-api.sh ||
        ! run_as_root install -m 0644 "$tmp_dir/GUI/main.py" /usr/local/share/uraam/GUI/main.py ||
        ! run_as_root install -m 0644 "$tmp_dir/uraam.svg" /usr/local/share/icons/hicolor/scalable/apps/uraam.svg ||
        ! run_as_root install -m 0644 "$tmp_dir/uraam.desktop" /usr/local/share/applications/uraam.desktop; then
