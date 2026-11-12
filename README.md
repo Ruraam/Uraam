@@ -71,7 +71,7 @@ Review the installer before running it. Then launch it with Bash:
 bash <(curl -fsSL https://raw.githubusercontent.com/Ruraam/Uraam/main/installer.sh)
 ```
 
-If curl is unavailable, download `installer.sh` from this repository and run it locally with Bash. The installer detects the environment and offers the available installation path.
+If curl is unavailable, download `installer.sh` from this repository and run it locally with Bash. On Linux desktops, the installer asks whether to install the optional GTK4 desktop frontend. Choosing No keeps the Bash-only installation unchanged. Termux remains CLI-only.
 
 ### Debian / Ubuntu
 
@@ -91,16 +91,11 @@ cd Uraam
 bash ./uraam.sh
 ```
 
-### Optional GTK4 desktop (experimental)
+### Optional GTK4 desktop
 
-The first desktop milestone is read-only and is available from a source checkout:
+During installation, choose **Yes** when the installer asks whether to install URAAM Desktop. On Debian/Ubuntu, it installs the GTK4 runtime dependencies and registers **URAAM Desktop** in the applications menu with the official SVG icon. The standalone Linux installer provides the same integration under `/usr/local`. Termux remains Bash-only.
 
-```bash
-sudo apt install python3 python3-gi gir1.2-gtk-4.0 jq adb
-bash ./uraam-gui
-```
-
-It displays device identity and the installed Android user-0 package inventory. Debloat, Apply, APK installation and restoration remain in the Bash interface. See [URAAM Desktop architecture](Docs/GUI-Architecture.md) for the API boundary and current limitations.
+You can also install the frontend dependencies manually and launch `uraam-gui`. The current GUI displays device identity and the installed Android user-0 package inventory; debloat and other package-changing workflows remain in the Bash interface. See [URAAM Desktop architecture](Docs/GUI-Architecture.md) for the API boundary and current limitations.
 
 Do not run an unreviewed script as root. Use the least-privileged backend that meets your needs.
 
