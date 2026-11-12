@@ -174,7 +174,7 @@ INPUT
 then
     fail "stale preview should abort with a non-zero status"
 fi
-grep -Fq 'Device package state changed after preview' "$TMP_DIR/stale.out" ||
+grep -Fq 'Device or UAD safety state changed after preview' "$TMP_DIR/stale.out" ||
     fail "stale preview was not rejected"
 (( ${#DEVICE_MUTATIONS[@]} == 0 )) || fail "stale preview executed a mutation"
 pass "stale preview is rejected before execution"
