@@ -237,7 +237,18 @@ write_operation_journal() {
         return 1
     fi
     chmod 600 "$temp_file" || { rm -f -- "$temp_file"; return 1; }
+    # Flush the journal contents before the destructive command can run.
+    sync -f "$temp_file" >/dev/null 2>&1 || {
+        rm -f -- "$temp_file"
+        err "Cannot flush the operation journal to storage; refusing the device command."
+        return 1
+    }
     mv -f -- "$temp_file" "$URAAM_OPERATION_JOURNAL" || { rm -f -- "$temp_file"; return 1; }
+    # Persist the rename itself so a power loss cannot silently lose the entry.
+    sync -f "$LOGD_DIR" >/dev/null 2>&1 || {
+        err "Cannot flush the operation-journal directory; refusing the device command."
+        return 1
+    }
 }
 
 clear_operation_journal() { rm -f -- "$URAAM_OPERATION_JOURNAL"; }
