@@ -8,9 +8,10 @@ The first foundation milestone is deliberately read-only:
 
 - `uraam-api.sh device-info` reports the selected backend and device identity.
 - `uraam-api.sh list-packages` returns the installed package inventory for Android user 0, plus best-effort system / third-party classification from Android Package Manager.
-- The GUI provides All / System / User / Unclassified filters. Classification is informational only; it does not imply that an app is safe to remove.
+- `uraam-api.sh package-info:<package.id>` returns the APK path(s) and version metadata reported by Android for one validated package identifier.
+- The GUI provides All / System / User / Unclassified filters and a read-only package inspector. Classification is informational only; it does not imply that an app is safe to remove.
 - `uraam-gui` launches the optional Python / GTK4 desktop interface.
-- The GUI can display connection information and the package inventory.
+- The GUI can display connection information, the package inventory and per-package details.
 
 The API emits one JSON object on standard output. Diagnostic messages from the existing terminal-oriented engine are suppressed by the adapter. Errors are returned as JSON and a non-zero exit status.
 
@@ -32,7 +33,7 @@ Existing Bash engine (uraam.sh)
         +-- Shizuku (rish)
 ```
 
-The GUI invokes the adapter with `subprocess.run([...])`; it does not use a shell to interpolate user-controlled values. The adapter only accepts exactly one documented read-only command. Extra arguments and unknown commands, including destructive command names, are rejected. The adapter sources the engine only in `URAAM_TESTING=1` mode, so the interactive CLI entry point is not started as a side effect.
+The GUI invokes the adapter with `subprocess.run([...])`; it does not use a shell to interpolate user-controlled values. The adapter only accepts exactly one documented read-only command. Package inspection uses a single `package-info:<package.id>` argument; the package identifier is validated against a strict Android package-name pattern before any device command is sent. Extra arguments and unknown commands, including destructive command names, are rejected. The adapter sources the engine only in `URAAM_TESTING=1` mode, so the interactive CLI entry point is not started as a side effect.
 
 ## JSON response examples
 
@@ -95,6 +96,10 @@ bash ./uraam-gui
 
 For a source checkout, the launcher and API remain beside `uraam.sh`. Debian packages install the frontend under `/usr/share/uraam`, the command at `/usr/bin/uraam-gui`, and the official SVG icon under the hicolor icon theme. The application-menu entry is registered only when GTK4 bindings are available. The universal Linux installer offers the same optional frontend installation under `/usr/local`; Termux remains CLI-only.
 
+## Package inspector
+
+The package inspector uses bounded, read-only `pm path --user 0` and `dumpsys package` queries through the existing Bash device-execution layer. APK paths are accepted only from valid `package:/absolute/path` responses. Version name and version code are displayed only when the device output contains the expected fields; otherwise the GUI reports that the metadata was not provided. No permissions, signing-certificate, launchability, or safety verdict is inferred. The inspector offers no install, disable, uninstall, or restore controls.
+
 ## Safety boundary
 
 This milestone does not expose debloat preview, Apply, package disable/uninstall, APK installation, restoration, wireless pairing or journal reconciliation through the GUI. Continue to use the existing Bash interface for those workflows.
@@ -103,6 +108,6 @@ A future mutating API must call the existing engine's validated operation paths.
 
 ## Tests
 
-`tests/test-json-api.sh` uses a mocked ADB executable to verify device information and the user-0 inventory. It also verifies that unsupported destructive command names are rejected.
+`tests/test-json-api.sh` uses a mocked ADB executable to verify device information and the user-0 inventory. It verifies package metadata and APK-path parsing, rejects malformed package identifiers and unsupported destructive command names, and checks that extra API arguments are rejected.
 
 The GUI foundation workflow validates Bash syntax for the engine, CLI launcher and adapter, ShellCheck, Python syntax, GTK4 bindings, Debian desktop package layout and the mocked JSON API. The shell-safety workflow continues to validate the existing CLI safety and dry-run/recovery suites independently of GTK. These tests do not replace testing with real Android devices and each supported backend.
