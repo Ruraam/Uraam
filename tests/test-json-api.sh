@@ -10,26 +10,37 @@ cat > "$TMP_DIR/mockbin/adb" <<'MOCK'
 #!/usr/bin/env bash
 case "$*" in
     devices)
-        if [[ "${MOCK_ADB_OFFLINE:-0}" == "1" ]]; then
-            printf 'List of devices attached\n'
-        else
-            printf 'List of devices attached\nTEST-SERIAL\tdevice\n'
-        fi
+        case "${MOCK_ADB_STATE:-device}" in
+            unauthorized) printf 'List of devices attached\nTEST-SERIAL\tunauthorized\n' ;;
+            offline) printf 'List of devices attached\n' ;;
+            *) printf 'List of devices attached\nTEST-SERIAL\tdevice\n' ;;
+        esac
         ;;
     '-s TEST-SERIAL get-state')
+        [[ "${MOCK_ADB_STATE:-device}" == "device" ]] || exit 1
         printf 'device\n'
         ;;
     '-s TEST-SERIAL shell getprop ro.product.manufacturer')
-        printf 'TestCo\n'
+        printf '%s\n' "${MOCK_MANUFACTURER:-TestCo}"
+        ;;
+    '-s TEST-SERIAL shell getprop ro.product.brand')
+        printf '%s\n' "${MOCK_BRAND:-TestCo}"
         ;;
     '-s TEST-SERIAL shell getprop ro.product.model')
         printf 'TestPhone\n'
         ;;
     '-s TEST-SERIAL shell getprop ro.build.version.release')
-        printf '15\n'
+        printf '%s\n' "${MOCK_ANDROID_RELEASE:-15}"
+        ;;
+    '-s TEST-SERIAL shell getprop ro.build.version.oneui')
+        printf '%s\n' "${MOCK_ONEUI_VERSION:-}"
         ;;
     '-s TEST-SERIAL shell pm list packages --user 0')
-        printf 'package:com.example.alpha\npackage:com.example.beta\npackage:com.example.system\n'
+        if [[ "${MOCK_ADB_INVENTORY:-valid}" == "malformed" ]]; then
+            printf 'package:com.example.alpha\nunexpected truncated output\n'
+        else
+            printf 'package:com.example.alpha\npackage:com.example.beta\npackage:com.example.system\n'
+        fi
         ;;
     '-s TEST-SERIAL shell pm list packages -s --user 0')
         printf 'package:com.example.system\n'
@@ -52,8 +63,14 @@ case "$*" in
     '-s TEST-SERIAL shell pm path --user 0 com.example.nosections')
         printf 'package:/data/app/com.example.nosections/base.apk\n'
         ;;
+    '-s TEST-SERIAL shell pm path --user 0 com.example.old')
+        printf 'package:/data/app/com.example.old/base.apk\n'
+        ;;
     '-s TEST-SERIAL shell dumpsys package com.example.nosections')
         printf 'Package [com.example.nosections] (789):\n    versionName=3.0\n    requested permissions:\n      android.permission.INTERNET\n'
+        ;;
+    '-s TEST-SERIAL shell dumpsys package com.example.old')
+        printf 'Package [com.example.old] (101):\n    codePath=/data/app/com.example.old\n'
         ;;
     '-s TEST-SERIAL shell getprop '*)
         printf '\n'
@@ -76,6 +93,7 @@ cat > "$TMP_DIR/mockbin/rish" <<'MOCK'
 if [[ "${1:-}" == "-c" && -n "${2:-}" ]]; then
     exec bash -c "$2"
 fi
+if [[ "${MOCK_RISH_DENY:-0}" == "1" ]]; then exit 1; fi
 if (($# == 0)); then
     IFS= read -r handshake || exit 1
     [[ "$handshake" == "exit" ]] && exit 0
@@ -168,6 +186,33 @@ jq -e '
     .requested_permissions == ["android.permission.INTERNET"]
 ' <<< "$missing_info" >/dev/null
 
+
+# Legacy Android-shaped dump: absent metadata stays unknown, never guessed.
+old_info="$(bash "$ROOT/uraam-api.sh" package-info:com.example.old)"
+jq -e '.status == "ok" and .version_name == null and .version_code == null and .components.activities == null and .components.providers == null' <<< "$old_info" >/dev/null
+
+# OEM/ROM profile fixture (Samsung One UI, Android 8.1).
+export MOCK_MANUFACTURER=Samsung MOCK_BRAND=samsung MOCK_ONEUI_VERSION=6.1 MOCK_ANDROID_RELEASE=8.1
+legacy_device="$(bash "$ROOT/uraam-api.sh" device-info)"
+jq -e '.status == "connected" and .oem == "samsung" and .rom.name == "One UI" and .rom.version == "6.1"' <<< "$legacy_device" >/dev/null
+unset MOCK_MANUFACTURER MOCK_BRAND MOCK_ONEUI_VERSION MOCK_ANDROID_RELEASE
+
+# Unauthorized and offline ADB devices are not usable backends.
+export MOCK_ADB_STATE=unauthorized
+unauthorized_info="$(bash "$ROOT/uraam-api.sh" device-info)"
+jq -e '.status == "disconnected" and .backend == null' <<< "$unauthorized_info" >/dev/null
+export MOCK_ADB_STATE=offline
+offline_info="$(bash "$ROOT/uraam-api.sh" device-info)"
+jq -e '.status == "disconnected" and .backend == null' <<< "$offline_info" >/dev/null
+unset MOCK_ADB_STATE
+
+# Malformed package output must fail closed, not return a partial inventory.
+export MOCK_ADB_INVENTORY=malformed
+if bash "$ROOT/uraam-api.sh" list-packages >/dev/null 2>&1; then
+    printf '%s\\n' "FAIL: malformed package inventory was accepted" >&2
+    exit 1
+fi
+unset MOCK_ADB_INVENTORY
 if bash "$ROOT/uraam-api.sh" 'package-info:com.example.alpha;id' >/dev/null 2>&1; then
     printf '%s\\n' "FAIL: malformed package identifier was accepted" >&2
     exit 1
@@ -218,6 +263,11 @@ root_package="$(bash "$ROOT/uraam-api.sh" package-info:com.example.alpha)"
 jq -e '.status == "ok" and .backend == "ROOT" and .paths == ["/data/app/~~abc/com.example.alpha/base.apk"] and .version_name == "1.2.3" and .read_only == true' <<< "$root_package" >/dev/null
 
 export MOCK_SU_DENY=1
+export MOCK_RISH_DENY=1
+no_backend_info="$(bash "$ROOT/uraam-api.sh" device-info)"
+jq -e '.status == "disconnected" and .backend == null' <<< "$no_backend_info" >/dev/null
+unset MOCK_RISH_DENY
+
 shizuku_info="$(bash "$ROOT/uraam-api.sh" device-info)"
 jq -e '.status == "connected" and .backend == "SHIZUKU" and .serial == null' <<< "$shizuku_info" >/dev/null
 shizuku_packages="$(bash "$ROOT/uraam-api.sh" list-packages)"
