@@ -228,5 +228,7 @@
     {
       "packageName": "com.sec.bcservice"
     }
-  ]
+  ],
+  "author": "Ruvyrom",
+  "version": "1.0"
 }
