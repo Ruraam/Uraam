@@ -73,6 +73,13 @@ cat > "$TEST_CONFIG" <<'JSON'
 }
 JSON
 
+mapfile -t direct_dependencies < <(uad_relationships_for_package "com.example.app" dependencies)
+[[ "${direct_dependencies[0]:-}" == "com.example.framework" ]] ||
+    fail "UAD dependency parser returned: ${direct_dependencies[*]:-<empty>}"
+mapfile -t direct_needed_by < <(uad_relationships_for_package "com.example.app" neededBy)
+[[ "${direct_needed_by[0]:-}" == "com.example.consumer" ]] ||
+    fail "UAD reverse-dependency parser returned: ${direct_needed_by[*]:-<empty>}"
+
 require_backend() {
     EXEC_TYPE="ADB"
     BACKEND_SERIAL="TEST-SERIAL"
@@ -122,8 +129,10 @@ grep -Fq '[PROTECTED BY URAAM] com.samsung.android.bluetooth' "$TMP_DIR/dry-run.
     fail "preview did not identify OEM-pattern protected package"
 grep -Fq '[NOT INSTALLED] com.example.missing' "$TMP_DIR/dry-run.out" ||
     fail "preview did not identify absent package"
-grep -Fq '[DEPENDENCY INSTALLED] com.example.framework' "$TMP_DIR/dry-run.out" ||
+grep -Fq '[DEPENDENCY INSTALLED] com.example.framework' "$TMP_DIR/dry-run.out" || {
+    cat "$TMP_DIR/dry-run.out" >&2
     fail "selected package dependency was not shown as installed"
+}
 grep -Fq 'Installed dependent may be affected: com.example.consumer relies on com.example.app' "$TMP_DIR/dry-run.out" ||
     fail "installed reverse dependency warning was not displayed"
 grep -Fq 'Dependency metadata is advisory and non-exhaustive' "$TMP_DIR/dry-run.out" ||
