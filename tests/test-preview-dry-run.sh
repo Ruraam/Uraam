@@ -29,6 +29,23 @@ if device_package_list all >/dev/null 2>&1; then
 fi
 pass "package inventory parsing fails closed and uses installed-only mode"
 
+# A partial response containing valid package rows plus an error must fail closed.
+run_device() {
+    printf 'package:com.example.app\nError: device disconnected\n'
+    return 0
+}
+if device_package_list active >/dev/null 2>&1; then
+    fail "partial package inventory mixed with an error must be rejected"
+fi
+run_device() {
+    printf 'package:com.example.app\n'
+    return 1
+}
+if device_package_list active >/dev/null 2>&1; then
+    fail "a failed Android package-list command must be rejected"
+fi
+pass "partial and failed Android package inventories are rejected"
+
 # Exercise the real backend transport probe for ADB and Shizuku.
 MOCK_ADB_STATE="device"
 adb() {
