@@ -274,6 +274,18 @@ grep -Fq 'Device or UAD safety state changed after preview' "$TMP_DIR/stale.out"
 pass "stale preview is rejected before execution"
 
 # A different model on the same ADB transport must invalidate the preview.
+# Restore the normal inventory mock after the preceding stale-inventory case.
+device_package_list() {
+    printf '%s\n' \
+        'com.example.app' \
+        'com.example.expert' \
+        'com.example.unsafe' \
+        'com.example.unknown' \
+        'com.example.framework' \
+        'com.example.consumer' \
+        'com.android.systemui' \
+        'com.samsung.android.bluetooth'
+}
 DEVICE_MUTATIONS=()
 DEVICE_BRAND_CALLS=0
 CHANGE_DEVICE_ON_RECHECK=1
