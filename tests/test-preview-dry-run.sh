@@ -9,10 +9,14 @@ source "$ROOT/uraam.sh"
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 pass() { printf 'PASS: %s\n' "$*"; }
 
+LAST_DEVICE_COMMAND=""
 run_device() {
+    LAST_DEVICE_COMMAND="$*"
     printf 'package:com.example.app\npackage:com.android.systemui\n'
 }
-inventory="$(device_package_list all)" || fail "valid package inventory rejected"
+inventory="$(device_package_list active)" || fail "valid package inventory rejected"
+[[ "$LAST_DEVICE_COMMAND" == 'pm list packages --user 0' ]] ||
+    fail "preview inventory must exclude packages uninstalled for user 0"
 grep -Fxq 'com.example.app' <<< "$inventory" || fail "package inventory parsing lost a package"
 run_device() { printf 'device offline\n'; }
 if device_package_list all >/dev/null 2>&1; then
@@ -85,3 +89,26 @@ DEVICE_MUTATIONS=()
 uraam_debloat <<< $'u\na\nAPPLY 4' > "$TMP_DIR/reject.out" 2>&1
 (( ${#DEVICE_MUTATIONS[@]} == 0 )) || fail "incorrect confirmation executed a mutation"
 pass "incorrect operation count is rejected"
+
+DEVICE_MUTATIONS=()
+uraam_debloat <<< d\na\nAPPLY 1' > "$TMP_DIR/disable.out" 2>&1
+(( ${#DEVICE_MUTATIONS[@]} == 1 )) || fail "expected exactly one disable command"
+[[ "${DEVICE_MUTATIONS[0]}" == 'pm disable-user --user 0 com.example.app' ]] ||
+    fail "unexpected disable command: ${DEVICE_MUTATIONS[0]}"
+pass "disable preview and apply path"
+
+DEVICE_MUTATIONS=()
+INVENTORY_CALLS=0
+device_package_list() {
+    (( INVENTORY_CALLS += 1 ))
+    if (( INVENTORY_CALLS == 1 )); then
+        printf '%s\n' 'com.example.app' 'com.android.systemui' 'com.samsung.android.bluetooth'
+    else
+        printf '%s\n' 'com.android.systemui' 'com.samsung.android.bluetooth'
+    fi
+}
+uraam_debloat <<< u\na\nAPPLY 1' > "$TMP_DIR/stale.out" 2>&1
+grep -Fq 'Device package state changed after preview' "$TMP_DIR/stale.out" ||
+    fail "stale preview was not rejected"
+(( ${#DEVICE_MUTATIONS[@]} == 0 )) || fail "stale preview executed a mutation"
+pass "stale preview is rejected before execution"
