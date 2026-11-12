@@ -344,6 +344,79 @@ device_oem_family() {
     esac
 }
 
+# Identify the vendor ROM from build properties. Detection is advisory and
+# deliberately falls back to "Unknown ROM" instead of guessing from OEM alone.
+device_rom_info() {
+    local family oneui miui hyperos oxygen color realme emui harmony magic
+    local zen myux funtouch originos pixel lineage nothing android_ver rom version
+
+    family="$(device_oem_family)"
+    oneui="$(device_getprop ro.build.version.oneui || true)"
+    miui="$(device_getprop ro.miui.ui.version.name || true)"
+    hyperos="$(device_getprop ro.mi.os.version.name || true)"
+    oxygen="$(device_getprop ro.oxygen.version || true)"
+    color="$(device_getprop ro.build.version.opporom || true)"
+    realme="$(device_getprop ro.build.version.realmeui || true)"
+    emui="$(device_getprop ro.build.version.emui || true)"
+    harmony="$(device_getprop hw_sc.build.platform.version || true)"
+    magic="$(device_getprop ro.build.version.magic || true)"
+    zen="$(device_getprop ro.build.version.zenui || true)"
+    myux="$(device_getprop ro.build.version.myux || true)"
+    funtouch="$(device_getprop ro.vivo.os.version || true)"
+    originos="$(device_getprop ro.vivo.os.name || true)"
+    pixel="$(device_getprop ro.build.version.release || true)"
+    lineage="$(device_getprop ro.lineage.version || true)"
+    nothing="$(device_getprop ro.nothing.version || true)"
+    android_ver="$(device_getprop ro.build.version.release || true)"
+
+    rom="Unknown ROM"
+    version=""
+    case "$family" in
+        samsung)
+            if [[ -n "$oneui" ]]; then rom="One UI"; version="$oneui"; fi
+            ;;
+        xiaomi)
+            if [[ -n "$hyperos" ]]; then rom="HyperOS"; version="$hyperos"
+            elif [[ -n "$miui" ]]; then rom="MIUI"; version="$miui"; fi
+            ;;
+        oneplus)
+            if [[ -n "$oxygen" ]]; then rom="OxygenOS"; version="$oxygen"; fi
+            ;;
+        oppo)
+            if [[ -n "$realme" ]]; then rom="realme UI"; version="$realme"
+            elif [[ -n "$color" ]]; then rom="ColorOS"; version="$color"; fi
+            ;;
+        huawei)
+            if [[ -n "$harmony" ]]; then rom="HarmonyOS"; version="$harmony"
+            elif [[ -n "$emui" ]]; then rom="EMUI"; version="$emui"; fi
+            ;;
+        honor)
+            if [[ -n "$magic" ]]; then rom="MagicOS"; version="$magic"; fi
+            ;;
+        asus)
+            if [[ -n "$zen" ]]; then rom="ZenUI"; version="$zen"; fi
+            ;;
+        motorola)
+            if [[ -n "$myux" ]]; then rom="My UX"; version="$myux"; fi
+            ;;
+        vivo)
+            if [[ -n "$originos" ]]; then rom="OriginOS"; version="$originos"
+            elif [[ -n "$funtouch" ]]; then rom="Funtouch OS"; version="$funtouch"; fi
+            ;;
+        google)
+            rom="Pixel Android"
+            ;;
+        nothing)
+            if [[ -n "$nothing" ]]; then rom="Nothing OS"; version="$nothing"; fi
+            ;;
+    esac
+
+    if [[ -n "$lineage" ]]; then rom="LineageOS"; version="$lineage"; fi
+    [[ -n "$version" ]] || version="$android_ver"
+    printf '%s|%s\n' "$rom" "${version:-unknown version}"
+}
+
+
 # Return MATCH, NOT_LISTED or UNKNOWN. Never treats absence from a curated
 # profile as evidence that a package is unsafe.
 oem_profile_status_for_package() {
@@ -673,7 +746,7 @@ uraam_debloat() {
     load_packages_from_json "$file" || { pause; return 1; }
 
     local action mode confirm installed pkg operation_count ready_count
-    local selection token risk category description metadata index relation oem_family oem_status
+    local selection token risk category description metadata index relation oem_family oem_status rom_info rom_name rom_version initial_rom_info
     local success=0 skipped=0 failed=0
     local -a pkg_dependencies=() pkg_needed_by=()
     local -a PREVIEW_PROTECTED=() PREVIEW_MISSING=()
@@ -695,6 +768,9 @@ uraam_debloat() {
         return 1
     }
     oem_family="$(device_oem_family)"
+    rom_info="$(device_rom_info)"
+    initial_rom_info="$rom_info"
+    IFS='|' read -r rom_name rom_version <<< "$rom_info"
     for pkg in "${PACKAGES[@]}"; do
         if is_whitelisted "$pkg"; then
             PREVIEW_PROTECTED+=("$pkg")
@@ -722,7 +798,8 @@ uraam_debloat() {
     [[ -n "$BACKEND_SERIAL" ]] && printf ' (%s)' "$BACKEND_SERIAL"
     printf '\nBackend: %s | Android user: 0\n' "${EXEC_TYPE:-unknown}"
     printf 'Action requested: %s\n' "$action"
-    printf 'Detected OEM family: %s (profile cross-check is advisory)\n\n' "$oem_family"
+    printf 'Detected OEM family: %s (profile cross-check is advisory)\n' "$oem_family"
+    printf 'Detected ROM: %s | Version: %s (build-property detection; advisory)\n\n' "$rom_name" "$rom_version"
     printf 'Risk guide: Recommended (UAD recommendation; still manual) | Advanced (review caveats) | Expert (technical review) | Unsafe/Unknown (blocked)\n'
     if [[ -r "$UAD_METADATA_FILE" ]]; then
         printf 'UAD-NG metadata: bundled catalogue available\n'
@@ -889,6 +966,10 @@ uraam_debloat() {
         err "Cannot refresh package inventory; no changes made."
         return 1
     }
+    if [[ "$(device_oem_family)" != "$oem_family" || "$(device_rom_info)" != "$initial_rom_info" ]]; then
+        warn "Device OEM/ROM identity changed after preview. Run Preview again; no changes made."
+        return 1
+    fi
     ready_count=0
     for pkg in "${SELECTED_PACKAGES[@]}"; do
         metadata="$(uad_metadata_for_package "$pkg")" || return 1
