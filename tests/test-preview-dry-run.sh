@@ -508,7 +508,7 @@ write_operation_journal started uninstall com.example.crash 1 1 ||
     fail "could not create simulated crash journal"
 [[ "$(jq -r '.state' "$URAAM_OPERATION_JOURNAL")" == "started" ]] ||
     fail "pre-command journal state was not persisted"
-device_package_list() { printf '%s\\n' com.example.other; }
+device_package_list() { printf '%s\n' com.example.other; }
 if recover_pending_operation <<< "NO"; then
     fail "recovery must require explicit acknowledgement"
 fi
