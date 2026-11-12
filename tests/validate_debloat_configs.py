@@ -11,12 +11,12 @@ PACKAGE_ID = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$")
 
 # Keep aligned with SAFETY_WHITELIST in uraam.sh.
 PROTECTED_PACKAGE_PATTERNS = (
-    re.compile(r"^com\\.android\\.providers\\.(settings|telephony|media|downloads|contacts)(\\.|$)"),
-    re.compile(r"(^|\\.)(telephony[^.]*|telecom|ims|imsservice|ril)(\\.|$)"),
-    re.compile(r"(^|\\.)(setupwizard|permissioncontroller|packageinstaller|systemui|keyguard|emergency)(\\.|$)"),
-    re.compile(r"(^|\\.)(bluetooth|bluetoothagent|bluetoothservice|nfc)(\\.|$)"),
-    re.compile(r"^com\\.android\\.(providers\\.(settings|telephony)|server\\.telecom|emergency|systemui|permissioncontroller).*overlay"),
-    re.compile(r"^com\\.samsung\\.android\\.knox\\.(attestation|containercore|kpecore)(\\.|$)"),
+    re.compile(r"^com\.android\.providers\.(settings|telephony|media|downloads|contacts)(\.|$)"),
+    re.compile(r"(^|\.)(telephony[^.]*|telecom|ims|imsservice|ril)(\.|$)"),
+    re.compile(r"(^|\.)(setupwizard|permissioncontroller|packageinstaller|systemui|keyguard|emergency)(\.|$)"),
+    re.compile(r"(^|\.)(bluetooth|bluetoothagent|bluetoothservice|nfc)(\.|$)"),
+    re.compile(r"^com\.android\.(providers\.(settings|telephony)|server\.telecom|emergency|systemui|permissioncontroller).*overlay"),
+    re.compile(r"^com\.samsung\.android\.knox\.(attestation|containercore|kpecore)(\.|$)"),
 )
 
 PROTECTED_PACKAGES = {
