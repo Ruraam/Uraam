@@ -1,0 +1,18 @@
+{
+  "provider": "Universal Debloater Alliance - Next Generation (UAD-NG)",
+  "source_repository": "https://github.com/Universal-Debloater-Alliance/universal-android-debloater-next-generation",
+  "source_file": "resources/assets/uad_lists.json",
+  "source_revision": "9fcad87bf78c52c4270504bc8880139d95a27a29",
+  "source_url": "https://github.com/Universal-Debloater-Alliance/universal-android-debloater-next-generation/blob/9fcad87bf78c52c4270504bc8880139d95a27a29/resources/assets/uad_lists.json",
+  "package_count": 5399,
+  "removal_levels": ["Recommended", "Advanced", "Expert", "Unsafe"],
+  "categories": ["Aosp", "Google", "Carrier", "Oem", "Misc"],
+  "license": "GPL-3.0",
+  "snapshot_date": "2026-11-12",
+  "policy": {
+    "auto_select": false,
+    "unsafe": "blocked",
+    "unknown": "blocked",
+    "manual_selection_required": true
+  }
+}

@@ -115,3 +115,102 @@ bulk-uninstall JSON profiles. They contain system dependencies, overlays,
 carrier-specific services and device-specific components. See
 [Docs/UAD-NG-review-catalog.md](../../Docs/UAD-NG-review-catalog.md) for the
 pinned category counts and the rationale for requiring per-package review.
+
+
+### Runtime OEM and ROM identification
+
+During the manual UAD-NG preview, URAAM reads Android build properties to identify
+the manufacturer family and, when an explicit vendor property is available,
+the ROM family/version (for example One UI, MIUI/HyperOS, OxygenOS, ColorOS,
+EMUI/HarmonyOS, MagicOS, ZenUI, My UX, Funtouch OS/OriginOS, Pixel Android,
+Nothing OS, or LineageOS). This identification is informational only:
+unknown or missing properties are reported conservatively and do not change
+package risk classifications or automatically select packages. The detected
+device model, OEM family and ROM/version are checked again immediately before
+applying a preview. A model change invalidates the preview.
+
+
+### Backend interruption safety
+
+During a confirmed multi-package apply, URAAM checks the selected ADB, root or
+Shizuku transport before each package operation. If the transport is no longer
+available, it stops the batch and reports the unattempted packages as skipped.
+If a package command fails, URAAM marks that operation as uncertain and stops
+the batch, even if the transport still responds. A failed host response does
+not prove Android made no change. Inspect the device and reconcile the pending
+journal before starting another destructive batch. A real device can still
+change state between checks; inspect the final summary and device state after
+any interrupted operation.
+
+Package inventory parsing is fail-closed: URAAM rejects command failures,
+empty output, and responses containing malformed/error lines even if some
+valid package rows were returned. It will not treat a partial list as a safe
+basis for a destructive preview or apply.
+
+### Device command timeouts
+
+Package inventory, uninstall and disable commands are run with a host-side
+timeout to prevent a stalled ADB, root or Shizuku session from blocking URAAM
+indefinitely. The default limit is 30 seconds and can be adjusted with
+`URAAM_DEVICE_TIMEOUT` to an integer from 1 to 300 seconds.
+
+The host must provide GNU `timeout` (normally from coreutils) or `gtimeout`
+(commonly installed as `gtimeout` on macOS). URAAM probes the required GNU
+signal and kill-after options locally before invoking ADB, `su` or `rish`.
+This avoids assuming that a BusyBox or reduced `timeout` implementation has
+the same interface. If `timeout` is incompatible, URAAM tries `gtimeout`;
+if neither supports the required options, it refuses to send the device
+command.
+
+Typical installation:
+- Debian/Linux and WSL: install the `coreutils` package.
+- Termux: run `pkg install coreutils`.
+- macOS with Homebrew: run `brew install coreutils` (use the provided
+  `gtimeout` command).
+
+The timeout compatibility probe and fallback are covered by mocked regression
+tests. CI does not replace testing on each host OS or a real Android device.
+
+A timed-out uninstall or disable has an **unknown outcome**: Android may have
+applied the operation even if the host lost its response. URAAM therefore
+counts that operation as failed/uncertain, stops the batch, marks all later
+operations as skipped, and never retries the timed-out package automatically.
+Inspect the device and refresh its package inventory before deciding what to
+do next. A timeout is not proof that the package operation did not happen.
+
+
+### Interrupted apply recovery and concurrency
+
+Before each uninstall or disable command, URAAM atomically writes a private
+journal to `Logs/debloat/active-operation.json` (portable install) or the
+URAAM user data directory. The file records the operation, package, backend,
+ADB serial when applicable, device model, batch position and UTC timestamp.
+The journal and temporary replacement file use mode `0600`; replacement is
+performed in the same directory so an interrupted write cannot expose a
+partially written JSON document as the active journal.
+
+If URAAM is terminated, Termux is closed, the host loses power, or the device
+command is interrupted after the journal is written, the next debloat session
+detects the unfinished operation. URAAM compares the recorded backend/device
+with the currently selected one and refreshes the relevant Android package
+inventory. It displays the observed state, but inventory alone is not treated
+as proof. The user must inspect the device and type the exact
+`RECONCILE package.name` acknowledgement before the journal is cleared.
+URAAM never resumes or replays an interrupted uninstall/disable command.
+
+A failed command is also marked uncertain and stops the remaining batch,
+because a lost response does not prove that Android made no change. A
+successful command clears its journal before the next package is attempted.
+A crash between the device-side success and journal cleanup is therefore
+intentionally treated as uncertain on the next launch.
+
+Apply sessions use an OS-managed `flock` lock so a second URAAM instance
+cannot mutate the same device concurrently. The lock is released automatically
+when the process exits, including after an abrupt termination. Install
+`util-linux` on Debian/Linux (it provides `flock`); on Termux install the
+`util-linux` package. If `flock` is unavailable, URAAM refuses destructive
+apply rather than running without concurrency protection.
+
+Recovery and locking are covered by mocked regression tests. They do not
+replace inspection on a real Android device. A corrupt journal fails closed
+and must be inspected manually; do not delete it blindly.

@@ -42,6 +42,8 @@ CONFIGS_DIR="$USER_DEBLOAT_DIR"
 USER_BACKUPS_DIR="$USER_DATA_DIR/Configs/backup-restore"
 BACKUPS_DIR="$USER_BACKUPS_DIR"
 SYSTEM_DEBLOAT_DIR="${PREFIX:-/usr}/share/uraam/debloat"
+UAD_METADATA_FILE="$SCRIPT_DIR/Configs/uad/uad_lists.json"
+[[ -r "$UAD_METADATA_FILE" ]] || UAD_METADATA_FILE="${PREFIX:-/usr}/share/uraam/Configs/uad/uad_lists.json"
 
 LOGD_DIR="$USER_DATA_DIR/Logs/debloat"
 LOGB_DIR="$USER_DATA_DIR/Logs/backup"
@@ -117,11 +119,23 @@ pause() {
     read -r -p "Press Enter to continue..." _ || true
 }
 
+SAFETY_PACKAGE_PATTERNS=(
+    '^com\.android\.providers\.(settings|telephony|media|downloads|contacts)(\.|$)'
+    '(^|\.)(telephony[^.]*|telecom|ims|imsservice|ril)(\.|$)'
+    '(^|\.)(setupwizard|permissioncontroller|packageinstaller|systemui|keyguard|emergency)(\.|$)'
+    '(^|\.)(bluetooth|bluetoothagent|bluetoothservice|nfc)(\.|$)'
+    '^com\.android\.(providers\.(settings|telephony)|server\.telecom|emergency|systemui|permissioncontroller).*overlay'
+    '^com\.samsung\.android\.knox\.(attestation|containercore|kpecore)(\.|$)'
+)
+
 is_whitelisted() {
     local target="$1"
-    local safe_pkg
+    local safe_pkg pattern
     for safe_pkg in "${SAFETY_WHITELIST[@]}"; do
         [[ "$safe_pkg" == "$target" ]] && return 0
+    done
+    for pattern in "${SAFETY_PACKAGE_PATTERNS[@]}"; do
+        [[ "$target" =~ $pattern ]] && return 0
     done
     return 1
 }
@@ -185,6 +199,109 @@ start_log() {
     find "$dir" -maxdepth 1 -type f -name "${prefix}-*.log" -mtime +30 -delete 2>/dev/null || true
     LOGFILE="$dir/${prefix}-$(date +%Y%m%d_%H%M%S).log"
     exec > >(tee -a "$LOGFILE") 2>&1
+}
+
+URAAM_OPERATION_JOURNAL="$LOGD_DIR/active-operation.json"
+URAAM_APPLY_LOCK="$LOGD_DIR/apply.lock"
+URAAM_LOCK_FD=""
+
+acquire_apply_lock() {
+    mkdir -p -- "$LOGD_DIR" || return 1
+    command -v flock >/dev/null 2>&1 || { err "flock (util-linux) is required for safe apply locking."; return 1; }
+    exec {URAAM_LOCK_FD}>"$URAAM_APPLY_LOCK" || return 1
+    chmod 600 "$URAAM_APPLY_LOCK" 2>/dev/null || true
+    if ! flock -n "$URAAM_LOCK_FD"; then
+        exec {URAAM_LOCK_FD}>&-
+        URAAM_LOCK_FD=""
+        err "Another URAAM apply session holds the device lock."
+        return 1
+    fi
+}
+
+release_apply_lock() {
+    [[ -n "$URAAM_LOCK_FD" ]] || return 0
+    flock -u "$URAAM_LOCK_FD" 2>/dev/null || true
+    exec {URAAM_LOCK_FD}>&-
+    URAAM_LOCK_FD=""
+}
+
+write_operation_journal() {
+    local state="$1" action="$2" package="$3" index="$4" total="$5" temp_file
+    mkdir -p -- "$LOGD_DIR" || return 1
+    temp_file="$(mktemp "$LOGD_DIR/.active-operation.XXXXXX")" || return 1
+    if ! jq -n --arg state "$state" --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        --arg backend "$EXEC_TYPE" --arg serial "$BACKEND_SERIAL" --arg model "$CURRENT_MODEL" \
+        --arg action "$action" --arg package "$package" --argjson index "$index" --argjson total "$total" \
+        '{version:1,state:$state,timestamp:$timestamp,backend:$backend,serial:$serial,model:$model,action:$action,package:$package,index:$index,total:$total}' > "$temp_file"; then
+        rm -f -- "$temp_file"
+        return 1
+    fi
+    chmod 600 "$temp_file" || { rm -f -- "$temp_file"; return 1; }
+    # Flush the journal contents before the destructive command can run.
+    sync >/dev/null 2>&1 || {
+        rm -f -- "$temp_file"
+        err "Cannot flush the operation journal to storage; refusing the device command."
+        return 1
+    }
+    mv -f -- "$temp_file" "$URAAM_OPERATION_JOURNAL" || { rm -f -- "$temp_file"; return 1; }
+    # Persist the rename itself so a power loss cannot silently lose the entry.
+    sync >/dev/null 2>&1 || {
+        err "Cannot flush the operation-journal directory; refusing the device command."
+        return 1
+    }
+}
+
+clear_operation_journal() { rm -f -- "$URAAM_OPERATION_JOURNAL"; }
+
+recover_pending_operation() {
+    [[ -e "$URAAM_OPERATION_JOURNAL" ]] || return 0
+    local state action package backend serial model observed answer inventory
+    if ! jq -e 'type == "object" and .version == 1 and
+        (.state == "started" or .state == "uncertain") and
+        (.action == "uninstall" or .action == "disable") and
+        (.package | type == "string" and test("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$")) and
+        (.backend == "ADB" or .backend == "ROOT" or .backend == "SHIZUKU")' \
+        "$URAAM_OPERATION_JOURNAL" >/dev/null 2>&1; then
+        err "Pending-operation journal is invalid or corrupted: $URAAM_OPERATION_JOURNAL"
+        err "Destructive operations are blocked until it is inspected manually."
+        return 1
+    fi
+    state="$(jq -r '.state' "$URAAM_OPERATION_JOURNAL")"
+    action="$(jq -r '.action' "$URAAM_OPERATION_JOURNAL")"
+    package="$(jq -r '.package' "$URAAM_OPERATION_JOURNAL")"
+    backend="$(jq -r '.backend' "$URAAM_OPERATION_JOURNAL")"
+    serial="$(jq -r '.serial' "$URAAM_OPERATION_JOURNAL")"
+    model="$(jq -r '.model' "$URAAM_OPERATION_JOURNAL")"
+    warn "Unfinished operation found ($state): $action $package"
+    printf 'Recorded backend: %s | device: %s | serial: %s\n' "$backend" "${model:-unknown}" "${serial:-local}"
+    warn "URAAM will not replay this operation automatically."
+    if [[ "$backend" != "$EXEC_TYPE" || ( "$backend" == "ADB" && "$serial" != "$BACKEND_SERIAL" ) || ( -n "$model" && "$model" != "$CURRENT_MODEL" ) ]]; then
+        err "Current backend/device identity differs from the journal; reconnect the original device."
+        return 1
+    fi
+    # Refuse reconciliation while the selected transport is already offline.
+    # The inventory command below is still authoritative because the transport
+    # can disappear immediately after this preflight check.
+    backend_is_available || {
+        err "Device backend is unavailable; journal retained."
+        return 1
+    }
+    if [[ "$action" == uninstall ]]; then
+        inventory="$(device_package_list active)" || { err "Cannot obtain a reliable inventory; journal retained."; return 1; }
+        if package_is_installed "$package" "$inventory"; then observed="still present in installed inventory"
+        else observed="absent from installed inventory"; fi
+    else
+        inventory="$(device_package_list disabled)" || { err "Cannot obtain a reliable disabled inventory; journal retained."; return 1; }
+        if package_is_installed "$package" "$inventory"; then observed="listed as disabled by Android"
+        else observed="not listed as disabled by Android"; fi
+    fi
+    printf 'Current inventory: %s\n' "$observed"
+    warn "Inventory is evidence, not proof. Inspect the device manually before acknowledging."
+    printf 'Type exactly "RECONCILE %s" after inspection: ' "$package"
+    read -r answer || return 1
+    [[ "$answer" == "RECONCILE $package" ]] || { warn "Journal retained; reconciliation not confirmed."; return 1; }
+    clear_operation_journal || return 1
+    ok "Journal acknowledged. No command was replayed."
 }
 
 # ---------------------------------------------------------------------------
@@ -274,6 +391,77 @@ run_device() {
     esac
 }
 
+# Run potentially blocking device commands with a bounded host-side timeout.
+# GNU timeout is available via coreutils; macOS users can install gtimeout.
+DEVICE_COMMAND_TIMED_OUT=0
+run_device_bounded() {
+    local seconds timeout_bin candidate candidate_path status command_string
+    DEVICE_COMMAND_TIMED_OUT=0
+    seconds="${URAAM_DEVICE_TIMEOUT:-30}"
+    if [[ ! "$seconds" =~ ^[1-9][0-9]*$ ]] || (( seconds > 300 )); then
+        err "URAAM_DEVICE_TIMEOUT must be an integer between 1 and 300 seconds."
+        return 125
+    fi
+    # BusyBox and other reduced timeout implementations may not support the
+    # GNU signal/kill-after interface. Probe locally before sending anything
+    # to Android, and fall back from timeout to gtimeout when available.
+    timeout_bin=""
+    for candidate in timeout gtimeout; do
+        candidate_path="$(command -v "$candidate" 2>/dev/null)" || continue
+        if "$candidate_path" --signal=TERM --kill-after=1 1s sh -c ":" >/dev/null 2>&1; then
+            timeout_bin="$candidate_path"
+            break
+        fi
+    done
+    if [[ -z "$timeout_bin" ]]; then
+        err "A compatible GNU timeout is required (coreutils timeout/gtimeout). No device command was sent."
+        return 125
+    fi
+    case "$EXEC_TYPE" in
+        ADB)
+            [[ -n "$BACKEND_SERIAL" ]] || { err "No ADB serial selected."; return 1; }
+            "$timeout_bin" --signal=TERM --kill-after=5 "${seconds}s" adb -s "$BACKEND_SERIAL" shell "$@"
+            status=$?
+            ;;
+        ROOT)
+            command_string="$(shell_quote_args "$@")"
+            "$timeout_bin" --signal=TERM --kill-after=5 "${seconds}s" su -c "$command_string"
+            status=$?
+            ;;
+        SHIZUKU)
+            command_string="$(shell_quote_args "$@")"
+            "$timeout_bin" --signal=TERM --kill-after=5 "${seconds}s" rish -c "$command_string"
+            status=$?
+            ;;
+        *) err "No valid device backend selected."; return 1 ;;
+    esac
+    if (( status == 124 || status == 137 )); then DEVICE_COMMAND_TIMED_OUT=1; fi
+    return "$status"
+}
+
+# Check the transport independently from the package command. A package-level
+# failure must not be confused with a disconnected ADB/Shizuku/root backend.
+backend_is_available() {
+    case "$EXEC_TYPE" in
+        ADB)
+            [[ -n "$BACKEND_SERIAL" ]] || return 1
+            [[ "$(adb -s "$BACKEND_SERIAL" get-state 2>/dev/null)" == "device" ]]
+            ;;
+        ROOT)
+            if [[ "$(id -u)" -eq 0 ]]; then
+                return 0
+            fi
+            command -v su >/dev/null 2>&1 && su -c id >/dev/null 2>&1
+            ;;
+        SHIZUKU)
+            command -v rish >/dev/null 2>&1 && rish -c id >/dev/null 2>&1
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
 device_getprop() {
     local property="$1"
     case "$EXEC_TYPE" in
@@ -298,6 +486,136 @@ device_brand() {
     else
         CURRENT_MODEL="Unknown device"
     fi
+}
+
+# Normalize the Android manufacturer into a conservative profile family.
+# This is informational only: Safe-* profiles are candidate lists, not
+# authoritative critical-package blocklists.
+device_oem_family() {
+    local manufacturer brand identity
+    manufacturer="$(device_getprop ro.product.manufacturer || true)"
+    brand="$(device_getprop ro.product.brand || true)"
+    identity="${manufacturer} ${brand}"
+    identity="${identity,,}"
+    case "$identity" in
+        *samsung*) printf '%s\n' samsung ;;
+        *xiaomi*|*redmi*|*poco*) printf '%s\n' xiaomi ;;
+        *google*|*pixel*) printf '%s\n' google ;;
+        *oneplus*) printf '%s\n' oneplus ;;
+        *oppo*|*realme*|*heytap*) printf '%s\n' oppo ;;
+        *motorola*|*moto*) printf '%s\n' motorola ;;
+        *huawei*) printf '%s\n' huawei ;;
+        *honor*) printf '%s\n' honor ;;
+        *asus*) printf '%s\n' asus ;;
+        *sony*) printf '%s\n' sony ;;
+        *lenovo*) printf '%s\n' lenovo ;;
+        *nothing*) printf '%s\n' nothing ;;
+        *blackview*) printf '%s\n' blackview ;;
+        *tecno*|*infinix*|*transsion*) printf '%s\n' transsion ;;
+        *vivo*|*iqoo*) printf '%s\n' vivo ;;
+        *zte*|*nubia*|*redmagic*) printf '%s\n' zte ;;
+        *) printf '%s\n' unknown ;;
+    esac
+}
+
+# Identify the vendor ROM from build properties. Detection is advisory and
+# deliberately falls back to "Unknown ROM" instead of guessing from OEM alone.
+device_rom_info() {
+    local family oneui miui hyperos oxygen color realme emui harmony magic
+    local zen myux funtouch originos lineage nothing android_ver rom version
+
+    family="$(device_oem_family)"
+    oneui="$(device_getprop ro.build.version.oneui || true)"
+    miui="$(device_getprop ro.miui.ui.version.name || true)"
+    hyperos="$(device_getprop ro.mi.os.version.name || true)"
+    oxygen="$(device_getprop ro.oxygen.version || true)"
+    color="$(device_getprop ro.build.version.opporom || true)"
+    realme="$(device_getprop ro.build.version.realmeui || true)"
+    emui="$(device_getprop ro.build.version.emui || true)"
+    harmony="$(device_getprop hw_sc.build.platform.version || true)"
+    magic="$(device_getprop ro.build.version.magic || true)"
+    zen="$(device_getprop ro.build.version.zenui || true)"
+    myux="$(device_getprop ro.build.version.myux || true)"
+    funtouch="$(device_getprop ro.vivo.os.version || true)"
+    originos="$(device_getprop ro.vivo.os.name || true)"
+    lineage="$(device_getprop ro.lineage.version || true)"
+    nothing="$(device_getprop ro.nothing.version || true)"
+    android_ver="$(device_getprop ro.build.version.release || true)"
+
+    rom="Unknown ROM"
+    version=""
+    case "$family" in
+        samsung)
+            if [[ -n "$oneui" ]]; then rom="One UI"; version="$oneui"; fi
+            ;;
+        xiaomi)
+            if [[ -n "$hyperos" ]]; then rom="HyperOS"; version="$hyperos"
+            elif [[ -n "$miui" ]]; then rom="MIUI"; version="$miui"; fi
+            ;;
+        oneplus)
+            if [[ -n "$oxygen" ]]; then rom="OxygenOS"; version="$oxygen"; fi
+            ;;
+        oppo)
+            if [[ -n "$realme" ]]; then rom="realme UI"; version="$realme"
+            elif [[ -n "$color" ]]; then rom="ColorOS"; version="$color"; fi
+            ;;
+        huawei)
+            if [[ -n "$harmony" ]]; then rom="HarmonyOS"; version="$harmony"
+            elif [[ -n "$emui" ]]; then rom="EMUI"; version="$emui"; fi
+            ;;
+        honor)
+            if [[ -n "$magic" ]]; then rom="MagicOS"; version="$magic"; fi
+            ;;
+        asus)
+            if [[ -n "$zen" ]]; then rom="ZenUI"; version="$zen"; fi
+            ;;
+        motorola)
+            if [[ -n "$myux" ]]; then rom="My UX"; version="$myux"; fi
+            ;;
+        vivo)
+            if [[ -n "$originos" ]]; then rom="OriginOS"; version="$originos"
+            elif [[ -n "$funtouch" ]]; then rom="Funtouch OS"; version="$funtouch"; fi
+            ;;
+        google)
+            rom="Pixel Android"
+            ;;
+        nothing)
+            if [[ -n "$nothing" ]]; then rom="Nothing OS"; version="$nothing"; fi
+            ;;
+    esac
+
+    if [[ -n "$lineage" ]]; then rom="LineageOS"; version="$lineage"; fi
+    [[ -n "$version" ]] || version="$android_ver"
+    printf '%s|%s\n' "$rom" "${version:-unknown version}"
+}
+
+
+# Return MATCH, NOT_LISTED or UNKNOWN. Never treats absence from a curated
+# profile as evidence that a package is unsafe.
+oem_profile_status_for_package() {
+    local package="$1" family="$2" dir file found=0
+    [[ "$family" != unknown ]] || { printf '%s\n' UNKNOWN; return 0; }
+    local -a profile_dirs=("$SCRIPT_DIR/Configs/debloat" "$SYSTEM_DEBLOAT_DIR")
+    for dir in "${profile_dirs[@]}"; do
+        [[ -d "$dir" ]] || continue
+        while IFS= read -r -d '' file; do
+            local profile_name="${file##*/}"
+            profile_name="${profile_name,,}"
+            case "$family:$profile_name" in
+                samsung:*samsung*|samsung:*s[0-9][0-9]*|samsung:*z-fold*) ;;
+                xiaomi:*xiaomi*|google:*pixel*|oneplus:*oneplus*|oppo:*oppo*|oppo:*realme*|motorola:*motorola*|huawei:*huawei*|honor:*honor*|asus:*asus*|sony:*sony*|lenovo:*lenovo*|nothing:*nothing*|blackview:*blackview*|transsion:*tecno*|transsion:*infinix*|transsion:*transsion*|vivo:*vivo*|vivo:*iqoo*|zte:*zte*|zte:*nubia*|zte:*redmagic*) ;;
+                *) continue ;;
+            esac
+            found=1
+            if command -v jq >/dev/null 2>&1 &&
+                jq -e --arg package "$package" \
+                    'any(.apps[]?; .packageName == $package)' "$file" >/dev/null 2>&1; then
+                printf '%s\n' MATCH
+                return 0
+            fi
+        done < <(find "$dir" -maxdepth 1 -type f -name '*.json' -print0 2>/dev/null)
+    done
+    if (( found )); then printf '%s\n' NOT_LISTED; else printf '%s\n' UNKNOWN; fi
 }
 
 detect_backend_status() {
@@ -479,10 +797,9 @@ validate_json_file() {
 }
 
 load_packages_from_json() {
-    local file="$1"
+    local file="$1" parsed
     validate_json_file "$file" || return 1
-
-    mapfile -t PACKAGES < <(jq -r '
+    parsed="$(jq -r '
         def extract:
             if type == "string" then
                 select(test("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$"))
@@ -492,16 +809,18 @@ load_packages_from_json() {
             elif type == "array" then
                 .[] | extract
             else empty end;
-
         if type == "object" and (.apps | type) == "array" then
             .apps[] | extract
         elif type == "object" and (.packages | type) == "array" then
             .packages[] | extract
         elif type == "array" then .[] | extract
         else extract end
-    ' "$file" 2>/dev/null | sort -u)
-
-    ((${#PACKAGES[@]} > 0)) || { err "No valid Android package IDs found in $file."; return 1; }
+    ' "$file" 2>/dev/null | sort -u)" || {
+        err "Could not parse package IDs from $file."
+        return 1
+    }
+    [[ -n "$parsed" ]] || { err "No valid Android package IDs found in $file."; return 1; }
+    mapfile -t PACKAGES <<< "$parsed"
 }
 
 select_json_file() {
@@ -530,17 +849,67 @@ select_json_file() {
 # ---------------------------------------------------------------------------
 
 device_package_list() {
-    local mode="${1:-active}"
+    local mode="${1:-active}" raw allow_empty=0
     case "$mode" in
-        all)    run_device pm list packages -u --user 0 ;;
-        active) run_device pm list packages --user 0 ;;
+        all) raw="$(run_device_bounded pm list packages -u --user 0)" || return 1 ;;
+        active) raw="$(run_device_bounded pm list packages --user 0)" || return 1 ;;
+        disabled) raw="$(run_device_bounded pm list packages -d --user 0)" || return 1; allow_empty=1 ;;
         *) return 2 ;;
-    esac | sed -n 's/^package://p' | tr -d '\r' | sort -u
+    esac
+    if ! printf '%s\n' "$raw" | tr -d '\r' | awk -v allow_empty="$allow_empty" '
+        NF == 0 { next }
+        /^package:[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$/ { count++; next }
+        { invalid = 1 }
+        END { if (invalid || (!allow_empty && count == 0)) exit 1 }
+    '; then
+        err "Android returned an incomplete or malformed package inventory; refusing to continue."
+        return 1
+    fi
+    printf '%s\n' "$raw" | tr -d '\r' | sed -n 's/^package://p' | sort -u
 }
 
 package_is_installed() {
     local package="$1" installed="$2"
     grep -Fxq -- "$package" <<< "$installed"
+}
+
+uad_metadata_for_package() {
+    local package="$1"
+    if [[ -r "$UAD_METADATA_FILE" ]] && command -v jq >/dev/null 2>&1; then
+        jq -r --arg package "$package" '
+            if has($package) then
+                .[$package] |
+                [
+                    (.removal // "Unknown"),
+                    (.list // "Unlisted"),
+                    ((.description // "No UAD description available.") | gsub("[\r\n\t]+"; " "))
+                ] | @tsv
+            else
+                ["Unknown", "Unlisted", "Not present in the bundled UAD-NG catalogue."] | @tsv
+            end
+        ' "$UAD_METADATA_FILE" 2>/dev/null
+    else
+        printf '%s\t%s\t%s\n' "Unknown" "Unlisted" \
+            "UAD metadata unavailable; review this package manually."
+    fi
+}
+ 
+# UAD-NG relationship fields are advisory and intentionally non-exhaustive.
+# "dependencies" are packages required by this package; "neededBy" lists
+# reverse dependencies (packages that may rely on this package).
+uad_relationships_for_package() {
+    local package="$1" relation="$2"
+    [[ "$relation" == "dependencies" || "$relation" == "neededBy" ]] || return 2
+    [[ -r "$UAD_METADATA_FILE" ]] && command -v jq >/dev/null 2>&1 || return 0
+    jq -r --arg package "$package" --arg relation "$relation" '
+        def valid_package:
+            type == "string" and
+            test("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$");
+        .[$package][$relation] // empty
+        | if type == "array" then .[] | select(valid_package)
+          elif valid_package then .
+          else empty end
+    ' "$UAD_METADATA_FILE" 2>/dev/null
 }
 
 uraam_debloat() {
@@ -549,14 +918,28 @@ uraam_debloat() {
     msg "        ${CYAN}=== URAAM | DEBLOATER ===${NC}"
     msg "Configurations: $USER_DEBLOAT_DIR"
     msg "${BLUE}------------------------------------------${NC}"
-
     require_backend || return 1
+    acquire_apply_lock || return 1
+    if ! recover_pending_operation; then
+        release_apply_lock
+        return 1
+    fi
+    release_apply_lock
     select_json_file "$CONFIGS_DIR" "Available debloat configurations:" || return 1
     local file="$SELECTED_FILE"
     info "Selected: $(basename "$file")"
     load_packages_from_json "$file" || { pause; return 1; }
 
-    local action confirm installed pkg
+    local action mode confirm installed pkg operation_count ready_count initial_device_model
+    local selection token risk category description metadata index relation oem_family oem_status rom_info rom_name rom_version initial_rom_info
+    local success=0 skipped=0 failed=0 remaining
+    local -a pkg_dependencies=() pkg_needed_by=()
+    local -a PREVIEW_PROTECTED=() PREVIEW_MISSING=()
+    local -a PREVIEW_UNSAFE=() PREVIEW_UNKNOWN=() CANDIDATE_PACKAGES=() CANDIDATE_RISKS=()
+    local -a CANDIDATE_CATEGORIES=() CANDIDATE_DESCRIPTIONS=()
+    local -a SELECTED_PACKAGES=() requested_indices=()
+    local -A selected_indices=()
+
     printf 'Choose action: [u] Uninstall for user 0 / [d] Disable / [c] Cancel: '
     read -r action
     case "$action" in
@@ -565,51 +948,375 @@ uraam_debloat() {
         *) warn "Operation cancelled."; return 0 ;;
     esac
 
-    warn "You are about to $action ${#PACKAGES[@]} package(s) for Android user 0."
-    read -r -p "Continue? [y/N]: " confirm
-    [[ "$confirm" =~ ^[yY]$ ]] || { warn "Cancelled."; return 0; }
-
-    start_log debloat "$LOGD_DIR" uraam-debloat || return 1
-    installed="$(device_package_list all)" || { err "Cannot query device packages."; return 1; }
-
-    local success=0 skipped=0 failed=0 protected=0
+    installed="$(device_package_list active)" || {
+        err "Cannot obtain a reliable package inventory; no changes made."
+        return 1
+    }
+    # Record the visible hardware identity as well as OEM/ROM properties. This
+    # helps detect a device swap on a reused wireless ADB address.
+    device_brand
+    initial_device_model="$CURRENT_MODEL"
+    oem_family="$(device_oem_family)"
+    rom_info="$(device_rom_info)"
+    initial_rom_info="$rom_info"
+    IFS='|' read -r rom_name rom_version <<< "$rom_info"
     for pkg in "${PACKAGES[@]}"; do
-        printf '%s: ' "$pkg"
-
-        # Intercept critical system framework packages before any operation
         if is_whitelisted "$pkg"; then
-            err "PROTECTED by Safety Whitelist; operation denied"
-            ((protected+=1))
-            continue
-        fi
-
-        if ! package_is_installed "$pkg" "$installed"; then
-            warn "not installed; skipped"
-            ((skipped+=1))
-            continue
-        fi
-
-        if [[ "$action" == uninstall ]]; then
-            if run_device pm uninstall -k --user 0 "$pkg" >/dev/null 2>&1; then
-                ok "uninstalled for user 0"
-                ((success+=1))
-            else
-                err "uninstall failed"
-                ((failed+=1))
-            fi
+            PREVIEW_PROTECTED+=("$pkg")
+        elif package_is_installed "$pkg" "$installed"; then
+            metadata="$(uad_metadata_for_package "$pkg")" || return 1
+            IFS=$'\t' read -r risk category description <<< "$metadata"
+            case "$risk" in
+                Unsafe) PREVIEW_UNSAFE+=("$pkg") ;;
+                Recommended|Advanced|Expert)
+                    CANDIDATE_PACKAGES+=("$pkg")
+                    CANDIDATE_RISKS+=("$risk")
+                    CANDIDATE_CATEGORIES+=("${category:-Unlisted}")
+                    CANDIDATE_DESCRIPTIONS+=("${description:-No description available.}")
+                    ;;
+                *) PREVIEW_UNKNOWN+=("$pkg") ;;
+            esac
         else
-            if run_device pm disable-user --user 0 "$pkg" >/dev/null 2>&1; then
-                ok "disabled"
-                ((success+=1))
-            else
-                err "disable failed"
-                ((failed+=1))
-            fi
+            PREVIEW_MISSING+=("$pkg")
         fi
     done
 
+    msg ""
+    msg "${BOLD}=== URAAM | UAD RISK REVIEW ===${NC}"
+    printf 'Device: %s' "${CURRENT_MODEL:-Unknown device}"
+    [[ -n "$BACKEND_SERIAL" ]] && printf ' (%s)' "$BACKEND_SERIAL"
+    printf '\nBackend: %s | Android user: 0\n' "${EXEC_TYPE:-unknown}"
+    printf 'Action requested: %s\n' "$action"
+    printf 'Detected OEM family: %s (profile cross-check is advisory)\n' "$oem_family"
+    printf 'Detected ROM: %s | Version: %s (build-property detection; advisory)\n\n' "$rom_name" "$rom_version"
+    printf 'Risk guide: Recommended (UAD recommendation; still manual) | Advanced (review caveats) | Expert (technical review) | Unsafe/Unknown (blocked)\n'
+    if [[ -r "$UAD_METADATA_FILE" ]]; then
+        printf 'UAD-NG metadata: bundled catalogue available\n'
+    else
+        warn "UAD-NG catalogue missing; packages will be marked Unknown."
+    fi
+
+    for index in "${!CANDIDATE_PACKAGES[@]}"; do
+        printf '\n  [%d] [%s] [%s] %s\n' \
+            "$((index+1))" "${CANDIDATE_RISKS[$index]}" \
+            "${CANDIDATE_CATEGORIES[$index]}" "${CANDIDATE_PACKAGES[$index]}"
+        printf '      %s\n' "${CANDIDATE_DESCRIPTIONS[$index]}"
+        oem_status="$(oem_profile_status_for_package "${CANDIDATE_PACKAGES[$index]}" "$oem_family")"
+        case "$oem_status" in
+            MATCH) printf '      [OEM PROFILE MATCH] Present in a curated Safe-%s profile.\n' "$oem_family" ;;
+            NOT_LISTED) printf '      [OEM PROFILE NOT LISTED] Not in the matching Safe-%s profile; this is not an unsafe verdict.\n' "$oem_family" ;;
+            UNKNOWN) printf '      [OEM PROFILE UNKNOWN] No matching curated profile or OEM identity unavailable.\n' ;;
+        esac
+    done
+    for pkg in "${PREVIEW_UNSAFE[@]}"; do
+        metadata="$(uad_metadata_for_package "$pkg")"
+        IFS=$'\t' read -r risk category description <<< "$metadata"
+        printf '\n  [BLOCKED] [UNSAFE] [%s] %s\n' "$category" "$pkg"
+        printf '      %s\n' "$description"
+    done
+    for pkg in "${PREVIEW_UNKNOWN[@]}"; do
+        metadata="$(uad_metadata_for_package "$pkg")"
+        IFS=$'\t' read -r risk category description <<< "$metadata"
+        printf '\n  [BLOCKED] [UNKNOWN] [%s] %s\n' "$category" "$pkg"
+        printf '      %s\n' "$description"
+    done
+    for pkg in "${PREVIEW_PROTECTED[@]}"; do
+        printf '\n  [PROTECTED BY URAAM] %s\n' "$pkg"
+    done
+    for pkg in "${PREVIEW_MISSING[@]}"; do
+        printf '\n  [NOT INSTALLED] %s\n' "$pkg"
+    done
+
+    msg ""
+    printf 'Catalogue: %d selectable, %d Unsafe blocked, %d unknown blocked, %d protected, %d absent.\n' \
+        "${#CANDIDATE_PACKAGES[@]}" "${#PREVIEW_UNSAFE[@]}" "${#PREVIEW_UNKNOWN[@]}" \
+        "${#PREVIEW_PROTECTED[@]}" "${#PREVIEW_MISSING[@]}"
+    (( ${#CANDIDATE_PACKAGES[@]} > 0 )) || {
+        warn "No selectable installed packages. Nothing can be changed."
+        return 0
+    }
+
+    printf '\nSelect package numbers separated by commas (example: 1,3). Empty/C cancels: '
+    read -r selection
+    [[ -n "$selection" ]] || {
+        warn "No packages selected. Nothing changed."
+        return 0
+    }
+    [[ "$selection" != "c" && "$selection" != "C" ]] || {
+        warn "Operation cancelled."
+        return 0
+    }
+    [[ "$selection" =~ ^[0-9]+([[:space:]]*,[[:space:]]*[0-9]+)*$ ]] || {
+        err "Invalid selection. Enter comma-separated package numbers only."
+        return 1
+    }
+    IFS=',' read -r -a requested_indices <<< "$selection"
+    for token in "${requested_indices[@]}"; do
+        token="${token//[[:space:]]/}"
+        (( ${#token} <= 6 )) || {
+            err "Selection number is too long."
+            return 1
+        }
+        token=$((10#$token))
+        [[ "$token" =~ ^[0-9]+$ ]] || {
+            err "Invalid selection '$token'. Use comma-separated numbers only; no bulk keyword is accepted."
+            return 1
+        }
+        (( token >= 1 && token <= ${#CANDIDATE_PACKAGES[@]} )) || {
+            err "Selection '$token' is outside the available range."
+            return 1
+        }
+        [[ -z "${selected_indices[$token]:-}" ]] || {
+            err "Duplicate selection '$token'."
+            return 1
+        }
+        selected_indices[$token]=1
+        SELECTED_PACKAGES+=("${CANDIDATE_PACKAGES[$((token-1))]}")
+    done
+
+    operation_count="${#SELECTED_PACKAGES[@]}"
+    msg ""
+    msg "${BOLD}=== URAAM | FINAL OPERATION PREVIEW ===${NC}"
+    for pkg in "${SELECTED_PACKAGES[@]}"; do
+        metadata="$(uad_metadata_for_package "$pkg")"
+        IFS=$'\t' read -r risk category description <<< "$metadata"
+        printf '  [WILL %s] [%s] %s\n' "${action^^}" "$risk" "$pkg"
+        oem_status="$(oem_profile_status_for_package "$pkg" "$oem_family")"
+        printf '      OEM cross-check: %s\n' "$oem_status"
+
+        mapfile -t pkg_dependencies < <(uad_relationships_for_package "$pkg" dependencies)
+        mapfile -t pkg_needed_by < <(uad_relationships_for_package "$pkg" neededBy)
+
+        if (( ${#pkg_dependencies[@]} > 0 )); then
+            printf '      UAD-listed dependencies (required by this package):\n'
+            for relation in "${pkg_dependencies[@]}"; do
+                if package_is_installed "$relation" "$installed"; then
+                    printf '        [DEPENDENCY INSTALLED] %s\n' "$relation"
+                else
+                    printf '        [DEPENDENCY NOT PRESENT] %s\n' "$relation"
+                fi
+            done
+        else
+            printf '      UAD-listed dependencies: none recorded (not proof of no dependencies).\n'
+        fi
+
+        if (( ${#pkg_needed_by[@]} > 0 )); then
+            printf '      Packages UAD says may depend on this package (reverse dependencies):\n'
+            for relation in "${pkg_needed_by[@]}"; do
+                if package_is_installed "$relation" "$installed"; then
+                    warn "Installed dependent may be affected: $relation relies on $pkg"
+                else
+                    printf '        [DEPENDENT NOT PRESENT] %s\n' "$relation"
+                fi
+            done
+        else
+            printf '      UAD-listed reverse dependencies: none recorded (not proof of no dependents).\n'
+        fi
+    done
+    printf '\nDependency metadata is advisory and non-exhaustive; Android/OEM runtime dependencies may be missing.\n'
+    for index in "${!CANDIDATE_PACKAGES[@]}"; do
+        pkg="${CANDIDATE_PACKAGES[$index]}"
+        if [[ -z "${selected_indices[$((index+1))]:-}" ]]; then
+            printf '  [NOT SELECTED] [%s] %s\n' "${CANDIDATE_RISKS[$index]}" "$pkg"
+        fi
+    done
+    printf '\nExact selected operations: %d\n' "$operation_count"
+    (( operation_count > 0 )) || {
+        warn "No packages selected. Nothing can be changed."
+        return 0
+    }
+
+    printf '\nChoose mode: [d] Dry-run only (no changes) / [a] Apply / [c] Cancel: '
+    read -r mode
+    case "$mode" in
+        d|D)
+            ok "DRY RUN complete: $operation_count manually selected package(s) would be $action."
+            info "No uninstall, disable, install, or package-state command was executed."
+            return 0
+            ;;
+        a|A)
+            if [[ ! -r "$UAD_METADATA_FILE" ]] ||
+                ! jq -e 'type == "object" and length > 0' "$UAD_METADATA_FILE" >/dev/null 2>&1; then
+                err "Cannot apply changes without a valid bundled UAD-NG risk catalogue."
+                return 1
+            fi
+            ;;
+        *) warn "Operation cancelled; no changes made."; return 0 ;;
+    esac
+
+    printf 'Type exactly "APPLY %s" to confirm these %s operation(s): ' "$operation_count" "$operation_count"
+    read -r confirm
+    [[ "$confirm" == "APPLY $operation_count" ]] || {
+        warn "Confirmation did not match. No changes made."
+        return 0
+    }
+
+    installed="$(device_package_list active)" || {
+        err "Cannot refresh package inventory; no changes made."
+        return 1
+    }
+    device_brand
+    if [[ "$CURRENT_MODEL" != "$initial_device_model" ||
+        "$(device_oem_family)" != "$oem_family" ||
+        "$(device_rom_info)" != "$initial_rom_info" ]]; then
+        warn "Device model, OEM or ROM identity changed after preview. Run Preview again; no changes made."
+        return 1
+    fi
+    ready_count=0
+    for pkg in "${SELECTED_PACKAGES[@]}"; do
+        metadata="$(uad_metadata_for_package "$pkg")" || return 1
+        IFS=$'\t' read -r risk _ _ <<< "$metadata"
+        if ! is_whitelisted "$pkg" &&
+            [[ "$risk" == "Recommended" || "$risk" == "Advanced" || "$risk" == "Expert" ]] &&
+            package_is_installed "$pkg" "$installed"; then
+            ((ready_count+=1))
+        fi
+    done
+    if (( ready_count != operation_count )); then
+        warn "Device or UAD safety state changed after preview ($operation_count planned, $ready_count still eligible)."
+        warn "Run Preview again; no changes made."
+        return 1
+    fi
+
+    start_log debloat "$LOGD_DIR" uraam-debloat || return 1
+    acquire_apply_lock || return 1
+    if [[ -e "$URAAM_OPERATION_JOURNAL" ]]; then
+        release_apply_lock
+        err "A pending operation appeared before apply; run preview/reconciliation again."
+        return 1
+    fi
+
+    # Revalidate after acquiring the exclusive lock: another URAAM process
+    # may have changed the device while this process waited.
+    installed="$(device_package_list active)" || {
+        release_apply_lock
+        err "Cannot verify package inventory under the apply lock; no changes made."
+        return 1
+    }
+    device_brand
+    if [[ "$CURRENT_MODEL" != "$initial_device_model" ||
+        "$(device_oem_family)" != "$oem_family" ||
+        "$(device_rom_info)" != "$initial_rom_info" ]]; then
+        release_apply_lock
+        warn "Device model, OEM or ROM identity changed while acquiring the apply lock. Run Preview again; no changes made."
+        return 1
+    fi
+    ready_count=0
+    for pkg in "${SELECTED_PACKAGES[@]}"; do
+        metadata="$(uad_metadata_for_package "$pkg")" || {
+            release_apply_lock
+            return 1
+        }
+        IFS=$'\t' read -r risk _ _ <<< "$metadata"
+        if ! is_whitelisted "$pkg" &&
+            [[ "$risk" == "Recommended" || "$risk" == "Advanced" || "$risk" == "Expert" ]] &&
+            package_is_installed "$pkg" "$installed"; then
+            ((ready_count+=1))
+        fi
+    done
+    if (( ready_count != operation_count )); then
+        release_apply_lock
+        warn "Device or UAD safety state changed while acquiring the apply lock ($operation_count planned, $ready_count still eligible)."
+        warn "Run Preview again; no changes made."
+        return 1
+    fi
+
+    for index in "${!SELECTED_PACKAGES[@]}"; do
+        pkg="${SELECTED_PACKAGES[$index]}"
+        if ! backend_is_available; then
+            remaining=$((${#SELECTED_PACKAGES[@]} - index))
+            warn "Backend disconnected before operation; stopping the batch."
+            warn "$remaining operation(s) not attempted."
+            ((skipped+=remaining))
+            break
+        fi
+        printf '%s: ' "$pkg"
+        if is_whitelisted "$pkg"; then
+            err "became protected; skipped"
+            ((skipped+=1))
+            continue
+        fi
+        if ! write_operation_journal started "$action" "$pkg" "$((index+1))" "$operation_count"; then
+            err "Could not persist the operation journal; no device command was sent."
+            remaining=$((${#SELECTED_PACKAGES[@]} - index))
+            ((skipped+=remaining))
+            break
+        fi
+        if [[ "$action" == uninstall ]]; then
+            if run_device_bounded pm uninstall -k --user 0 "$pkg" >/dev/null 2>&1; then
+                clear_operation_journal || {
+                    err "Operation succeeded but journal cleanup failed; inspect device before continuing."
+                    ((success+=1))
+                    remaining=$((${#SELECTED_PACKAGES[@]} - index - 1))
+                    ((skipped+=remaining))
+                    break
+                }
+                ok "uninstalled for user 0"
+                ((success+=1))
+            else
+                write_operation_journal uncertain "$action" "$pkg" "$((index+1))" "$operation_count" || true
+                ((failed+=1))
+                if (( DEVICE_COMMAND_TIMED_OUT )); then
+                    warn "Uninstall timed out; its outcome is unknown. Do not retry this package; inspect the device and refresh inventory."
+                    remaining=$((${#SELECTED_PACKAGES[@]} - index - 1))
+                    warn "$remaining remaining operation(s) not attempted."
+                    ((skipped+=remaining))
+                    break
+                fi
+                err "uninstall failed"
+                if ! backend_is_available; then
+                    remaining=$((${#SELECTED_PACKAGES[@]} - index - 1))
+                    warn "Backend disconnected during operation; stopping the batch."
+                    warn "$remaining remaining operation(s) not attempted."
+                    ((skipped+=remaining))
+                    break
+                else
+                    warn "Package command failed; outcome may be uncertain. Stopping the batch for manual inspection."
+                    remaining=$(("${#SELECTED_PACKAGES[@]}" - index - 1))
+                    ((skipped+=remaining))
+                    break
+                fi
+            fi
+        else
+            if run_device_bounded pm disable-user --user 0 "$pkg" >/dev/null 2>&1; then
+                clear_operation_journal || {
+                    err "Operation succeeded but journal cleanup failed; inspect device before continuing."
+                    ((success+=1))
+                    remaining=$((${#SELECTED_PACKAGES[@]} - index - 1))
+                    ((skipped+=remaining))
+                    break
+                }
+                ok "disabled"
+                ((success+=1))
+            else
+                write_operation_journal uncertain "$action" "$pkg" "$((index+1))" "$operation_count" || true
+                ((failed+=1))
+                if (( DEVICE_COMMAND_TIMED_OUT )); then
+                    warn "Disable timed out; its outcome is unknown. Do not retry this package; inspect the device and refresh inventory."
+                    remaining=$((${#SELECTED_PACKAGES[@]} - index - 1))
+                    warn "$remaining remaining operation(s) not attempted."
+                    ((skipped+=remaining))
+                    break
+                fi
+                err "disable failed"
+                if ! backend_is_available; then
+                    remaining=$((${#SELECTED_PACKAGES[@]} - index - 1))
+                    warn "Backend disconnected during operation; stopping the batch."
+                    warn "$remaining remaining operation(s) not attempted."
+                    ((skipped+=remaining))
+                    break
+                else
+                    warn "Package command failed; outcome may be uncertain. Stopping the batch for manual inspection."
+                    remaining=$(("${#SELECTED_PACKAGES[@]}" - index - 1))
+                    ((skipped+=remaining))
+                    break
+                fi
+            fi
+        fi
+    done
+    release_apply_lock
     msg "${BLUE}----------------------------------------${NC}"
-    msg "Summary: ${GREEN}$success succeeded${NC}, ${PURPLE}$protected protected${NC}, ${YELLOW}$skipped skipped${NC}, ${RED}$failed failed${NC}."
+    msg "Summary: ${GREEN}$success succeeded${NC}, ${YELLOW}$skipped skipped${NC}, ${RED}$failed failed${NC}."
     msg "Log: $LOGFILE"
     pause
 }
@@ -812,39 +1519,75 @@ update_uraam() {
     show_logo
     msg "${BLUE}========================================${NC}"
     msg "${CYAN}=== URAAM | SCRIPT UPDATER ===${NC}"
-    read -r -p "Download and replace the current script? [y/N]: " confirm
+    read -r -p "Download and replace the current script and UAD metadata? [y/N]: " confirm
     [[ "$confirm" =~ ^[yY]$ ]] || { warn "Update cancelled."; return 0; }
 
     command -v curl >/dev/null 2>&1 || { err "curl is required."; return 1; }
+    command -v jq >/dev/null 2>&1 || { err "jq is required."; return 1; }
+
     local target_bin="$SOURCE"
     local raw_url="https://raw.githubusercontent.com/Ruraam/Uraam/main/uraam.sh"
-    local tmp_file
-    tmp_file="$(mktemp)" || return 1
+    local metadata_url="https://raw.githubusercontent.com/Ruraam/Uraam/main/Configs/uad/uad_lists.json"
+    local metadata_target="$SCRIPT_DIR/Configs/uad/uad_lists.json"
+    local metadata_dir="$SCRIPT_DIR/Configs/uad"
+    local tmp_file tmp_metadata
 
-    if ! curl -fL --retry 2 --connect-timeout 15 "$raw_url" -o "$tmp_file"; then
-        rm -f "$tmp_file"
-        err "Download failed."
+    tmp_file="$(mktemp)" || return 1
+    tmp_metadata="$(mktemp)" || { rm -f "$tmp_file"; return 1; }
+
+    if ! curl -fL --retry 2 --connect-timeout 15 --max-time 180 "$raw_url" -o "$tmp_file"; then
+        rm -f "$tmp_file" "$tmp_metadata"
+        err "Script download failed."
+        return 1
+    fi
+    if ! curl -fL --retry 2 --connect-timeout 15 --max-time 180 "$metadata_url" -o "$tmp_metadata"; then
+        rm -f "$tmp_file" "$tmp_metadata"
+        err "UAD-NG metadata download failed; current installation was not changed."
         return 1
     fi
     bash -n "$tmp_file" || {
-        rm -f "$tmp_file"
+        rm -f "$tmp_file" "$tmp_metadata"
         err "Downloaded script has a Bash syntax error; current installation was not changed."
         return 1
     }
+    jq -e 'type == "object" and length > 0 and all(.[]; (.removal == "Recommended" or .removal == "Advanced" or .removal == "Expert" or .removal == "Unsafe") and (.description | type == "string") and (.list | type == "string"))' "$tmp_metadata" >/dev/null || {
+        rm -f "$tmp_file" "$tmp_metadata"
+        err "Downloaded UAD-NG metadata failed validation; current installation was not changed."
+        return 1
+    }
 
-    if [[ -w "$target_bin" ]]; then
-        if ! install -m 0755 "$tmp_file" "$target_bin"; then
-            rm -f "$tmp_file"
+    if [[ -w "$SCRIPT_DIR" ]]; then
+        if ! mkdir -p "$metadata_dir" ||
+            ! install -m 0644 "$tmp_metadata" "$metadata_target" ||
+            ! install -m 0755 "$tmp_file" "$target_bin"; then
+            rm -f "$tmp_file" "$tmp_metadata"
+            err "Could not install the script and UAD metadata."
+            return 1
+        fi
+    elif command -v sudo >/dev/null 2>&1; then
+        if ! sudo mkdir -p "$metadata_dir" ||
+            ! sudo install -m 0644 "$tmp_metadata" "$metadata_target" ||
+            ! sudo install -m 0755 "$tmp_file" "$target_bin"; then
+            rm -f "$tmp_file" "$tmp_metadata"
+            err "Could not install the script and UAD metadata."
+            return 1
+        fi
+    elif command -v doas >/dev/null 2>&1; then
+        if ! doas mkdir -p "$metadata_dir" ||
+            ! doas install -m 0644 "$tmp_metadata" "$metadata_target" ||
+            ! doas install -m 0755 "$tmp_file" "$target_bin"; then
+            rm -f "$tmp_file" "$tmp_metadata"
+            err "Could not install the script and UAD metadata."
             return 1
         fi
     else
-        sudo install -m 0755 "$tmp_file" "$target_bin" || {
-            rm -f "$tmp_file"
-            return 1
-        }
+        rm -f "$tmp_file" "$tmp_metadata"
+        err "Root privileges are required to update this installation."
+        return 1
     fi
-    rm -f "$tmp_file"
-    ok "URAAM script updated."
+
+    rm -f "$tmp_file" "$tmp_metadata"
+    ok "URAAM script and UAD-NG metadata updated."
     read -r -p "Press Enter to restart..."
     exec "$target_bin" "$@"
 }
@@ -927,6 +1670,9 @@ show_main_menu() {
     msg ".      ${CYAN}=== URAAM v${URAAM_VERSION} Dashboard ===${NC}"
     msg "${BLUE}--------------------------------------------------------${NC}"
     detect_backend_status || true
+    if [[ -e "$URAAM_OPERATION_JOURNAL" ]]; then
+        warn "An unfinished package operation requires inspection before the next debloat apply."
+    fi
     msg "${BLUE}--------------------------------------------------------${NC}"
     printf 'Debloat configurations: %s\n' "${USER_DEBLOAT_DIR/#$HOME/~}"
     printf 'APK directory:          %s\n' "${APP_DIR/#$HOME/~}"
@@ -967,4 +1713,6 @@ main() {
     done
 }
 
-main "$@"
+if [[ "${URAAM_TESTING:-0}" != "1" ]]; then
+    main "$@"
+fi
