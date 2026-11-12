@@ -117,11 +117,23 @@ pause() {
     read -r -p "Press Enter to continue..." _ || true
 }
 
+SAFETY_PACKAGE_PATTERNS=(
+    '^com\.android\.providers\.(settings|telephony|media|downloads|contacts)(\.|$)'
+    '(^|\.)(telephony[^.]*|telecom|ims|imsservice|ril)(\.|$)'
+    '(^|\.)(setupwizard|permissioncontroller|packageinstaller|systemui|keyguard|emergency)(\.|$)'
+    '(^|\.)(bluetooth|bluetoothagent|bluetoothservice|nfc)(\.|$)'
+    '^com\.android\.(providers\.(settings|telephony)|server\.telecom|emergency|systemui|permissioncontroller).*overlay'
+    '^com\.samsung\.android\.knox\.(attestation|containercore|kpecore)(\.|$)'
+)
+
 is_whitelisted() {
     local target="$1"
-    local safe_pkg
-    for safe_pkg in "${SAFETY_WHITELIST[@]}"; do
+    local safe_pkg pattern
+    for safe_pkg in "\${SAFETY_WHITELIST[@]}"; do
         [[ "$safe_pkg" == "$target" ]] && return 0
+    done
+    for pattern in "\${SAFETY_PACKAGE_PATTERNS[@]}"; do
+        [[ "$target" =~ $pattern ]] && return 0
     done
     return 1
 }
@@ -479,10 +491,9 @@ validate_json_file() {
 }
 
 load_packages_from_json() {
-    local file="$1"
+    local file="$1" parsed
     validate_json_file "$file" || return 1
-
-    mapfile -t PACKAGES < <(jq -r '
+    parsed="$(jq -r '
         def extract:
             if type == "string" then
                 select(test("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$"))
@@ -492,16 +503,18 @@ load_packages_from_json() {
             elif type == "array" then
                 .[] | extract
             else empty end;
-
         if type == "object" and (.apps | type) == "array" then
             .apps[] | extract
         elif type == "object" and (.packages | type) == "array" then
             .packages[] | extract
         elif type == "array" then .[] | extract
         else extract end
-    ' "$file" 2>/dev/null | sort -u)
-
-    ((${#PACKAGES[@]} > 0)) || { err "No valid Android package IDs found in $file."; return 1; }
+    ' "$file" 2>/dev/null | sort -u)" || {
+        err "Could not parse package IDs from $file."
+        return 1
+    }
+    [[ -n "$parsed" ]] || { err "No valid Android package IDs found in $file."; return 1; }
+    mapfile -t PACKAGES <<< "$parsed"
 }
 
 select_json_file() {
@@ -530,12 +543,17 @@ select_json_file() {
 # ---------------------------------------------------------------------------
 
 device_package_list() {
-    local mode="${1:-active}"
+    local mode="\${1:-active}" raw
     case "$mode" in
-        all)    run_device pm list packages -u --user 0 ;;
-        active) run_device pm list packages --user 0 ;;
+        all)    raw="$(run_device pm list packages -u --user 0)" || return 1 ;;
+        active) raw="$(run_device pm list packages --user 0)" || return 1 ;;
         *) return 2 ;;
-    esac | sed -n 's/^package://p' | tr -d '\r' | sort -u
+    esac
+    [[ "$raw" == *"package:"* ]] || {
+        err "Android returned no package records; refusing to continue."
+        return 1
+    }
+    printf '%s\n' "$raw" | sed -n 's/^package://p' | tr -d '\r' | sort -u
 }
 
 package_is_installed() {
@@ -545,18 +563,19 @@ package_is_installed() {
 
 uraam_debloat() {
     show_logo
-    msg "${BLUE}------------------------------------------${NC}"
-    msg "        ${CYAN}=== URAAM | DEBLOATER ===${NC}"
+    msg "\${BLUE}------------------------------------------\${NC}"
+    msg "        \${CYAN}=== URAAM | DEBLOATER ===\${NC}"
     msg "Configurations: $USER_DEBLOAT_DIR"
-    msg "${BLUE}------------------------------------------${NC}"
-
+    msg "\${BLUE}------------------------------------------\${NC}"
     require_backend || return 1
     select_json_file "$CONFIGS_DIR" "Available debloat configurations:" || return 1
     local file="$SELECTED_FILE"
     info "Selected: $(basename "$file")"
     load_packages_from_json "$file" || { pause; return 1; }
 
-    local action confirm installed pkg
+    local action mode confirm installed pkg operation_count ready_count
+    local success=0 skipped=0 failed=0
+    local -a PREVIEW_PRESENT=() PREVIEW_PROTECTED=() PREVIEW_MISSING=()
     printf 'Choose action: [u] Uninstall for user 0 / [d] Disable / [c] Cancel: '
     read -r action
     case "$action" in
@@ -565,30 +584,87 @@ uraam_debloat() {
         *) warn "Operation cancelled."; return 0 ;;
     esac
 
-    warn "You are about to $action ${#PACKAGES[@]} package(s) for Android user 0."
-    read -r -p "Continue? [y/N]: " confirm
-    [[ "$confirm" =~ ^[yY]$ ]] || { warn "Cancelled."; return 0; }
+    installed="$(device_package_list all)" || {
+        err "Cannot obtain a reliable package inventory; no changes made."
+        return 1
+    }
+    for pkg in "\${PACKAGES[@]}"; do
+        if is_whitelisted "$pkg"; then
+            PREVIEW_PROTECTED+=("$pkg")
+        elif package_is_installed "$pkg" "$installed"; then
+            PREVIEW_PRESENT+=("$pkg")
+        else
+            PREVIEW_MISSING+=("$pkg")
+        fi
+    done
+
+    operation_count="\${#PREVIEW_PRESENT[@]}"
+    msg ""
+    msg "\${BOLD}=== URAAM | OPERATION PREVIEW ===\${NC}"
+    printf 'Device: %s' "\${CURRENT_MODEL:-Unknown device}"
+    [[ -n "$BACKEND_SERIAL" ]] && printf ' (%s)' "$BACKEND_SERIAL"
+    printf '\nBackend: %s | Android user: 0\n' "\${EXEC_TYPE:-unknown}"
+    printf 'Action: %s\n\n' "$action"
+    for pkg in "\${PREVIEW_PRESENT[@]}"; do
+        printf '  [WILL %s] %s\n' "\${action^^}" "$pkg"
+    done
+    for pkg in "\${PREVIEW_PROTECTED[@]}"; do
+        printf '  [PROTECTED] %s\n' "$pkg"
+    done
+    for pkg in "\${PREVIEW_MISSING[@]}"; do
+        printf '  [NOT INSTALLED] %s\n' "$pkg"
+    done
+    msg ""
+    printf 'Preview totals: %d to process, %d protected, %d absent, %d in source list.\n' \
+        "$operation_count" "\${#PREVIEW_PROTECTED[@]}" "\${#PREVIEW_MISSING[@]}" "\${#PACKAGES[@]}"
+    (( operation_count > 0 )) || {
+        warn "No eligible installed packages. Nothing can be changed."
+        return 0
+    }
+
+    printf '\nChoose mode: [d] Dry-run only (no changes) / [a] Apply / [c] Cancel: '
+    read -r mode
+    case "$mode" in
+        d|D)
+            ok "DRY RUN complete: $operation_count package(s) would be $action."
+            info "No uninstall, disable, install, or package-state command was executed."
+            return 0
+            ;;
+        a|A) ;;
+        *) warn "Operation cancelled; no changes made."; return 0 ;;
+    esac
+
+    printf 'Type exactly "APPLY %s" to confirm these %s operation(s): ' "$operation_count" "$operation_count"
+    read -r confirm
+    [[ "$confirm" == "APPLY $operation_count" ]] || {
+        warn "Confirmation did not match. No changes made."
+        return 0
+    }
+
+    installed="$(device_package_list all)" || {
+        err "Cannot refresh package inventory; no changes made."
+        return 1
+    }
+    ready_count=0
+    for pkg in "\${PREVIEW_PRESENT[@]}"; do
+        if ! is_whitelisted "$pkg" && package_is_installed "$pkg" "$installed"; then
+            ((ready_count+=1))
+        fi
+    done
+    if (( ready_count != operation_count )); then
+        warn "Device package state changed after preview ($operation_count planned, $ready_count still eligible)."
+        warn "Run Preview again; no changes made."
+        return 1
+    fi
 
     start_log debloat "$LOGD_DIR" uraam-debloat || return 1
-    installed="$(device_package_list all)" || { err "Cannot query device packages."; return 1; }
-
-    local success=0 skipped=0 failed=0 protected=0
-    for pkg in "${PACKAGES[@]}"; do
+    for pkg in "\${PREVIEW_PRESENT[@]}"; do
         printf '%s: ' "$pkg"
-
-        # Intercept critical system framework packages before any operation
         if is_whitelisted "$pkg"; then
-            err "PROTECTED by Safety Whitelist; operation denied"
-            ((protected+=1))
-            continue
-        fi
-
-        if ! package_is_installed "$pkg" "$installed"; then
-            warn "not installed; skipped"
+            err "became protected; skipped"
             ((skipped+=1))
             continue
         fi
-
         if [[ "$action" == uninstall ]]; then
             if run_device pm uninstall -k --user 0 "$pkg" >/dev/null 2>&1; then
                 ok "uninstalled for user 0"
@@ -607,9 +683,8 @@ uraam_debloat() {
             fi
         fi
     done
-
-    msg "${BLUE}----------------------------------------${NC}"
-    msg "Summary: ${GREEN}$success succeeded${NC}, ${PURPLE}$protected protected${NC}, ${YELLOW}$skipped skipped${NC}, ${RED}$failed failed${NC}."
+    msg "\${BLUE}----------------------------------------\${NC}"
+    msg "Summary: \${GREEN}$success succeeded\${NC}, \${YELLOW}$skipped skipped\${NC}, \${RED}$failed failed\${NC}."
     msg "Log: $LOGFILE"
     pause
 }
@@ -967,4 +1042,6 @@ main() {
     done
 }
 
-main "$@"
+if [[ "${URAAM_TESTING:-0}" != "1" ]]; then
+    main "$@"
+fi
