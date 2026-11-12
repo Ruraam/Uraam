@@ -11,6 +11,10 @@ pass() { printf 'PASS: %s\n' "$*"; }
 
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
+LOGD_DIR="$TMP_DIR/logs"
+URAAM_OPERATION_JOURNAL="$LOGD_DIR/active-operation.json"
+URAAM_APPLY_LOCK="$LOGD_DIR/apply.lock"
+mkdir -p "$LOGD_DIR"
 
 # Exercise the production timeout wrapper with mocked host executables.
 eval "$(declare -f run_device_bounded | sed '1s/run_device_bounded/run_device_bounded_real/')"
@@ -490,3 +494,43 @@ grep -Fq "Uninstall timed out; its outcome is unknown" "$TMP_DIR/timeout.out" ||
 grep -Fq "1 failed" "$TMP_DIR/timeout.out" || fail "timed-out package was not counted as failed"
 grep -Fq "1 skipped" "$TMP_DIR/timeout.out" || fail "remaining package was not skipped after timeout"
 pass "destructive timeout stops batch without retrying an uncertain operation"
+
+# The timeout path must leave a durable, private journal that survives process exit.
+[[ -f "$URAAM_OPERATION_JOURNAL" ]] || fail "uncertain operation journal was not persisted"
+[[ "$(jq -r '.state' "$URAAM_OPERATION_JOURNAL")" == "uncertain" ]] ||
+    fail "timed-out operation journal was not marked uncertain"
+[[ "$(stat -c '%a' "$URAAM_OPERATION_JOURNAL")" == "600" ]] ||
+    fail "operation journal permissions are not 0600"
+pass "uncertain operations persist a private recovery journal"
+
+# Simulate a process crash after the pre-command journal write.
+write_operation_journal started uninstall com.example.crash 1 1 ||
+    fail "could not create simulated crash journal"
+[[ "$(jq -r '.state' "$URAAM_OPERATION_JOURNAL")" == "started" ]] ||
+    fail "pre-command journal state was not persisted"
+device_package_list() { printf '%s\\n' com.example.other; }
+if recover_pending_operation <<< "NO"; then
+    fail "recovery must require explicit acknowledgement"
+fi
+[[ -f "$URAAM_OPERATION_JOURNAL" ]] || fail "unconfirmed recovery removed the journal"
+recover_pending_operation <<< "RECONCILE com.example.crash" ||
+    fail "explicit recovery acknowledgement was rejected"
+[[ ! -e "$URAAM_OPERATION_JOURNAL" ]] || fail "reconciled journal was not cleared"
+(( ${#DEVICE_MUTATIONS[@]} == 1 )) || fail "recovery replayed a destructive command"
+pass "crash journal requires inventory review and explicit reconciliation without replay"
+
+# Corrupt journals must fail closed.
+printf '{invalid json' > "$URAAM_OPERATION_JOURNAL"
+if recover_pending_operation >/dev/null 2>&1; then
+    fail "corrupt operation journal must block recovery"
+fi
+pass "corrupt recovery journal fails closed"
+
+# flock must exclude a second independent apply lock holder.
+acquire_apply_lock || fail "first apply lock acquisition failed"
+if flock -n "$URAAM_APPLY_LOCK" -c true >/dev/null 2>&1; then
+    release_apply_lock
+    fail "a concurrent process acquired an already-held apply lock"
+fi
+release_apply_lock
+pass "concurrent apply sessions are excluded by the device lock"
