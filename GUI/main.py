@@ -472,7 +472,7 @@ class UraamWindow(Gtk.ApplicationWindow):
                 if isinstance(entries, list):
                     names = [str(item) for item in entries if isinstance(item, str)]
                     value = f"{len(names)} reported"
-                    detail = "\\n".join(names) if names else "No entries parsed in this section"
+                    detail = "\n".join(names) if names else "No entries parsed in this section"
                 else:
                     value = "Not reported"
                     detail = "This Android build did not expose this component section"
