@@ -7,6 +7,41 @@ umask 077
 API_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd -P)"
 URAAM_SCRIPT="${URAAM_SCRIPT:-$API_DIR/uraam.sh}"
 
+component_section_json() {
+    local dump_raw="$1" package_id="$2" wanted="$3" component_lines
+    if component_lines="$(awk -v wanted="$wanted" -v package="$package_id" '
+        BEGIN {
+            sections["Activities:"]=1
+            sections["Services:"]=1
+            sections["Receivers:"]=1
+            sections["Providers:"]=1
+        }
+        {
+            line=$0
+            sub(/^[[:space:]]+/, "", line)
+            sub(/[[:space:]]+$/, "", line)
+            if (line in sections) {
+                in_section=(line == wanted)
+                if (in_section) found=1
+                next
+            }
+            if (!in_section) next
+            split(line, fields, /[[:space:]]+/)
+            candidate=fields[1]
+            prefix=package "/"
+            if (index(candidate, prefix) == 1) {
+                class_name=substr(candidate, length(prefix)+1)
+                if (class_name ~ /^[A-Za-z0-9_.$]+$/) print candidate
+            }
+        }
+        END { if (!found) exit 2 }
+    ' <<< "$dump_raw" 2>/dev/null)"; then
+        printf '%s\\n' "$component_lines" | jq -Rsc 'split("\\n") | map(select(length > 0)) | unique'
+    else
+        printf '%s\\n' null
+    fi
+}
+
 json_error() {
     local message="$1" code="${2:-1}"
     jq -n --arg error "$message" '{status:"error",error:$error}'
@@ -139,16 +174,24 @@ main() {
             else
                 permissions_json=null
             fi
-            jq -n --arg package "$package_id" --arg backend "$EXEC_TYPE" \
-                --arg version_name "$version_name" --arg version_code "$version_code" \
-                --argjson requested_permissions "$permissions_json" \
-                --args \
+            activities_json="$(component_section_json "$dump_raw" "$package_id" Activities:)"
+            services_json="$(component_section_json "$dump_raw" "$package_id" Services:)"
+            receivers_json="$(component_section_json "$dump_raw" "$package_id" Receivers:)"
+            providers_json="$(component_section_json "$dump_raw" "$package_id" Providers:)"
+            jq -n --arg package "$package_id" --arg backend "$EXEC_TYPE" \\
+                --arg version_name "$version_name" --arg version_code "$version_code" \\
+                --argjson requested_permissions "$permissions_json" \\
+                --argjson activities "$activities_json" --argjson services "$services_json" \\
+                --argjson receivers "$receivers_json" --argjson providers "$providers_json" \\
+                --args \\
                 '{status:"ok",package:$package,backend:$backend,paths:$ARGS.positional,
                   version_name:(if $version_name == "" then null else $version_name end),
                   version_code:(if $version_code == "" then null else $version_code end),
                   requested_permissions:$requested_permissions,
                   permissions_semantics:"requested_only_not_grant_status",
-                  metadata_source:"dumpsys package",read_only:true}' \
+                  components:{activities:$activities,services:$services,receivers:$receivers,providers:$providers},
+                  components_semantics:"entries_from_matching_dumpsys_sections_only",
+                  metadata_source:"dumpsys package",read_only:true}' \\
                 "${apk_paths[@]}"
             ;;
         list-packages)
