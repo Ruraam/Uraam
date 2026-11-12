@@ -138,10 +138,10 @@ main() {
             else
                 permissions_json=null
             fi
-            jq -n --arg package "$package_id" --arg backend "$EXEC_TYPE" \\
-                --arg version_name "$version_name" --arg version_code "$version_code" \\
-                --argjson requested_permissions "$permissions_json" \\
-                --args \\
+            jq -n --arg package "$package_id" --arg backend "$EXEC_TYPE" \
+                --arg version_name "$version_name" --arg version_code "$version_code" \
+                --argjson requested_permissions "$permissions_json" \
+                --args \
                 '{status:"ok",package:$package,backend:$backend,paths:$ARGS.positional,
                   version_name:(if $version_name == "" then null else $version_name end),
                   version_code:(if $version_code == "" then null else $version_code end),
