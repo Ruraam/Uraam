@@ -24,6 +24,7 @@ inventory="$(cat "$TMP_DIR/inventory.out")"
     fail "preview inventory must exclude packages uninstalled for user 0"
 grep -Fxq 'com.example.app' <<< "$inventory" || fail "package inventory parsing lost a package"
 run_device() { printf 'device offline\n'; }
+# shellcheck disable=SC2218 # Defined in the sourced URAAM script.
 if device_package_list all >/dev/null 2>&1; then
     fail "empty/unrecognized package inventory must be rejected"
 fi
