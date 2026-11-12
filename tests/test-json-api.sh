@@ -10,7 +10,7 @@ cat > "$TMP_DIR/mockbin/adb" <<'MOCK'
 #!/usr/bin/env bash
 case "$*" in
     devices)
-        if [[ "\${MOCK_ADB_OFFLINE:-0}" == "1" ]]; then
+        if [[ "${MOCK_ADB_OFFLINE:-0}" == "1" ]]; then
             printf 'List of devices attached\n'
         else
             printf 'List of devices attached\nTEST-SERIAL\tdevice\n'
@@ -66,14 +66,14 @@ esac
 MOCK
 cat > "$TMP_DIR/mockbin/su" <<'MOCK'
 #!/usr/bin/env bash
-[[ "\${MOCK_SU_DENY:-0}" == "1" ]] && exit 1
-[[ "\${1:-}" == "-c" && -n "\${2:-}" ]] || exit 2
+[[ "${MOCK_SU_DENY:-0}" == "1" ]] && exit 1
+[[ "${1:-}" == "-c" && -n "${2:-}" ]] || exit 2
 exec bash -c "$2"
 MOCK
 
 cat > "$TMP_DIR/mockbin/rish" <<'MOCK'
 #!/usr/bin/env bash
-if [[ "\${1:-}" == "-c" && -n "\${2:-}" ]]; then
+if [[ "${1:-}" == "-c" && -n "${2:-}" ]]; then
     exec bash -c "$2"
 fi
 if (($# == 0)); then
