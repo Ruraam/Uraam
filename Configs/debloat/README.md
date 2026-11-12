@@ -128,3 +128,14 @@ unknown or missing properties are reported conservatively and do not change
 package risk classifications or automatically select packages. The detected
 device model, OEM family and ROM/version are checked again immediately before
 applying a preview. A model change invalidates the preview.
+
+
+### Backend interruption safety
+
+During a confirmed multi-package apply, URAAM checks the selected ADB, root or
+Shizuku transport before each package operation. If the transport is no longer
+available, it stops the batch and reports the unattempted packages as skipped.
+If a package command fails while the transport remains available, the failure
+is counted and the next selected package may still be attempted. A real device
+can still change state between checks; inspect the final summary and device
+state after any interrupted operation.
