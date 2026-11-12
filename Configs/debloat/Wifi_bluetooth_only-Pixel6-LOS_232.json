@@ -44,9 +44,6 @@
       "packageName": "com.verizon.services"
     },
     {
-      "packageName": "org.lineageos.setupwizard"
-    },
-    {
       "packageName": "org.lineageos.audiofx"
     },
     {
@@ -449,9 +446,6 @@
       "packageName": "com.android.DeviceAsWebcam"
     },
     {
-      "packageName": "com.android.nfc"
-    },
-    {
       "packageName": "com.android.simappdialog"
     },
     {
@@ -468,9 +462,6 @@
     },
     {
       "packageName": "com.android.apps.tag"
-    },
-    {
-      "packageName": "com.android.dialer"
     },
     {
       "packageName": "com.android.virtualization.terminal"
