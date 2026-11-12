@@ -933,13 +933,14 @@ check_and_update() {
     ensure_jq || return 1
     command -v curl >/dev/null 2>&1 || { err "curl is required."; return 1; }
 
-    local repo_path api_url release_json latest_tag remote_ver local_ver deb_url tmp_deb
+    local repo_path api_url release_json latest_tag remote_ver local_ver deb_url deb_digest asset_json tmp_deb actual_digest
     repo_path="${REPO_URL#https://github.com/}"
     repo_path="${repo_path%.git}"
     api_url="https://api.github.com/repos/${repo_path}/releases/latest"
 
-    release_json="$(curl -fsSL --retry 2 -H 'Accept: application/vnd.github+json' \
-        -H 'User-Agent: URAAM-Updater' "$api_url")" || {
+    release_json="$(curl --proto '=https' --tlsv1.2 -fsSL --retry 2 \
+        --connect-timeout 15 --max-time 60 \
+        -H 'Accept: application/vnd.github+json' -H 'User-Agent: URAAM-Updater' "$api_url")" || {
         err "Unable to contact GitHub release API."
         pause
         return 1
@@ -960,9 +961,21 @@ check_and_update() {
     printf 'Installed: %s\nLatest:    %s\n' "${local_ver:-unknown}" "$remote_ver"
     [[ "$local_ver" == "$remote_ver" ]] && { ok "URAAM is up to date."; pause; return 0; }
 
-    deb_url="$(jq -r '.assets[]? | select(.name | test("uraam-debian.*\\.deb$")) | .browser_download_url' <<< "$release_json" | head -n1)"
+    asset_json="$(jq -c '.assets[]? | select(.name | test("^uraam-debian.*\\.deb$"))' <<< "$release_json" | head -n1)"
+    deb_url="$(jq -r '.browser_download_url // empty' <<< "$asset_json")"
+    deb_digest="$(jq -r '.digest // empty' <<< "$asset_json")"
     [[ -n "$deb_url" && "$deb_url" != null ]] || {
         err "A new release exists, but no uraam-debian .deb asset was found."
+        pause
+        return 1
+    }
+    [[ "$deb_digest" =~ ^sha256:[0-9a-fA-F]{64}$ ]] || {
+        err "The release does not publish a valid SHA-256 digest; refusing an unverifiable update."
+        pause
+        return 1
+    }
+    command -v sha256sum >/dev/null 2>&1 || {
+        err "sha256sum is required to verify the update."
         pause
         return 1
     }
@@ -981,7 +994,13 @@ check_and_update() {
         err "Downloaded file is not a valid Debian package."
         return 1
     fi
-    if sudo apt-get install -y "$tmp_deb"; then
+    actual_digest="$(sha256sum "$tmp_deb" | awk '{print $1}')"
+    if [[ "${actual_digest,,}" != "${deb_digest#sha256:}" ]]; then
+        rm -f "$tmp_deb"
+        err "SHA-256 verification failed; refusing to install the downloaded package."
+        return 1
+    fi
+    if run_as_admin apt-get install -y "$tmp_deb"; then
         rm -f "$tmp_deb"
         ok "URAAM updated to $latest_tag. Restart the application."
         return 0
