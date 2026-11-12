@@ -586,10 +586,10 @@ uad_metadata_for_package() {
 
 uraam_debloat() {
     show_logo
-    msg "\${BLUE}------------------------------------------\${NC}"
-    msg "        \${CYAN}=== URAAM | DEBLOATER ===\${NC}"
+    msg "${BLUE}------------------------------------------${NC}"
+    msg "        ${CYAN}=== URAAM | DEBLOATER ===${NC}"
     msg "Configurations: $USER_DEBLOAT_DIR"
-    msg "\${BLUE}------------------------------------------\${NC}"
+    msg "${BLUE}------------------------------------------${NC}"
     require_backend || return 1
     select_json_file "$CONFIGS_DIR" "Available debloat configurations:" || return 1
     local file="$SELECTED_FILE"
@@ -617,7 +617,7 @@ uraam_debloat() {
         err "Cannot obtain a reliable package inventory; no changes made."
         return 1
     }
-    for pkg in "\${PACKAGES[@]}"; do
+    for pkg in "${PACKAGES[@]}"; do
         if is_whitelisted "$pkg"; then
             PREVIEW_PROTECTED+=("$pkg")
         elif package_is_installed "$pkg" "$installed"; then
@@ -625,12 +625,13 @@ uraam_debloat() {
             IFS=$'\t' read -r risk category description <<< "$metadata"
             case "$risk" in
                 Unsafe) PREVIEW_UNSAFE+=("$pkg") ;;
-                *)
+                Recommended|Advanced|Expert)
                     CANDIDATE_PACKAGES+=("$pkg")
-                    CANDIDATE_RISKS+=("\${risk:-Unknown}")
-                    CANDIDATE_CATEGORIES+=("\${category:-Unlisted}")
-                    CANDIDATE_DESCRIPTIONS+=("\${description:-No description available.}")
+                    CANDIDATE_RISKS+=("$risk")
+                    CANDIDATE_CATEGORIES+=("${category:-Unlisted}")
+                    CANDIDATE_DESCRIPTIONS+=("${description:-No description available.}")
                     ;;
+                *) PREVIEW_UNKNOWN+=("$pkg") ;;
             esac
         else
             PREVIEW_MISSING+=("$pkg")
@@ -638,10 +639,10 @@ uraam_debloat() {
     done
 
     msg ""
-    msg "\${BOLD}=== URAAM | UAD RISK REVIEW ===\${NC}"
-    printf 'Device: %s' "\${CURRENT_MODEL:-Unknown device}"
+    msg "${BOLD}=== URAAM | UAD RISK REVIEW ===${NC}"
+    printf 'Device: %s' "${CURRENT_MODEL:-Unknown device}"
     [[ -n "$BACKEND_SERIAL" ]] && printf ' (%s)' "$BACKEND_SERIAL"
-    printf '\nBackend: %s | Android user: 0\n' "\${EXEC_TYPE:-unknown}"
+    printf '\nBackend: %s | Android user: 0\n' "${EXEC_TYPE:-unknown}"
     printf 'Action requested: %s\n\n' "$action"
     if [[ -r "$UAD_METADATA_FILE" ]]; then
         printf 'UAD-NG metadata: bundled catalogue available\n'
@@ -649,30 +650,27 @@ uraam_debloat() {
         warn "UAD-NG catalogue missing; packages will be marked Unknown."
     fi
 
-    for index in "\${!CANDIDATE_PACKAGES[@]}"; do
+    for index in "${!CANDIDATE_PACKAGES[@]}"; do
         printf '\n  [%d] [%s] [%s] %s\n' \
-            "$((index+1))" "\${CANDIDATE_RISKS[$index]}" \
-            "\${CANDIDATE_CATEGORIES[$index]}" "\${CANDIDATE_PACKAGES[$index]}"
-        printf '      %s\n' "\${CANDIDATE_DESCRIPTIONS[$index]}"
+            "$((index+1))" "${CANDIDATE_RISKS[$index]}" \
+            "${CANDIDATE_CATEGORIES[$index]}" "${CANDIDATE_PACKAGES[$index]}"
+        printf '      %s\n' "${CANDIDATE_DESCRIPTIONS[$index]}"
     done
-    for pkg in "\${PREVIEW_UNSAFE[@]}"; do
+    for pkg in "${PREVIEW_UNSAFE[@]}"; do
         metadata="$(uad_metadata_for_package "$pkg")"
-        IFS=$'\t' read -r risk category description <<< "$metadata"
-        printf '\n  [BLOCKED] [UNSAFE] [%s] %s\n' "$category" "$pkg"
-        printf '      %s\n' "$description"
-    done
-    for pkg in "\${PREVIEW_PROTECTED[@]}"; do
+        IFS=
+    for pkg in "${PREVIEW_PROTECTED[@]}"; do
         printf '\n  [PROTECTED BY URAAM] %s\n' "$pkg"
     done
-    for pkg in "\${PREVIEW_MISSING[@]}"; do
+    for pkg in "${PREVIEW_MISSING[@]}"; do
         printf '\n  [NOT INSTALLED] %s\n' "$pkg"
     done
 
     msg ""
-    printf 'Catalogue: %d selectable, %d Unsafe blocked, %d protected, %d absent.\n' \
-        "\${#CANDIDATE_PACKAGES[@]}" "\${#PREVIEW_UNSAFE[@]}" \
-        "\${#PREVIEW_PROTECTED[@]}" "\${#PREVIEW_MISSING[@]}"
-    (( \${#CANDIDATE_PACKAGES[@]} > 0 )) || {
+    printf 'Catalogue: %d selectable, %d Unsafe blocked, %d unknown blocked, %d protected, %d absent.\n' \
+        "${#CANDIDATE_PACKAGES[@]}" "${#PREVIEW_UNSAFE[@]}" "${#PREVIEW_UNKNOWN[@]}" \
+        "${#PREVIEW_PROTECTED[@]}" "${#PREVIEW_MISSING[@]}"
+    (( ${#CANDIDATE_PACKAGES[@]} > 0 )) || {
         warn "No selectable installed packages. Nothing can be changed."
         return 0
     }
@@ -688,36 +686,36 @@ uraam_debloat() {
         return 0
     }
     IFS=',' read -r -a requested_indices <<< "$selection"
-    for token in "\${requested_indices[@]}"; do
-        token="\${token//[[:space:]]/}"
+    for token in "${requested_indices[@]}"; do
+        token="${token//[[:space:]]/}"
         [[ "$token" =~ ^[0-9]+$ ]] || {
             err "Invalid selection '$token'. Use comma-separated numbers only; no bulk keyword is accepted."
             return 1
         }
-        (( token >= 1 && token <= \${#CANDIDATE_PACKAGES[@]} )) || {
+        (( token >= 1 && token <= ${#CANDIDATE_PACKAGES[@]} )) || {
             err "Selection '$token' is outside the available range."
             return 1
         }
-        [[ -z "\${selected_indices[$token]:-}" ]] || {
+        [[ -z "${selected_indices[$token]:-}" ]] || {
             err "Duplicate selection '$token'."
             return 1
         }
         selected_indices[$token]=1
-        SELECTED_PACKAGES+=("\${CANDIDATE_PACKAGES[$((token-1))]}")
+        SELECTED_PACKAGES+=("${CANDIDATE_PACKAGES[$((token-1))]}")
     done
 
-    operation_count="\${#SELECTED_PACKAGES[@]}"
+    operation_count="${#SELECTED_PACKAGES[@]}"
     msg ""
-    msg "\${BOLD}=== URAAM | FINAL OPERATION PREVIEW ===\${NC}"
-    for pkg in "\${SELECTED_PACKAGES[@]}"; do
+    msg "${BOLD}=== URAAM | FINAL OPERATION PREVIEW ===${NC}"
+    for pkg in "${SELECTED_PACKAGES[@]}"; do
         metadata="$(uad_metadata_for_package "$pkg")"
         IFS=$'\t' read -r risk category description <<< "$metadata"
-        printf '  [WILL %s] [%s] %s\n' "\${action^^}" "$risk" "$pkg"
+        printf '  [WILL %s] [%s] %s\n' "${action^^}" "$risk" "$pkg"
     done
-    for index in "\${!CANDIDATE_PACKAGES[@]}"; do
-        pkg="\${CANDIDATE_PACKAGES[$index]}"
-        if [[ -z "\${selected_indices[$((index+1))]:-}" ]]; then
-            printf '  [NOT SELECTED] [%s] %s\n' "\${CANDIDATE_RISKS[$index]}" "$pkg"
+    for index in "${!CANDIDATE_PACKAGES[@]}"; do
+        pkg="${CANDIDATE_PACKAGES[$index]}"
+        if [[ -z "${selected_indices[$((index+1))]:-}" ]]; then
+            printf '  [NOT SELECTED] [%s] %s\n' "${CANDIDATE_RISKS[$index]}" "$pkg"
         fi
     done
     printf '\nExact selected operations: %d\n' "$operation_count"
@@ -756,7 +754,7 @@ uraam_debloat() {
         return 1
     }
     ready_count=0
-    for pkg in "\${SELECTED_PACKAGES[@]}"; do
+    for pkg in "${SELECTED_PACKAGES[@]}"; do
         metadata="$(uad_metadata_for_package "$pkg")" || return 1
         IFS=$'\t' read -r risk _ _ <<< "$metadata"
         if ! is_whitelisted "$pkg" &&
@@ -772,7 +770,7 @@ uraam_debloat() {
     fi
 
     start_log debloat "$LOGD_DIR" uraam-debloat || return 1
-    for pkg in "\${SELECTED_PACKAGES[@]}"; do
+    for pkg in "${SELECTED_PACKAGES[@]}"; do
         printf '%s: ' "$pkg"
         if is_whitelisted "$pkg"; then
             err "became protected; skipped"
@@ -797,8 +795,1015 @@ uraam_debloat() {
             fi
         fi
     done
-    msg "\${BLUE}----------------------------------------\${NC}"
-    msg "Summary: \${GREEN}$success succeeded\${NC}, \${YELLOW}$skipped skipped\${NC}, \${RED}$failed failed\${NC}."
+    msg "${BLUE}----------------------------------------${NC}"
+    msg "Summary: ${GREEN}$success succeeded${NC}, ${YELLOW}$skipped skipped${NC}, ${RED}$failed failed${NC}."
+    msg "Log: $LOGFILE"
+    pause
+}
+
+ubackup() {
+    local output_dir="$BACKUPS_DIR" date_str output_file
+    mkdir -p "$output_dir" || return 1
+    date_str="$(date +%Y%m%d_%H%M%S)"
+    output_file="$output_dir/Uraam_Restoration_List_${date_str}.json"
+
+    local all_pkgs active_pkgs model android_ver
+    all_pkgs="$(device_package_list active)" || return 1
+    active_pkgs="$(device_package_list active)" || return 1
+    [[ -n "$all_pkgs" ]] || { err "Unable to retrieve installed packages."; return 1; }
+
+    model="$(device_getprop ro.product.model || true)"
+    android_ver="$(device_getprop ro.build.version.release || true)"
+
+    comm -23 <(printf '%s\n' "$all_pkgs") <(printf '%s\n' "$active_pkgs") |
+        jq -R -s --arg date "$date_str" --arg model "$model" --arg android "$android_ver" '
+            [split("\n")[] | select(test("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$")) | {packageName:.}] as $apps
+            | {
+                name:("Uraam_Restore_List_"+$date),
+                description:"Packages not currently installed for Android user 0",
+                author:"URAAM", version:"4.4.6",
+                device:$model, android_version:$android, created_at:$date, apps:$apps
+            }
+        ' > "$output_file" || { rm -f "$output_file"; return 1; }
+
+    local count
+    count="$(jq '.apps | length' "$output_file" 2>/dev/null)" || count=0
+    if (( count == 0 )); then
+        rm -f "$output_file"
+        warn "No disabled or user-uninstalled packages were found."
+        return 0
+    fi
+    ok "Saved $count package(s) to $output_file"
+}
+
+uraam_backup() {
+    show_logo
+    msg "${BLUE}===============================================${NC}"
+    msg "${CYAN}URAAM | BACKUP CREATOR${NC}"
+    msg "${BLUE}===============================================${NC}"
+    require_backend || return 1
+    read -r -p "Create a restoration list of packages missing for user 0? [y/N]: " confirm
+    [[ "$confirm" =~ ^[yY]$ ]] || { warn "Cancelled."; return 0; }
+    start_log backup "$LOGB_DIR" uraam-backup || return 1
+    ubackup
+    pause
+}
+
+uraam_restore() {
+    show_logo
+    msg "${BLUE}=========================================${NC}"
+    msg "${CYAN}URAAM | RESTORER${NC}"
+    msg "${BLUE}=========================================${NC}"
+    require_backend || return 1
+    select_json_file "$BACKUPS_DIR" "Available restoration lists:" || return 1
+    load_packages_from_json "$SELECTED_FILE" || { pause; return 1; }
+
+    warn "The selected list contains ${#PACKAGES[@]} package(s)."
+    read -r -p "Restore these packages for Android user 0? [y/N]: " confirm
+    [[ "$confirm" =~ ^[yY]$ ]] || { warn "Cancelled."; return 0; }
+
+    start_log restore "$LOGR_DIR" uraam-restore || return 1
+    local success=0 failed=0 pkg
+    for pkg in "${PACKAGES[@]}"; do
+        printf '%s: ' "$pkg"
+        if run_device pm install-existing --user 0 "$pkg" >/dev/null 2>&1; then
+            ok "restored"
+            ((success+=1))
+        else
+            err "not restored (not present on device, or operation denied)"
+            ((failed+=1))
+        fi
+    done
+    msg "${BLUE}----------------------------------------${NC}"
+    msg "Summary: ${GREEN}$success restored${NC}, ${RED}$failed failed${NC}."
+    msg "Log: $LOGFILE"
+    pause
+}
+
+# ---------------------------------------------------------------------------
+# APK installation
+# ---------------------------------------------------------------------------
+
+install_one_apk() {
+    local apk="$1"
+    local remote="/data/local/tmp/uraam-$(date +%s)-$(basename "$apk")"
+
+    case "$EXEC_TYPE" in
+        ADB)
+            local -a cmd=(adb)
+            [[ -n "$BACKEND_SERIAL" ]] && cmd+=(-s "$BACKEND_SERIAL")
+            "${cmd[@]}" install -r -g "$apk"
+            ;;
+        ROOT)
+            su -c "cp $(printf '%q' "$apk") $(printf '%q' "$remote")" || return 1
+            run_device pm install -r -g "$remote"
+            local result=$?
+            su -c "rm -f $(printf '%q' "$remote")" >/dev/null 2>&1 || true
+            return "$result"
+            ;;
+        SHIZUKU)
+            local shared_dir="$HOME/storage/downloads/URAAM"
+            local shared_apk="$shared_dir/$(basename "$apk")"
+            [[ -d "$HOME/storage" ]] || {
+                err "Termux storage is not set up. Run termux-setup-storage first."
+                return 1
+            }
+            mkdir -p "$shared_dir" || return 1
+            cp -- "$apk" "$shared_apk" || return 1
+            rish -c "pm install -r -g $(printf '%q' "$shared_apk")"
+            local result=$?
+            rm -f -- "$shared_apk"
+            return "$result"
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+uraam_installer() {
+    show_logo
+    msg "${BLUE}==========================================${NC}"
+    msg "${CYAN}URAAM | APK INSTALLER${NC}"
+    msg "Place APK files in: $APP_DIR"
+    msg "${BLUE}----------------------------------------${NC}"
+    require_backend || return 1
+
+    local -a apks=()
+    shopt -s nullglob
+    apks=("$APP_DIR"/*.apk)
+    shopt -u nullglob
+    ((${#apks[@]} > 0)) || { err "No APK files found in $APP_DIR."; pause; return 1; }
+
+    local confirm apk ok_count=0 fail_count=0
+    printf 'Found %d APK(s).\n' "${#apks[@]}"
+    read -r -p "Install all of them? [y/N]: " confirm
+    [[ "$confirm" =~ ^[yY]$ ]] || return 0
+
+    for apk in "${apks[@]}"; do
+        printf 'Installing %s... ' "$(basename "$apk")"
+        if install_one_apk "$apk" >/dev/null 2>&1; then
+            ok "installed"
+            ((ok_count+=1))
+        else
+            err "installation failed"
+            ((fail_count+=1))
+        fi
+    done
+    msg "Summary: ${GREEN}$ok_count installed${NC}, ${RED}$fail_count failed${NC}."
+    pause
+}
+
+# ---------------------------------------------------------------------------
+# Logs
+# ---------------------------------------------------------------------------
+
+view_logs() {
+    local directory="$1" label="$2"
+    show_logo
+    local -a logs=()
+    shopt -s nullglob
+    logs=("$directory"/*.log)
+    shopt -u nullglob
+    ((${#logs[@]} > 0)) || { warn "No $label logs found."; pause; return 0; }
+
+    if command -v less >/dev/null 2>&1; then
+        less -R "${logs[@]}"
+    elif command -v nano >/dev/null 2>&1; then
+        nano -v "${logs[@]}"
+    else
+        cat "${logs[@]}"
+        pause
+    fi
+}
+
+vl_menu() {
+    show_logo
+    printf ' [1] Debloat logs\n [2] Restore logs\n [3] Backup logs\n [4] Return\n [5] Exit\n'
+    read -r -p "Choice: " choice
+    case "$choice" in
+        1) view_logs "$LOGD_DIR" debloat ;;
+        2) view_logs "$LOGR_DIR" restore ;;
+        3) view_logs "$LOGB_DIR" backup ;;
+        4) return 0 ;;
+        5) exit 0 ;;
+        *) warn "Invalid option."; sleep 1 ;;
+    esac
+}
+
+# ---------------------------------------------------------------------------
+# Update engine
+# ---------------------------------------------------------------------------
+
+update_uraam() {
+    show_logo
+    msg "${BLUE}========================================${NC}"
+    msg "${CYAN}=== URAAM | SCRIPT UPDATER ===${NC}"
+    read -r -p "Download and replace the current script? [y/N]: " confirm
+    [[ "$confirm" =~ ^[yY]$ ]] || { warn "Update cancelled."; return 0; }
+
+    command -v curl >/dev/null 2>&1 || { err "curl is required."; return 1; }
+    local target_bin="$SOURCE"
+    local raw_url="https://raw.githubusercontent.com/Ruraam/Uraam/main/uraam.sh"
+    local tmp_file
+    tmp_file="$(mktemp)" || return 1
+
+    if ! curl -fL --retry 2 --connect-timeout 15 "$raw_url" -o "$tmp_file"; then
+        rm -f "$tmp_file"
+        err "Download failed."
+        return 1
+    fi
+    bash -n "$tmp_file" || {
+        rm -f "$tmp_file"
+        err "Downloaded script has a Bash syntax error; current installation was not changed."
+        return 1
+    }
+
+    if [[ -w "$target_bin" ]]; then
+        if ! install -m 0755 "$tmp_file" "$target_bin"; then
+            rm -f "$tmp_file"
+            return 1
+        fi
+    else
+        sudo install -m 0755 "$tmp_file" "$target_bin" || {
+            rm -f "$tmp_file"
+            return 1
+        }
+    fi
+    rm -f "$tmp_file"
+    ok "URAAM script updated."
+    read -r -p "Press Enter to restart..."
+    exec "$target_bin" "$@"
+}
+
+check_and_update() {
+    show_logo
+    if ! is_installed_via_deb uraam && ! is_installed_via_deb uraam-debian; then
+        update_uraam
+        return $?
+    fi
+
+    ensure_jq || return 1
+    command -v curl >/dev/null 2>&1 || { err "curl is required."; return 1; }
+
+    local repo_path api_url release_json latest_tag remote_ver local_ver deb_url tmp_deb
+    repo_path="${REPO_URL#https://github.com/}"
+    repo_path="${repo_path%.git}"
+    api_url="https://api.github.com/repos/${repo_path}/releases/latest"
+
+    release_json="$(curl -fsSL --retry 2 -H 'Accept: application/vnd.github+json' \
+        -H 'User-Agent: URAAM-Updater' "$api_url")" || {
+        err "Unable to contact GitHub release API."
+        pause
+        return 1
+    }
+
+    latest_tag="$(jq -r '.tag_name // empty' <<< "$release_json")"
+    [[ -n "$latest_tag" ]] || {
+        err "No published GitHub release found."
+        jq -r '.message // empty' <<< "$release_json"
+        pause
+        return 1
+    }
+
+    remote_ver="${latest_tag#v}"
+    local_ver="$(dpkg-query -W -f='${Version}' uraam 2>/dev/null || \
+        dpkg-query -W -f='${Version}' uraam-debian 2>/dev/null || true)"
+    local_ver="${local_ver#v}"
+    printf 'Installed: %s\nLatest:    %s\n' "${local_ver:-unknown}" "$remote_ver"
+    [[ "$local_ver" == "$remote_ver" ]] && { ok "URAAM is up to date."; pause; return 0; }
+
+    deb_url="$(jq -r '.assets[]? | select(.name | test("uraam-debian.*\\.deb$")) | .browser_download_url' <<< "$release_json" | head -n1)"
+    [[ -n "$deb_url" && "$deb_url" != null ]] || {
+        err "A new release exists, but no uraam-debian .deb asset was found."
+        pause
+        return 1
+    }
+
+    read -r -p "Install version $latest_tag? [y/N]: " confirm
+    [[ "$confirm" =~ ^[yY]$ ]] || { warn "Update cancelled."; return 0; }
+
+    tmp_deb="$(mktemp --suffix=.deb)" || return 1
+    if ! curl -fL --retry 2 --connect-timeout 15 "$deb_url" -o "$tmp_deb"; then
+        rm -f "$tmp_deb"
+        err "Package download failed."
+        return 1
+    fi
+    if ! dpkg-deb --info "$tmp_deb" >/dev/null 2>&1; then
+        rm -f "$tmp_deb"
+        err "Downloaded file is not a valid Debian package."
+        return 1
+    fi
+    if sudo apt-get install -y "$tmp_deb"; then
+        rm -f "$tmp_deb"
+        ok "URAAM updated to $latest_tag. Restart the application."
+        return 0
+    fi
+    rm -f "$tmp_deb"
+    err "Package installation failed."
+    return 1
+}
+
+# ---------------------------------------------------------------------------
+# Main dashboard
+# ---------------------------------------------------------------------------
+
+show_main_menu() {
+    show_logo
+    msg "${BLUE}--------------------------------------------------------${NC}"
+    msg ".      ${CYAN}=== URAAM v${URAAM_VERSION} Dashboard ===${NC}"
+    msg "${BLUE}--------------------------------------------------------${NC}"
+    detect_backend_status || true
+    msg "${BLUE}--------------------------------------------------------${NC}"
+    printf 'Debloat configurations: %s\n' "${USER_DEBLOAT_DIR/#$HOME/~}"
+    printf 'APK directory:          %s\n' "${APP_DIR/#$HOME/~}"
+    printf 'Backup / restore:       %s\n' "${BACKUPS_DIR/#$HOME/~}"
+    msg "${BLUE}--------------------------------------------------------${NC}"
+    printf ' [d] Debloat apps\n'
+    printf ' [i] Install APK(s)\n'
+    printf ' [b] Backup restoration list\n'
+    printf ' [r] Restore packages\n'
+    printf ' [w] Wireless menu\n'
+    printf ' [l] View logs\n'
+    printf ' [u] Update URAAM\n'
+    printf ' [e] Exit\n'
+}
+
+handle_menu_choice() {
+    case "$1" in
+        d|D) uraam_debloat ;;
+        i|I) uraam_installer ;;
+        b|B) uraam_backup ;;
+        r|R) uraam_restore ;;
+        w|W) wireless_menu ;;
+        l|L) vl_menu ;;
+        u|U) check_and_update ;;
+        e|E) msg "${GREEN}Goodbye!${NC}"; exit 0 ;;
+        *) warn "Invalid option."; sleep 1 ;;
+    esac
+}
+
+main() {
+    init_directories || exit 1
+    term_set_storage
+
+    while true; do
+        show_main_menu
+        read -r -p "Enter choice: " user_choice || exit 0
+        handle_menu_choice "$user_choice"
+    done
+}
+
+if [[ "${URAAM_TESTING:-0}" != "1" ]]; then
+    main "$@"
+fi
+\t' read -r risk category description <<< "$metadata"
+        printf '\n  [BLOCKED] [UNSAFE] [%s] %s\n' "$category" "$pkg"
+        printf '      %s\n' "$description"
+    done
+    for pkg in "${PREVIEW_UNKNOWN[@]}"; do
+        metadata="$(uad_metadata_for_package "$pkg")"
+        IFS=
+    for pkg in "${PREVIEW_PROTECTED[@]}"; do
+        printf '\n  [PROTECTED BY URAAM] %s\n' "$pkg"
+    done
+    for pkg in "${PREVIEW_MISSING[@]}"; do
+        printf '\n  [NOT INSTALLED] %s\n' "$pkg"
+    done
+
+    msg ""
+    printf 'Catalogue: %d selectable, %d Unsafe blocked, %d protected, %d absent.\n' \
+        "${#CANDIDATE_PACKAGES[@]}" "${#PREVIEW_UNSAFE[@]}" \
+        "${#PREVIEW_PROTECTED[@]}" "${#PREVIEW_MISSING[@]}"
+    (( ${#CANDIDATE_PACKAGES[@]} > 0 )) || {
+        warn "No selectable installed packages. Nothing can be changed."
+        return 0
+    }
+
+    printf '\nSelect package numbers separated by commas (example: 1,3). Empty/C cancels: '
+    read -r selection
+    [[ -n "$selection" ]] || {
+        warn "No packages selected. Nothing changed."
+        return 0
+    }
+    [[ "$selection" != "c" && "$selection" != "C" ]] || {
+        warn "Operation cancelled."
+        return 0
+    }
+    IFS=',' read -r -a requested_indices <<< "$selection"
+    for token in "${requested_indices[@]}"; do
+        token="${token//[[:space:]]/}"
+        [[ "$token" =~ ^[0-9]+$ ]] || {
+            err "Invalid selection '$token'. Use comma-separated numbers only; no bulk keyword is accepted."
+            return 1
+        }
+        (( token >= 1 && token <= ${#CANDIDATE_PACKAGES[@]} )) || {
+            err "Selection '$token' is outside the available range."
+            return 1
+        }
+        [[ -z "${selected_indices[$token]:-}" ]] || {
+            err "Duplicate selection '$token'."
+            return 1
+        }
+        selected_indices[$token]=1
+        SELECTED_PACKAGES+=("${CANDIDATE_PACKAGES[$((token-1))]}")
+    done
+
+    operation_count="${#SELECTED_PACKAGES[@]}"
+    msg ""
+    msg "${BOLD}=== URAAM | FINAL OPERATION PREVIEW ===${NC}"
+    for pkg in "${SELECTED_PACKAGES[@]}"; do
+        metadata="$(uad_metadata_for_package "$pkg")"
+        IFS=$'\t' read -r risk category description <<< "$metadata"
+        printf '  [WILL %s] [%s] %s\n' "${action^^}" "$risk" "$pkg"
+    done
+    for index in "${!CANDIDATE_PACKAGES[@]}"; do
+        pkg="${CANDIDATE_PACKAGES[$index]}"
+        if [[ -z "${selected_indices[$((index+1))]:-}" ]]; then
+            printf '  [NOT SELECTED] [%s] %s\n' "${CANDIDATE_RISKS[$index]}" "$pkg"
+        fi
+    done
+    printf '\nExact selected operations: %d\n' "$operation_count"
+    (( operation_count > 0 )) || {
+        warn "No packages selected. Nothing can be changed."
+        return 0
+    }
+
+    printf '\nChoose mode: [d] Dry-run only (no changes) / [a] Apply / [c] Cancel: '
+    read -r mode
+    case "$mode" in
+        d|D)
+            ok "DRY RUN complete: $operation_count manually selected package(s) would be $action."
+            info "No uninstall, disable, install, or package-state command was executed."
+            return 0
+            ;;
+        a|A)
+            if [[ ! -r "$UAD_METADATA_FILE" ]] ||
+                ! jq -e 'type == "object" and length > 0' "$UAD_METADATA_FILE" >/dev/null 2>&1; then
+                err "Cannot apply changes without a valid bundled UAD-NG risk catalogue."
+                return 1
+            fi
+            ;;
+        *) warn "Operation cancelled; no changes made."; return 0 ;;
+    esac
+
+    printf 'Type exactly "APPLY %s" to confirm these %s operation(s): ' "$operation_count" "$operation_count"
+    read -r confirm
+    [[ "$confirm" == "APPLY $operation_count" ]] || {
+        warn "Confirmation did not match. No changes made."
+        return 0
+    }
+
+    installed="$(device_package_list active)" || {
+        err "Cannot refresh package inventory; no changes made."
+        return 1
+    }
+    ready_count=0
+    for pkg in "${SELECTED_PACKAGES[@]}"; do
+        metadata="$(uad_metadata_for_package "$pkg")" || return 1
+        IFS=$'\t' read -r risk _ _ <<< "$metadata"
+        if ! is_whitelisted "$pkg" &&
+            [[ "$risk" == "Recommended" || "$risk" == "Advanced" || "$risk" == "Expert" ]] &&
+            package_is_installed "$pkg" "$installed"; then
+            ((ready_count+=1))
+        fi
+    done
+    if (( ready_count != operation_count )); then
+        warn "Device or UAD safety state changed after preview ($operation_count planned, $ready_count still eligible)."
+        warn "Run Preview again; no changes made."
+        return 1
+    fi
+
+    start_log debloat "$LOGD_DIR" uraam-debloat || return 1
+    for pkg in "${SELECTED_PACKAGES[@]}"; do
+        printf '%s: ' "$pkg"
+        if is_whitelisted "$pkg"; then
+            err "became protected; skipped"
+            ((skipped+=1))
+            continue
+        fi
+        if [[ "$action" == uninstall ]]; then
+            if run_device pm uninstall -k --user 0 "$pkg" >/dev/null 2>&1; then
+                ok "uninstalled for user 0"
+                ((success+=1))
+            else
+                err "uninstall failed"
+                ((failed+=1))
+            fi
+        else
+            if run_device pm disable-user --user 0 "$pkg" >/dev/null 2>&1; then
+                ok "disabled"
+                ((success+=1))
+            else
+                err "disable failed"
+                ((failed+=1))
+            fi
+        fi
+    done
+    msg "${BLUE}----------------------------------------${NC}"
+    msg "Summary: ${GREEN}$success succeeded${NC}, ${YELLOW}$skipped skipped${NC}, ${RED}$failed failed${NC}."
+    msg "Log: $LOGFILE"
+    pause
+}
+
+ubackup() {
+    local output_dir="$BACKUPS_DIR" date_str output_file
+    mkdir -p "$output_dir" || return 1
+    date_str="$(date +%Y%m%d_%H%M%S)"
+    output_file="$output_dir/Uraam_Restoration_List_${date_str}.json"
+
+    local all_pkgs active_pkgs model android_ver
+    all_pkgs="$(device_package_list active)" || return 1
+    active_pkgs="$(device_package_list active)" || return 1
+    [[ -n "$all_pkgs" ]] || { err "Unable to retrieve installed packages."; return 1; }
+
+    model="$(device_getprop ro.product.model || true)"
+    android_ver="$(device_getprop ro.build.version.release || true)"
+
+    comm -23 <(printf '%s\n' "$all_pkgs") <(printf '%s\n' "$active_pkgs") |
+        jq -R -s --arg date "$date_str" --arg model "$model" --arg android "$android_ver" '
+            [split("\n")[] | select(test("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$")) | {packageName:.}] as $apps
+            | {
+                name:("Uraam_Restore_List_"+$date),
+                description:"Packages not currently installed for Android user 0",
+                author:"URAAM", version:"4.4.6",
+                device:$model, android_version:$android, created_at:$date, apps:$apps
+            }
+        ' > "$output_file" || { rm -f "$output_file"; return 1; }
+
+    local count
+    count="$(jq '.apps | length' "$output_file" 2>/dev/null)" || count=0
+    if (( count == 0 )); then
+        rm -f "$output_file"
+        warn "No disabled or user-uninstalled packages were found."
+        return 0
+    fi
+    ok "Saved $count package(s) to $output_file"
+}
+
+uraam_backup() {
+    show_logo
+    msg "${BLUE}===============================================${NC}"
+    msg "${CYAN}URAAM | BACKUP CREATOR${NC}"
+    msg "${BLUE}===============================================${NC}"
+    require_backend || return 1
+    read -r -p "Create a restoration list of packages missing for user 0? [y/N]: " confirm
+    [[ "$confirm" =~ ^[yY]$ ]] || { warn "Cancelled."; return 0; }
+    start_log backup "$LOGB_DIR" uraam-backup || return 1
+    ubackup
+    pause
+}
+
+uraam_restore() {
+    show_logo
+    msg "${BLUE}=========================================${NC}"
+    msg "${CYAN}URAAM | RESTORER${NC}"
+    msg "${BLUE}=========================================${NC}"
+    require_backend || return 1
+    select_json_file "$BACKUPS_DIR" "Available restoration lists:" || return 1
+    load_packages_from_json "$SELECTED_FILE" || { pause; return 1; }
+
+    warn "The selected list contains ${#PACKAGES[@]} package(s)."
+    read -r -p "Restore these packages for Android user 0? [y/N]: " confirm
+    [[ "$confirm" =~ ^[yY]$ ]] || { warn "Cancelled."; return 0; }
+
+    start_log restore "$LOGR_DIR" uraam-restore || return 1
+    local success=0 failed=0 pkg
+    for pkg in "${PACKAGES[@]}"; do
+        printf '%s: ' "$pkg"
+        if run_device pm install-existing --user 0 "$pkg" >/dev/null 2>&1; then
+            ok "restored"
+            ((success+=1))
+        else
+            err "not restored (not present on device, or operation denied)"
+            ((failed+=1))
+        fi
+    done
+    msg "${BLUE}----------------------------------------${NC}"
+    msg "Summary: ${GREEN}$success restored${NC}, ${RED}$failed failed${NC}."
+    msg "Log: $LOGFILE"
+    pause
+}
+
+# ---------------------------------------------------------------------------
+# APK installation
+# ---------------------------------------------------------------------------
+
+install_one_apk() {
+    local apk="$1"
+    local remote="/data/local/tmp/uraam-$(date +%s)-$(basename "$apk")"
+
+    case "$EXEC_TYPE" in
+        ADB)
+            local -a cmd=(adb)
+            [[ -n "$BACKEND_SERIAL" ]] && cmd+=(-s "$BACKEND_SERIAL")
+            "${cmd[@]}" install -r -g "$apk"
+            ;;
+        ROOT)
+            su -c "cp $(printf '%q' "$apk") $(printf '%q' "$remote")" || return 1
+            run_device pm install -r -g "$remote"
+            local result=$?
+            su -c "rm -f $(printf '%q' "$remote")" >/dev/null 2>&1 || true
+            return "$result"
+            ;;
+        SHIZUKU)
+            local shared_dir="$HOME/storage/downloads/URAAM"
+            local shared_apk="$shared_dir/$(basename "$apk")"
+            [[ -d "$HOME/storage" ]] || {
+                err "Termux storage is not set up. Run termux-setup-storage first."
+                return 1
+            }
+            mkdir -p "$shared_dir" || return 1
+            cp -- "$apk" "$shared_apk" || return 1
+            rish -c "pm install -r -g $(printf '%q' "$shared_apk")"
+            local result=$?
+            rm -f -- "$shared_apk"
+            return "$result"
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+uraam_installer() {
+    show_logo
+    msg "${BLUE}==========================================${NC}"
+    msg "${CYAN}URAAM | APK INSTALLER${NC}"
+    msg "Place APK files in: $APP_DIR"
+    msg "${BLUE}----------------------------------------${NC}"
+    require_backend || return 1
+
+    local -a apks=()
+    shopt -s nullglob
+    apks=("$APP_DIR"/*.apk)
+    shopt -u nullglob
+    ((${#apks[@]} > 0)) || { err "No APK files found in $APP_DIR."; pause; return 1; }
+
+    local confirm apk ok_count=0 fail_count=0
+    printf 'Found %d APK(s).\n' "${#apks[@]}"
+    read -r -p "Install all of them? [y/N]: " confirm
+    [[ "$confirm" =~ ^[yY]$ ]] || return 0
+
+    for apk in "${apks[@]}"; do
+        printf 'Installing %s... ' "$(basename "$apk")"
+        if install_one_apk "$apk" >/dev/null 2>&1; then
+            ok "installed"
+            ((ok_count+=1))
+        else
+            err "installation failed"
+            ((fail_count+=1))
+        fi
+    done
+    msg "Summary: ${GREEN}$ok_count installed${NC}, ${RED}$fail_count failed${NC}."
+    pause
+}
+
+# ---------------------------------------------------------------------------
+# Logs
+# ---------------------------------------------------------------------------
+
+view_logs() {
+    local directory="$1" label="$2"
+    show_logo
+    local -a logs=()
+    shopt -s nullglob
+    logs=("$directory"/*.log)
+    shopt -u nullglob
+    ((${#logs[@]} > 0)) || { warn "No $label logs found."; pause; return 0; }
+
+    if command -v less >/dev/null 2>&1; then
+        less -R "${logs[@]}"
+    elif command -v nano >/dev/null 2>&1; then
+        nano -v "${logs[@]}"
+    else
+        cat "${logs[@]}"
+        pause
+    fi
+}
+
+vl_menu() {
+    show_logo
+    printf ' [1] Debloat logs\n [2] Restore logs\n [3] Backup logs\n [4] Return\n [5] Exit\n'
+    read -r -p "Choice: " choice
+    case "$choice" in
+        1) view_logs "$LOGD_DIR" debloat ;;
+        2) view_logs "$LOGR_DIR" restore ;;
+        3) view_logs "$LOGB_DIR" backup ;;
+        4) return 0 ;;
+        5) exit 0 ;;
+        *) warn "Invalid option."; sleep 1 ;;
+    esac
+}
+
+# ---------------------------------------------------------------------------
+# Update engine
+# ---------------------------------------------------------------------------
+
+update_uraam() {
+    show_logo
+    msg "${BLUE}========================================${NC}"
+    msg "${CYAN}=== URAAM | SCRIPT UPDATER ===${NC}"
+    read -r -p "Download and replace the current script? [y/N]: " confirm
+    [[ "$confirm" =~ ^[yY]$ ]] || { warn "Update cancelled."; return 0; }
+
+    command -v curl >/dev/null 2>&1 || { err "curl is required."; return 1; }
+    local target_bin="$SOURCE"
+    local raw_url="https://raw.githubusercontent.com/Ruraam/Uraam/main/uraam.sh"
+    local tmp_file
+    tmp_file="$(mktemp)" || return 1
+
+    if ! curl -fL --retry 2 --connect-timeout 15 "$raw_url" -o "$tmp_file"; then
+        rm -f "$tmp_file"
+        err "Download failed."
+        return 1
+    fi
+    bash -n "$tmp_file" || {
+        rm -f "$tmp_file"
+        err "Downloaded script has a Bash syntax error; current installation was not changed."
+        return 1
+    }
+
+    if [[ -w "$target_bin" ]]; then
+        if ! install -m 0755 "$tmp_file" "$target_bin"; then
+            rm -f "$tmp_file"
+            return 1
+        fi
+    else
+        sudo install -m 0755 "$tmp_file" "$target_bin" || {
+            rm -f "$tmp_file"
+            return 1
+        }
+    fi
+    rm -f "$tmp_file"
+    ok "URAAM script updated."
+    read -r -p "Press Enter to restart..."
+    exec "$target_bin" "$@"
+}
+
+check_and_update() {
+    show_logo
+    if ! is_installed_via_deb uraam && ! is_installed_via_deb uraam-debian; then
+        update_uraam
+        return $?
+    fi
+
+    ensure_jq || return 1
+    command -v curl >/dev/null 2>&1 || { err "curl is required."; return 1; }
+
+    local repo_path api_url release_json latest_tag remote_ver local_ver deb_url tmp_deb
+    repo_path="${REPO_URL#https://github.com/}"
+    repo_path="${repo_path%.git}"
+    api_url="https://api.github.com/repos/${repo_path}/releases/latest"
+
+    release_json="$(curl -fsSL --retry 2 -H 'Accept: application/vnd.github+json' \
+        -H 'User-Agent: URAAM-Updater' "$api_url")" || {
+        err "Unable to contact GitHub release API."
+        pause
+        return 1
+    }
+
+    latest_tag="$(jq -r '.tag_name // empty' <<< "$release_json")"
+    [[ -n "$latest_tag" ]] || {
+        err "No published GitHub release found."
+        jq -r '.message // empty' <<< "$release_json"
+        pause
+        return 1
+    }
+
+    remote_ver="${latest_tag#v}"
+    local_ver="$(dpkg-query -W -f='${Version}' uraam 2>/dev/null || \
+        dpkg-query -W -f='${Version}' uraam-debian 2>/dev/null || true)"
+    local_ver="${local_ver#v}"
+    printf 'Installed: %s\nLatest:    %s\n' "${local_ver:-unknown}" "$remote_ver"
+    [[ "$local_ver" == "$remote_ver" ]] && { ok "URAAM is up to date."; pause; return 0; }
+
+    deb_url="$(jq -r '.assets[]? | select(.name | test("uraam-debian.*\\.deb$")) | .browser_download_url' <<< "$release_json" | head -n1)"
+    [[ -n "$deb_url" && "$deb_url" != null ]] || {
+        err "A new release exists, but no uraam-debian .deb asset was found."
+        pause
+        return 1
+    }
+
+    read -r -p "Install version $latest_tag? [y/N]: " confirm
+    [[ "$confirm" =~ ^[yY]$ ]] || { warn "Update cancelled."; return 0; }
+
+    tmp_deb="$(mktemp --suffix=.deb)" || return 1
+    if ! curl -fL --retry 2 --connect-timeout 15 "$deb_url" -o "$tmp_deb"; then
+        rm -f "$tmp_deb"
+        err "Package download failed."
+        return 1
+    fi
+    if ! dpkg-deb --info "$tmp_deb" >/dev/null 2>&1; then
+        rm -f "$tmp_deb"
+        err "Downloaded file is not a valid Debian package."
+        return 1
+    fi
+    if sudo apt-get install -y "$tmp_deb"; then
+        rm -f "$tmp_deb"
+        ok "URAAM updated to $latest_tag. Restart the application."
+        return 0
+    fi
+    rm -f "$tmp_deb"
+    err "Package installation failed."
+    return 1
+}
+
+# ---------------------------------------------------------------------------
+# Main dashboard
+# ---------------------------------------------------------------------------
+
+show_main_menu() {
+    show_logo
+    msg "${BLUE}--------------------------------------------------------${NC}"
+    msg ".      ${CYAN}=== URAAM v${URAAM_VERSION} Dashboard ===${NC}"
+    msg "${BLUE}--------------------------------------------------------${NC}"
+    detect_backend_status || true
+    msg "${BLUE}--------------------------------------------------------${NC}"
+    printf 'Debloat configurations: %s\n' "${USER_DEBLOAT_DIR/#$HOME/~}"
+    printf 'APK directory:          %s\n' "${APP_DIR/#$HOME/~}"
+    printf 'Backup / restore:       %s\n' "${BACKUPS_DIR/#$HOME/~}"
+    msg "${BLUE}--------------------------------------------------------${NC}"
+    printf ' [d] Debloat apps\n'
+    printf ' [i] Install APK(s)\n'
+    printf ' [b] Backup restoration list\n'
+    printf ' [r] Restore packages\n'
+    printf ' [w] Wireless menu\n'
+    printf ' [l] View logs\n'
+    printf ' [u] Update URAAM\n'
+    printf ' [e] Exit\n'
+}
+
+handle_menu_choice() {
+    case "$1" in
+        d|D) uraam_debloat ;;
+        i|I) uraam_installer ;;
+        b|B) uraam_backup ;;
+        r|R) uraam_restore ;;
+        w|W) wireless_menu ;;
+        l|L) vl_menu ;;
+        u|U) check_and_update ;;
+        e|E) msg "${GREEN}Goodbye!${NC}"; exit 0 ;;
+        *) warn "Invalid option."; sleep 1 ;;
+    esac
+}
+
+main() {
+    init_directories || exit 1
+    term_set_storage
+
+    while true; do
+        show_main_menu
+        read -r -p "Enter choice: " user_choice || exit 0
+        handle_menu_choice "$user_choice"
+    done
+}
+
+if [[ "${URAAM_TESTING:-0}" != "1" ]]; then
+    main "$@"
+fi
+\t' read -r risk category description <<< "$metadata"
+        printf '\n  [BLOCKED] [UNKNOWN] [%s] %s\n' "$category" "$pkg"
+        printf '      %s\n' "$description"
+    done
+    for pkg in "${PREVIEW_PROTECTED[@]}"; do
+        printf '\n  [PROTECTED BY URAAM] %s\n' "$pkg"
+    done
+    for pkg in "${PREVIEW_MISSING[@]}"; do
+        printf '\n  [NOT INSTALLED] %s\n' "$pkg"
+    done
+
+    msg ""
+    printf 'Catalogue: %d selectable, %d Unsafe blocked, %d protected, %d absent.\n' \
+        "${#CANDIDATE_PACKAGES[@]}" "${#PREVIEW_UNSAFE[@]}" \
+        "${#PREVIEW_PROTECTED[@]}" "${#PREVIEW_MISSING[@]}"
+    (( ${#CANDIDATE_PACKAGES[@]} > 0 )) || {
+        warn "No selectable installed packages. Nothing can be changed."
+        return 0
+    }
+
+    printf '\nSelect package numbers separated by commas (example: 1,3). Empty/C cancels: '
+    read -r selection
+    [[ -n "$selection" ]] || {
+        warn "No packages selected. Nothing changed."
+        return 0
+    }
+    [[ "$selection" != "c" && "$selection" != "C" ]] || {
+        warn "Operation cancelled."
+        return 0
+    }
+    IFS=',' read -r -a requested_indices <<< "$selection"
+    for token in "${requested_indices[@]}"; do
+        token="${token//[[:space:]]/}"
+        [[ "$token" =~ ^[0-9]+$ ]] || {
+            err "Invalid selection '$token'. Use comma-separated numbers only; no bulk keyword is accepted."
+            return 1
+        }
+        (( token >= 1 && token <= ${#CANDIDATE_PACKAGES[@]} )) || {
+            err "Selection '$token' is outside the available range."
+            return 1
+        }
+        [[ -z "${selected_indices[$token]:-}" ]] || {
+            err "Duplicate selection '$token'."
+            return 1
+        }
+        selected_indices[$token]=1
+        SELECTED_PACKAGES+=("${CANDIDATE_PACKAGES[$((token-1))]}")
+    done
+
+    operation_count="${#SELECTED_PACKAGES[@]}"
+    msg ""
+    msg "${BOLD}=== URAAM | FINAL OPERATION PREVIEW ===${NC}"
+    for pkg in "${SELECTED_PACKAGES[@]}"; do
+        metadata="$(uad_metadata_for_package "$pkg")"
+        IFS=$'\t' read -r risk category description <<< "$metadata"
+        printf '  [WILL %s] [%s] %s\n' "${action^^}" "$risk" "$pkg"
+    done
+    for index in "${!CANDIDATE_PACKAGES[@]}"; do
+        pkg="${CANDIDATE_PACKAGES[$index]}"
+        if [[ -z "${selected_indices[$((index+1))]:-}" ]]; then
+            printf '  [NOT SELECTED] [%s] %s\n' "${CANDIDATE_RISKS[$index]}" "$pkg"
+        fi
+    done
+    printf '\nExact selected operations: %d\n' "$operation_count"
+    (( operation_count > 0 )) || {
+        warn "No packages selected. Nothing can be changed."
+        return 0
+    }
+
+    printf '\nChoose mode: [d] Dry-run only (no changes) / [a] Apply / [c] Cancel: '
+    read -r mode
+    case "$mode" in
+        d|D)
+            ok "DRY RUN complete: $operation_count manually selected package(s) would be $action."
+            info "No uninstall, disable, install, or package-state command was executed."
+            return 0
+            ;;
+        a|A)
+            if [[ ! -r "$UAD_METADATA_FILE" ]] ||
+                ! jq -e 'type == "object" and length > 0' "$UAD_METADATA_FILE" >/dev/null 2>&1; then
+                err "Cannot apply changes without a valid bundled UAD-NG risk catalogue."
+                return 1
+            fi
+            ;;
+        *) warn "Operation cancelled; no changes made."; return 0 ;;
+    esac
+
+    printf 'Type exactly "APPLY %s" to confirm these %s operation(s): ' "$operation_count" "$operation_count"
+    read -r confirm
+    [[ "$confirm" == "APPLY $operation_count" ]] || {
+        warn "Confirmation did not match. No changes made."
+        return 0
+    }
+
+    installed="$(device_package_list active)" || {
+        err "Cannot refresh package inventory; no changes made."
+        return 1
+    }
+    ready_count=0
+    for pkg in "${SELECTED_PACKAGES[@]}"; do
+        metadata="$(uad_metadata_for_package "$pkg")" || return 1
+        IFS=$'\t' read -r risk _ _ <<< "$metadata"
+        if ! is_whitelisted "$pkg" &&
+            [[ "$risk" == "Recommended" || "$risk" == "Advanced" || "$risk" == "Expert" ]] &&
+            package_is_installed "$pkg" "$installed"; then
+            ((ready_count+=1))
+        fi
+    done
+    if (( ready_count != operation_count )); then
+        warn "Device or UAD safety state changed after preview ($operation_count planned, $ready_count still eligible)."
+        warn "Run Preview again; no changes made."
+        return 1
+    fi
+
+    start_log debloat "$LOGD_DIR" uraam-debloat || return 1
+    for pkg in "${SELECTED_PACKAGES[@]}"; do
+        printf '%s: ' "$pkg"
+        if is_whitelisted "$pkg"; then
+            err "became protected; skipped"
+            ((skipped+=1))
+            continue
+        fi
+        if [[ "$action" == uninstall ]]; then
+            if run_device pm uninstall -k --user 0 "$pkg" >/dev/null 2>&1; then
+                ok "uninstalled for user 0"
+                ((success+=1))
+            else
+                err "uninstall failed"
+                ((failed+=1))
+            fi
+        else
+            if run_device pm disable-user --user 0 "$pkg" >/dev/null 2>&1; then
+                ok "disabled"
+                ((success+=1))
+            else
+                err "disable failed"
+                ((failed+=1))
+            fi
+        fi
+    done
+    msg "${BLUE}----------------------------------------${NC}"
+    msg "Summary: ${GREEN}$success succeeded${NC}, ${YELLOW}$skipped skipped${NC}, ${RED}$failed failed${NC}."
     msg "Log: $LOGFILE"
     pause
 }
