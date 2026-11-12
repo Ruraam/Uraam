@@ -73,8 +73,14 @@ MOCK
 
 cat > "$TMP_DIR/mockbin/rish" <<'MOCK'
 #!/usr/bin/env bash
-[[ "\${1:-}" == "-c" && -n "\${2:-}" ]] || exit 2
-exec bash -c "$2"
+if [[ "\${1:-}" == "-c" && -n "\${2:-}" ]]; then
+    exec bash -c "$2"
+fi
+if (($# == 0)); then
+    IFS= read -r handshake || exit 1
+    [[ "$handshake" == "exit" ]] && exit 0
+fi
+exit 2
 MOCK
 
 chmod +x "$TMP_DIR/mockbin/adb" "$TMP_DIR/mockbin/su" "$TMP_DIR/mockbin/rish"
