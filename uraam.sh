@@ -753,7 +753,7 @@ uraam_debloat() {
         mapfile -t pkg_dependencies < <(uad_relationships_for_package "$pkg" dependencies)
         mapfile -t pkg_needed_by < <(uad_relationships_for_package "$pkg" neededBy)
 
-        if ( ${#pkg_dependencies[@]} > 0 ); then
+        if (( ${#pkg_dependencies[@]} > 0 )); then
             printf '      UAD-listed dependencies (required by this package):\n'
             for relation in "${pkg_dependencies[@]}"; do
                 if package_is_installed "$relation" "$installed"; then
@@ -766,7 +766,7 @@ uraam_debloat() {
             printf '      UAD-listed dependencies: none recorded (not proof of no dependencies).\n'
         fi
 
-        if ( ${#pkg_needed_by[@]} > 0 ); then
+        if (( ${#pkg_needed_by[@]} > 0 )); then
             printf '      Packages UAD says may depend on this package (reverse dependencies):\n'
             for relation in "${pkg_needed_by[@]}"; do
                 if package_is_installed "$relation" "$installed"; then
