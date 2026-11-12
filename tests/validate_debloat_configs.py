@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 CONFIG_DIR = Path("Configs/debloat")
-PACKAGE_ID = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(?:\\.[A-Za-z][A-Za-z0-9_]*)+$")
+PACKAGE_ID = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$")
 
 # Keep aligned with SAFETY_WHITELIST in uraam.sh.
 PROTECTED_PACKAGES = {
