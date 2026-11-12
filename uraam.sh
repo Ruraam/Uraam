@@ -584,7 +584,7 @@ uraam_debloat() {
         *) warn "Operation cancelled."; return 0 ;;
     esac
 
-    installed="$(device_package_list all)" || {
+    installed="$(device_package_list active)" || {
         err "Cannot obtain a reliable package inventory; no changes made."
         return 1
     }
@@ -641,7 +641,7 @@ uraam_debloat() {
         return 0
     }
 
-    installed="$(device_package_list all)" || {
+    installed="$(device_package_list active)" || {
         err "Cannot refresh package inventory; no changes made."
         return 1
     }
@@ -696,7 +696,7 @@ ubackup() {
     output_file="$output_dir/Uraam_Restoration_List_${date_str}.json"
 
     local all_pkgs active_pkgs model android_ver
-    all_pkgs="$(device_package_list all)" || return 1
+    all_pkgs="$(device_package_list active)" || return 1
     active_pkgs="$(device_package_list active)" || return 1
     [[ -n "$all_pkgs" ]] || { err "Unable to retrieve installed packages."; return 1; }
 
