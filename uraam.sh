@@ -292,17 +292,28 @@ run_device() {
 # GNU timeout is available via coreutils; macOS users can install gtimeout.
 DEVICE_COMMAND_TIMED_OUT=0
 run_device_bounded() {
-    local seconds timeout_bin status command_string
+    local seconds timeout_bin candidate candidate_path status command_string
     DEVICE_COMMAND_TIMED_OUT=0
     seconds="${URAAM_DEVICE_TIMEOUT:-30}"
     if [[ ! "$seconds" =~ ^[1-9][0-9]*$ ]] || (( seconds > 300 )); then
         err "URAAM_DEVICE_TIMEOUT must be an integer between 1 and 300 seconds."
         return 125
     fi
-    timeout_bin="$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null)" || {
-        err "A timeout utility is required for safe package operations. Install coreutils (timeout/gtimeout); no device command was sent."
+    # BusyBox and other reduced timeout implementations may not support the
+    # GNU signal/kill-after interface. Probe locally before sending anything
+    # to Android, and fall back from timeout to gtimeout when available.
+    timeout_bin=""
+    for candidate in timeout gtimeout; do
+        candidate_path="$(command -v "$candidate" 2>/dev/null)" || continue
+        if "$candidate_path" --signal=TERM --kill-after=1 1s sh -c ":" >/dev/null 2>&1; then
+            timeout_bin="$candidate_path"
+            break
+        fi
+    done
+    if [[ -z "$timeout_bin" ]]; then
+        err "A compatible GNU timeout is required (coreutils timeout/gtimeout). No device command was sent."
         return 125
-    }
+    fi
     case "$EXEC_TYPE" in
         ADB)
             [[ -n "$BACKEND_SERIAL" ]] || { err "No ADB serial selected."; return 1; }
