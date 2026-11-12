@@ -36,9 +36,9 @@ component_section_json() {
         }
         END { if (!found) exit 2 }
     ' <<< "$dump_raw" 2>/dev/null)"; then
-        printf '%s\\n' "$component_lines" | jq -Rsc 'split("\\n") | map(select(length > 0)) | unique'
+        printf '%s\n' "$component_lines" | jq -Rsc 'split("\n") | map(select(length > 0)) | unique'
     else
-        printf '%s\\n' null
+        printf '%s\n' null
     fi
 }
 
