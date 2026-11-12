@@ -37,14 +37,22 @@ jobs:
       - name: Validate changed JSON profiles and UAD classifications
         env:
           EVENT_NAME: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          BEFORE_SHA: ${{ github.event.before }}
           HEAD_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          changed_json="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- Configs/debloat | grep -E '\\.json$' || true)"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            diff_range="origin/$BASE_REF...HEAD"
+          else
+            diff_range="$BEFORE_SHA $HEAD_SHA"
+          fi
+          changed_json="$(git diff --name-only $diff_range -- Configs/debloat | grep -E '\\.json$' || true)"
           if [ -z "$changed_json" ]; then
-            echo "No changed debloat JSON profiles."
-            exit 0
+            echo "ERROR: expected changed debloat JSON profiles, but none were found."
+            exit 1
           fi
           mapfile -t files <<< "$changed_json"
+          printf 'Validating %s changed JSON profile(s):\n' "${#files[@]}"
+          printf ' - %s\n' "${files[@]}"
           python3 scripts/validate-debloat-json.py "${files[@]}"
