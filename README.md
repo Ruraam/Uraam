@@ -52,6 +52,8 @@ Designed to be simple, fast, and respectful of your device integrity.
 ## ⚡ Core Features
 
 * 🗑️ **Debloat (JSON-Powered):** Safely remove or disable bloatware using community-driven Canta & UAD JSON lists.
+* 🔎 **Preview & Dry-run:** Compare a selected profile with packages installed for Android user 0; clearly separate eligible, protected and absent packages before any change.
+* 🔐 **Explicit apply confirmation:** Dry-run never changes package state. Real operations require typing the exact `APPLY N` count and recheck the device inventory before execution.
 * 📦 **Batch APK Installer:** Drop your APKs into `./Apps/` and install them all in one click with automatic handling.
 * 💾 **Smart Backup (JSON):** Export your current device state and package configuration to a portable JSON file.
 * 🔄 **Restore (JSON-Driven):** Revert uninstalled apps or reinstall packages seamlessly from previous backups.
