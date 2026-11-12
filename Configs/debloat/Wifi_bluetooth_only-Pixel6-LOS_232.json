@@ -146,9 +146,6 @@
       "packageName": "com.android.ons.overlay.vendor.raviole"
     },
     {
-      "packageName": "com.android.permissioncontroller.overlay"
-    },
-    {
       "packageName": "com.android.phone.auto_generated_characteristics_rro"
     },
     {
@@ -188,27 +185,6 @@
       "packageName": "com.android.storagemanager.auto_generated_rro_product__"
     },
     {
-      "packageName": "com.android.systemui.accessibility.accessibilitymenu"
-    },
-    {
-      "packageName": "com.android.systemui.overlay.product.gs101"
-    },
-    {
-      "packageName": "com.android.systemui.overlay.product.oriole"
-    },
-    {
-      "packageName": "com.android.systemui.overlay.vendor.gs101"
-    },
-    {
-      "packageName": "com.android.systemui.overlay.vendor.oriole"
-    },
-    {
-      "packageName": "com.android.systemui.overlay.vendor.raviole"
-    },
-    {
-      "packageName": "com.android.systemui.plugin.globalactions.wallet"
-    },
-    {
       "packageName": "com.android.wallpaperbackup"
     },
     {
@@ -221,18 +197,6 @@
       "packageName": "com.google.android.hardwareinfo"
     },
     {
-      "packageName": "com.google.android.nfc.overlay.common"
-    },
-    {
-      "packageName": "com.google.android.nfc.overlay.gs101"
-    },
-    {
-      "packageName": "com.google.android.nfc.overlay.oriole"
-    },
-    {
-      "packageName": "com.google.android.nfc.overlay.raviole"
-    },
-    {
       "packageName": "com.google.android.overlay.DeviceAsWebcam"
     },
     {
@@ -240,12 +204,6 @@
     },
     {
       "packageName": "com.google.android.overlay.glanceablehubsettings"
-    },
-    {
-      "packageName": "com.google.android.overlay.permissioncontroller.safetycenter"
-    },
-    {
-      "packageName": "com.google.android.systemui.overlay.glanceablehubconfig"
     },
     {
       "packageName": "com.google.euiccpixel.overlay.gs101"
