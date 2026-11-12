@@ -124,11 +124,14 @@ device_package_list() {
         printf '%s\n' 'com.android.systemui' 'com.samsung.android.bluetooth'
     fi
 }
-uraam_debloat > "$TMP_DIR/stale.out" 2>&1 <<'INPUT'
+if uraam_debloat > "$TMP_DIR/stale.out" 2>&1 <<'INPUT'
 u
 a
 APPLY 1
 INPUT
+then
+    fail "stale preview should abort with a non-zero status"
+fi
 grep -Fq 'Device package state changed after preview' "$TMP_DIR/stale.out" ||
     fail "stale preview was not rejected"
 (( ${#DEVICE_MUTATIONS[@]} == 0 )) || fail "stale preview executed a mutation"
