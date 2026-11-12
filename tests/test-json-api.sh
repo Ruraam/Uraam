@@ -33,6 +33,12 @@ case "$*" in
     '-s TEST-SERIAL shell pm list packages -3 --user 0')
         printf 'package:com.example.alpha\npackage:com.example.beta\n'
         ;;
+    '-s TEST-SERIAL shell pm path --user 0 com.example.alpha')
+        printf 'package:/data/app/~~abc/com.example.alpha/base.apk\n'
+        ;;
+    '-s TEST-SERIAL shell dumpsys package com.example.alpha')
+        printf 'Package [com.example.alpha] (123):\n    versionCode=42 minSdk=23 targetSdk=35\n    versionName=1.2.3\n'
+        ;;
     '-s TEST-SERIAL shell getprop '*)
         printf '\n'
         ;;
@@ -55,6 +61,22 @@ jq -e '
     (.model | contains("TestPhone")) and
     .oem == "unknown"
 ' <<< "$device_json" >/dev/null
+
+package_info="$(bash "$ROOT/uraam-api.sh" package-info:com.example.alpha)"
+jq -e '
+    .status == "ok" and
+    .package == "com.example.alpha" and
+    .backend == "ADB" and
+    .version_name == "1.2.3" and
+    .version_code == "42" and
+    .paths == ["/data/app/~~abc/com.example.alpha/base.apk"] and
+    .read_only == true
+' <<< "$package_info" >/dev/null
+
+if bash "$ROOT/uraam-api.sh" 'package-info:com.example.alpha;id' >/dev/null 2>&1; then
+    printf '%s\\n' "FAIL: malformed package identifier was accepted" >&2
+    exit 1
+fi
 
 packages_json="$(bash "$ROOT/uraam-api.sh" list-packages)"
 jq -e '
@@ -85,4 +107,4 @@ fi
 help_output="$(bash "$ROOT/uraam-api.sh" --help)"
 grep -Fq 'read-only' <<< "$help_output"
 
-printf '%s\n' "PASS: JSON device information, package inventory and strict read-only command boundary"
+printf '%s\n' "PASS: JSON device information, package inventory, package inspector and strict read-only command boundary"
