@@ -93,14 +93,25 @@ main() {
                 '{status:"connected",version:$version,backend:$backend,serial:(if $serial == "" then null else $serial end),model:$model,oem:$oem,rom:{name:$rom,version:$rom_version}}'
             ;;
         list-packages)
-            local packages
+            local packages system_packages user_packages
             packages="$(device_package_list active 2>/dev/null)" || {
                 json_error "Android returned no reliable installed-package inventory." 5
                 return $?
             }
+            # Classification is best-effort and read-only. Keep the inventory
+            # available when an Android build does not support these filters.
+            system_packages="$(device_package_list system 2>/dev/null || true)"
+            user_packages="$(device_package_list user 2>/dev/null || true)"
             jq -n --arg backend "$EXEC_TYPE" --arg serial "$BACKEND_SERIAL" \
                 --argjson packages "$(printf '%s\n' "$packages" | jq -Rsc 'split("\n") | map(select(length > 0))')" \
-                '{status:"ok",backend:$backend,serial:(if $serial == "" then null else $serial end),user:0,count:($packages|length),packages:$packages}'
+                --argjson system_packages "$(printf '%s\n' "$system_packages" | jq -Rsc 'split("\n") | map(select(length > 0))')" \
+                --argjson user_packages "$(printf '%s\n' "$user_packages" | jq -Rsc 'split("\n") | map(select(length > 0))')" \
+                '($packages | map(. as $p | {key:$p,value:(if (($system_packages | index($p)) != null and ($user_packages | index($p)) == null) then "system" elif (($user_packages | index($p)) != null and ($system_packages | index($p)) == null) then "user" else "unknown" end)}) | from_entries) as $types |
+                 {status:"ok",backend:$backend,serial:(if $serial == "" then null else $serial end),user:0,count:($packages|length),packages:$packages,package_types:$types,
+                  classification_available:([$types[] | select(. == "unknown")] | length == 0),
+                  system_count:([$types[] | select(. == "system")] | length),
+                  user_count:([$types[] | select(. == "user")] | length),
+                  unclassified_count:([$types[] | select(. == "unknown")] | length)}'
             ;;
     esac
 }
