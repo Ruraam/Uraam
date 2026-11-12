@@ -83,7 +83,26 @@ fi
 exit 2
 MOCK
 
-chmod +x "$TMP_DIR/mockbin/adb" "$TMP_DIR/mockbin/su" "$TMP_DIR/mockbin/rish"
+cat > "$TMP_DIR/mockbin/pm" <<'MOCK'
+#!/usr/bin/env bash
+case "$*" in
+    'list packages --user 0')
+        printf 'package:com.example.alpha\npackage:com.example.beta\npackage:com.example.system\n'
+        ;;
+    'list packages -s --user 0')
+        printf 'package:com.example.system\n'
+        ;;
+    'list packages -3 --user 0')
+        printf 'package:com.example.alpha\npackage:com.example.beta\n'
+        ;;
+    *)
+        printf 'Unexpected mocked Package Manager call: %s\n' "$*" >&2
+        exit 2
+        ;;
+esac
+MOCK
+
+chmod +x "$TMP_DIR/mockbin/adb" "$TMP_DIR/mockbin/su" "$TMP_DIR/mockbin/rish" "$TMP_DIR/mockbin/pm"
 
 export PATH="$TMP_DIR/mockbin:$PATH"
 export ANDROID_SERIAL=TEST-SERIAL
