@@ -25,6 +25,12 @@ case "$*" in
         printf '15\n'
         ;;
     '-s TEST-SERIAL shell pm list packages --user 0')
+        printf 'package:com.example.alpha\npackage:com.example.beta\npackage:com.example.system\n'
+        ;;
+    '-s TEST-SERIAL shell pm list packages -s --user 0')
+        printf 'package:com.example.system\n'
+        ;;
+    '-s TEST-SERIAL shell pm list packages -3 --user 0')
         printf 'package:com.example.alpha\npackage:com.example.beta\n'
         ;;
     '-s TEST-SERIAL shell getprop '*)
@@ -54,7 +60,14 @@ packages_json="$(bash "$ROOT/uraam-api.sh" list-packages)"
 jq -e '
     .status == "ok" and
     .user == 0 and
-    .count == 2 and
+    .count == 3 and
+    .classification_available == true and
+    .system_count == 1 and
+    .user_count == 2 and
+    .unclassified_count == 0 and
+    .package_types["com.example.system"] == "system" and
+    .package_types["com.example.alpha"] == "user" and
+    .package_types["com.example.beta"] == "user" and
     (.packages | index("com.example.alpha") != null) and
     (.packages | index("com.example.beta") != null)
 ' <<< "$packages_json" >/dev/null
