@@ -329,7 +329,7 @@ detect_backend_status() {
     BACKEND_SERIAL="${ANDROID_SERIAL:-}"
 
     if command -v adb >/dev/null 2>&1; then
-        local devices serial selection
+        local selection
         local -a ready_devices=()
         mapfile -t ready_devices < <(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {print $1}')
 
@@ -752,10 +752,10 @@ install_one_apk() {
             "${cmd[@]}" install -r -g "$apk"
             ;;
         ROOT)
-            su -c "cp $(printf '%q' "$apk") $(printf '%q' "$remote")" || return 1
+            su -c "$(shell_quote_args cp "$apk" "$remote")" || return 1
             run_device pm install -r -g "$remote"
             local result=$?
-            su -c "rm -f $(printf '%q' "$remote")" >/dev/null 2>&1 || true
+            su -c "$(shell_quote_args rm -f "$remote")" >/dev/null 2>&1 || true
             return "$result"
             ;;
         SHIZUKU)
@@ -767,7 +767,7 @@ install_one_apk() {
             }
             mkdir -p "$shared_dir" || return 1
             cp -- "$apk" "$shared_apk" || return 1
-            rish -c "pm install -r -g $(printf '%q' "$shared_apk")"
+            rish -c "$(shell_quote_args pm install -r -g "$shared_apk")"
             local result=$?
             rm -f -- "$shared_apk"
             return "$result"
