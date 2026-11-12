@@ -115,3 +115,15 @@ bulk-uninstall JSON profiles. They contain system dependencies, overlays,
 carrier-specific services and device-specific components. See
 [Docs/UAD-NG-review-catalog.md](../../Docs/UAD-NG-review-catalog.md) for the
 pinned category counts and the rationale for requiring per-package review.
+
+
+### Runtime OEM and ROM identification
+
+During the manual UAD-NG preview, URAAM reads Android build properties to identify
+the manufacturer family and, when an explicit vendor property is available,
+the ROM family/version (for example One UI, MIUI/HyperOS, OxygenOS, ColorOS,
+EMUI/HarmonyOS, MagicOS, ZenUI, My UX, Funtouch OS/OriginOS, Pixel Android,
+Nothing OS, or LineageOS). This identification is informational only:
+unknown or missing properties are reported conservatively and do not change
+package risk classifications or automatically select packages. The detected
+OEM/ROM identity is checked again immediately before applying a preview.
