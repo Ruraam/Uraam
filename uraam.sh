@@ -1211,6 +1211,11 @@ uraam_debloat() {
                     warn "$remaining remaining operation(s) not attempted."
                     ((skipped+=remaining))
                     break
+                else
+                    warn "Package command failed; outcome may be uncertain. Stopping the batch for manual inspection."
+                    remaining=$(("${#SELECTED_PACKAGES[@]}" - index - 1))
+                    ((skipped+=remaining))
+                    break
                 fi
             fi
         else
@@ -1239,6 +1244,11 @@ uraam_debloat() {
                     remaining=$((${#SELECTED_PACKAGES[@]} - index - 1))
                     warn "Backend disconnected during operation; stopping the batch."
                     warn "$remaining remaining operation(s) not attempted."
+                    ((skipped+=remaining))
+                    break
+                else
+                    warn "Package command failed; outcome may be uncertain. Stopping the batch for manual inspection."
+                    remaining=$(("${#SELECTED_PACKAGES[@]}" - index - 1))
                     ((skipped+=remaining))
                     break
                 fi
