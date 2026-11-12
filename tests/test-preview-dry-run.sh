@@ -34,6 +34,7 @@ is_whitelisted com.samsung.android.bluetooth || fail "Bluetooth family pattern n
 is_whitelisted com.samsung.android.knox.kpecore || fail "Knox family pattern not enforced"
 pass "critical package protections"
 
+
 TEST_CONFIG="$TMP_DIR/profile.json"
 UAD_METADATA_FILE="$TMP_DIR/uad_lists.json"
 cat > "$UAD_METADATA_FILE" <<'JSON'
@@ -62,6 +63,7 @@ cat > "$TEST_CONFIG" <<'JSON'
     {"packageName": "com.example.app"},
     {"packageName": "com.example.expert"},
     {"packageName": "com.example.unsafe"},
+    {"packageName": "com.example.unknown"},
     {"packageName": "com.example.missing"},
     {"packageName": "com.android.systemui"},
     {"packageName": "com.samsung.android.bluetooth"}
@@ -80,6 +82,7 @@ device_package_list() {
         'com.example.app' \
         'com.example.expert' \
         'com.example.unsafe' \
+        'com.example.unknown' \
         'com.android.systemui' \
         'com.samsung.android.bluetooth'
 }
@@ -103,6 +106,8 @@ grep -Fq '[2] [Expert] [Google] com.example.expert' "$TMP_DIR/dry-run.out" ||
     fail "UAD Expert metadata was not displayed"
 grep -Fq '[BLOCKED] [UNSAFE] [Aosp] com.example.unsafe' "$TMP_DIR/dry-run.out" ||
     fail "Unsafe package was not blocked"
+grep -Fq '[BLOCKED] [UNKNOWN] [Unlisted] com.example.unknown' "$TMP_DIR/dry-run.out" ||
+    fail "Unknown UAD package was not blocked"
 grep -Fq '[NOT SELECTED] [Expert] com.example.expert' "$TMP_DIR/dry-run.out" ||
     fail "unselected Expert package was not explicitly excluded"
 grep -Fq '[WILL UNINSTALL] [Recommended] com.example.app' "$TMP_DIR/dry-run.out" ||
