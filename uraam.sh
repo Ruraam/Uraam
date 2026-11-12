@@ -196,8 +196,8 @@ term_set_storage() {
 start_log() {
     local kind="$1" dir="$2" prefix="$3"
     mkdir -p -- "$dir" || return 1
-    find "$dir" -maxdepth 1 -type f -name "\${prefix}-*.log" -mtime +30 -delete 2>/dev/null || true
-    LOGFILE="$dir/\${prefix}-$(date +%Y%m%d_%H%M%S).log"
+    find "$dir" -maxdepth 1 -type f -name "${prefix}-*.log" -mtime +30 -delete 2>/dev/null || true
+    LOGFILE="$dir/${prefix}-$(date +%Y%m%d_%H%M%S).log"
     exec > >(tee -a "$LOGFILE") 2>&1
 }
 
@@ -262,7 +262,7 @@ recover_pending_operation() {
     serial="$(jq -r '.serial' "$URAAM_OPERATION_JOURNAL")"
     model="$(jq -r '.model' "$URAAM_OPERATION_JOURNAL")"
     warn "Unfinished operation found ($state): $action $package"
-    printf 'Recorded backend: %s | device: %s | serial: %s\n' "$backend" "\${model:-unknown}" "\${serial:-local}"
+    printf 'Recorded backend: %s | device: %s | serial: %s\n' "$backend" "${model:-unknown}" "${serial:-local}"
     warn "URAAM will not replay this operation automatically."
     if [[ "$backend" != "$EXEC_TYPE" || ( "$backend" == "ADB" && "$serial" != "$BACKEND_SERIAL" ) ]]; then
         err "Current backend/device differs from the journal; reconnect the original device."
