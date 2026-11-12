@@ -150,6 +150,16 @@ require_backend() {
     BACKEND_SERIAL="TEST-SERIAL"
     CURRENT_MODEL="Mock Android device"
 }
+DEVICE_BRAND_CALLS=0
+CHANGE_DEVICE_ON_RECHECK=0
+device_brand() {
+    ((DEVICE_BRAND_CALLS+=1))
+    if (( CHANGE_DEVICE_ON_RECHECK && DEVICE_BRAND_CALLS >= 2 )); then
+        CURRENT_MODEL="Different Android device"
+    else
+        CURRENT_MODEL="Mock Android device"
+    fi
+}
 select_json_file() { SELECTED_FILE="$TEST_CONFIG"; }
 device_package_list() {
     printf '%s\n' \
@@ -262,3 +272,22 @@ grep -Fq 'Device or UAD safety state changed after preview' "$TMP_DIR/stale.out"
     fail "stale preview was not rejected"
 (( ${#DEVICE_MUTATIONS[@]} == 0 )) || fail "stale preview executed a mutation"
 pass "stale preview is rejected before execution"
+
+# A different model on the same ADB transport must invalidate the preview.
+DEVICE_MUTATIONS=()
+DEVICE_BRAND_CALLS=0
+CHANGE_DEVICE_ON_RECHECK=1
+if uraam_debloat > "$TMP_DIR/device-swap.out" 2>&1 <<'INPUT'
+u
+1
+a
+APPLY 1
+INPUT
+then
+    fail "device model change should abort the preview"
+fi
+grep -Fq 'Device model, OEM or ROM identity changed after preview' "$TMP_DIR/device-swap.out" ||
+    fail "device model change was not reported"
+(( ${#DEVICE_MUTATIONS[@]} == 0 )) || fail "device swap executed a mutation"
+CHANGE_DEVICE_ON_RECHECK=0
+pass "device model changes invalidate stale previews"
