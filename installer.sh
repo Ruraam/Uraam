@@ -294,6 +294,88 @@ check_dependencies() {
 }
 
 # ------------------------------------------------------------------------------
+# Optional Linux desktop integration
+# ------------------------------------------------------------------------------
+gui_dependencies() {
+    local packages=()
+    [[ "$IS_TERMUX" == true ]] && { log_warn "URAAM Desktop is not available inside Termux."; return 1; }
+    if have_command apt-get; then packages=(python3 python3-gi gir1.2-gtk-4.0)
+    elif have_command pacman; then packages=(python python-gobject gtk4)
+    elif have_command dnf; then packages=(python3 python3-gobject gtk4)
+    elif have_command zypper; then packages=(python3 python3-gobject gtk4)
+    elif have_command apk; then packages=(python3 py3-gobject3 gtk4)
+    else log_error "Install Python 3, PyGObject and GTK4 manually."; return 1
+    fi
+    install_dependencies "${packages[@]}"
+}
+
+register_deb_gui() {
+    [[ -r /usr/share/uraam/uraam.desktop ]] || {
+        log_error "The packaged desktop entry is missing."
+        return 1
+    }
+    run_as_root install -D -m 0644 /usr/share/uraam/uraam.desktop /usr/share/applications/uraam.desktop || return 1
+    have_command update-desktop-database && run_as_root update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
+    have_command gtk-update-icon-cache && run_as_root gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor >/dev/null 2>&1 || true
+    log_success "URAAM Desktop is registered in the applications menu."
+}
+
+install_standalone_gui() {
+    local tmp_dir base_url
+    [[ "$IS_TERMUX" == true ]] && return 1
+    gui_dependencies || return 1
+    tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/uraam-gui.XXXXXX")" || return 1
+    base_url="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${BRANCH}"
+    log_info "Downloading URAAM Desktop components..."
+    if ! curl --fail --location --silent --show-error --retry 2 --connect-timeout 15 "$base_url/uraam.sh" -o "$tmp_dir/uraam.sh" ||
+       ! curl --fail --location --silent --show-error --retry 2 --connect-timeout 15 "$base_url/uraam-api.sh" -o "$tmp_dir/uraam-api.sh" ||
+       ! curl --fail --location --silent --show-error --retry 2 --connect-timeout 15 "$base_url/uraam-gui" -o "$tmp_dir/uraam-gui" ||
+       ! curl --fail --location --silent --show-error --retry 2 --connect-timeout 15 "$base_url/GUI/main.py" -o "$tmp_dir/main.py" ||
+       ! curl --fail --location --silent --show-error --retry 2 --connect-timeout 15 "$base_url/assets/uraam_logo.svg" -o "$tmp_dir/uraam.svg"; then
+        rm -rf -- "$tmp_dir"; log_error "Unable to download all desktop components."; return 1
+    fi
+    if ! bash -n "$tmp_dir/uraam.sh" || ! bash -n "$tmp_dir/uraam-api.sh" || ! bash -n "$tmp_dir/uraam-gui" || ! python3 -m py_compile "$tmp_dir/main.py" || ! grep -q '<svg' "$tmp_dir/uraam.svg"; then
+        rm -rf -- "$tmp_dir"; log_error "Desktop component validation failed."; return 1
+    fi
+    mkdir -p "$tmp_dir/GUI" || { rm -rf -- "$tmp_dir"; return 1; }
+    mv "$tmp_dir/main.py" "$tmp_dir/GUI/main.py"
+    cat > "$tmp_dir/uraam.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=URAAM Desktop
+GenericName=Android App Manager
+Comment=Manage Android applications with URAAM
+Exec=uraam-gui
+TryExec=uraam-gui
+Icon=uraam
+Terminal=false
+Categories=Utility;System;
+StartupWMClass=org.ruraam.uraam
+EOF
+    if ! run_as_root install -d /usr/local/share/uraam/GUI /usr/local/bin /usr/local/share/applications /usr/local/share/icons/hicolor/scalable/apps; then
+        rm -rf -- "$tmp_dir"; return 1
+    fi
+    if ! run_as_root install -m 0755 "$tmp_dir/uraam.sh" /usr/local/share/uraam/uraam.sh ||
+       ! run_as_root install -m 0644 "$tmp_dir/uraam-api.sh" /usr/local/share/uraam/uraam-api.sh ||
+       ! run_as_root install -m 0644 "$tmp_dir/GUI/main.py" /usr/local/share/uraam/GUI/main.py ||
+       ! run_as_root install -m 0644 "$tmp_dir/uraam.svg" /usr/local/share/icons/hicolor/scalable/apps/uraam.svg ||
+       ! run_as_root install -m 0644 "$tmp_dir/uraam.desktop" /usr/local/share/applications/uraam.desktop; then
+        rm -rf -- "$tmp_dir"; return 1
+    fi
+    cat > "$tmp_dir/uraam-gui" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+exec python3 /usr/local/share/uraam/GUI/main.py "$@"
+EOF
+    if ! run_as_root install -m 0755 "$tmp_dir/uraam-gui" /usr/local/bin/uraam-gui; then rm -rf -- "$tmp_dir"; return 1; fi
+    run_as_root chmod 0755 /usr/local/share/uraam/uraam-api.sh || true
+    have_command update-desktop-database && run_as_root update-desktop-database /usr/local/share/applications >/dev/null 2>&1 || true
+    have_command gtk-update-icon-cache && run_as_root gtk-update-icon-cache -q -t -f /usr/local/share/icons/hicolor >/dev/null 2>&1 || true
+    rm -rf -- "$tmp_dir"
+    log_success "URAAM Desktop installed. Find it in the applications menu or run uraam-gui."
+}
+
+# ------------------------------------------------------------------------------
 # Standalone Mode
 # ------------------------------------------------------------------------------
 standalone_uraam() {
@@ -352,6 +434,9 @@ standalone_uraam() {
     rm -f -- "$tmp_file"
 
     log_success "URAAM successfully installed to ${BOLD}${target_bin}${NC}"
+    if [[ "$IS_TERMUX" != true ]] && confirm_yes "Install optional URAAM Desktop (GTK4 GUI)?"; then
+        install_standalone_gui || log_warn "URAAM CLI remains installed; desktop integration was not completed."
+    fi
 
     if [[ "$IS_TERMUX" == true && ! -f "$HOME/.shortcuts/URAAM" ]]; then
         printf '\n'
@@ -421,6 +506,13 @@ deb_uraam() {
 
     if [[ -n "$local_ver" ]] && dpkg --compare-versions "$local_ver" ge "$remote_ver" 2>/dev/null; then
         log_success "Current system runtime is strictly up-to-date."
+        if confirm_yes "Install dependencies for optional URAAM Desktop (GTK4 GUI)?"; then
+            if [[ -x /usr/bin/uraam-gui && -r /usr/share/uraam/GUI/main.py ]]; then
+                gui_dependencies && register_deb_gui && log_success "URAAM Desktop dependencies are ready."
+            else
+                log_warn "This package does not include URAAM Desktop. Update to a release with GUI integration first."
+            fi
+        fi
         pause_menu
         return 0
     fi
@@ -465,6 +557,9 @@ deb_uraam() {
     if run_as_root apt-get install -y "$tmp_deb"; then
         rm -f -- "$tmp_deb"
         log_success "URAAM successfully updated to ${BOLD}${latest_tag}${NC}."
+        if confirm_yes "Install optional URAAM Desktop (GTK4 GUI)?"; then
+            if gui_dependencies; then register_deb_gui || log_warn "GUI dependencies are installed, but desktop registration failed."; else log_warn "The Bash version is installed, but GUI dependencies could not be installed."; fi
+        fi
         pause_menu
         return 0
     fi
@@ -501,6 +596,10 @@ uninstall_uraam() {
         if [[ -e /usr/local/bin/uraam ]]; then
             run_as_root rm -f -- /usr/local/bin/uraam || return 1
         fi
+        run_as_root rm -f -- /usr/local/bin/uraam-gui /usr/local/share/applications/uraam.desktop /usr/local/share/icons/hicolor/scalable/apps/uraam.svg || return 1
+        run_as_root rm -rf -- /usr/local/share/uraam || return 1
+        have_command update-desktop-database && run_as_root update-desktop-database /usr/local/share/applications >/dev/null 2>&1 || true
+        have_command gtk-update-icon-cache && run_as_root gtk-update-icon-cache -q -t -f /usr/local/share/icons/hicolor >/dev/null 2>&1 || true
     fi
 
     log_success "URAAM executable system hooks successfully removed."

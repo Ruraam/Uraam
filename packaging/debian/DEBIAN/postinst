@@ -1,5 +1,5 @@
 #!/bin/sh
 set -e
 ln -sf /usr/share/uraam/uraam.sh /usr/bin/uraam
-chmod +x /usr/share/uraam/uraam.sh
+chmod 0755 /usr/share/uraam/uraam.sh /usr/share/uraam/uraam-api.sh /usr/bin/uraam-gui
 exit 0

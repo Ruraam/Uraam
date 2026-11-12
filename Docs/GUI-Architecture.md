@@ -84,7 +84,7 @@ Then launch:
 bash ./uraam-gui
 ```
 
-The launcher and API must remain beside `uraam.sh` in this initial source-checkout milestone. Packaging and installed-path integration are intentionally deferred until the interface and API contract stabilize.
+For a source checkout, the launcher and API remain beside `uraam.sh`. Debian packages install the frontend under `/usr/share/uraam`, the command at `/usr/bin/uraam-gui`, and the official SVG icon under the hicolor icon theme. The application-menu entry is registered only when GTK4 bindings are available. The universal Linux installer offers the same optional frontend installation under `/usr/local`; Termux remains CLI-only.
 
 ## Safety boundary
 

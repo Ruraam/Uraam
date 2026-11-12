@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=URAAM Desktop
+GenericName=Android App Manager
+Comment=Manage Android applications with URAAM
+Exec=uraam-gui
+TryExec=uraam-gui
+Icon=uraam
+Terminal=false
+Categories=Utility;System;
+StartupWMClass=org.ruraam.uraam
