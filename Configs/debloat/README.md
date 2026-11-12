@@ -126,4 +126,5 @@ EMUI/HarmonyOS, MagicOS, ZenUI, My UX, Funtouch OS/OriginOS, Pixel Android,
 Nothing OS, or LineageOS). This identification is informational only:
 unknown or missing properties are reported conservatively and do not change
 package risk classifications or automatically select packages. The detected
-OEM/ROM identity is checked again immediately before applying a preview.
+device model, OEM family and ROM/version are checked again immediately before
+applying a preview. A model change invalidates the preview.
