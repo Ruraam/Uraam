@@ -71,10 +71,32 @@ def main() -> int:
         return 1
 
     errors: list[str] = []
-    json_files = sorted(CONFIG_DIR.glob("*.json"))
+    requested = [Path(arg) for arg in sys.argv[1:]]
+    if requested:
+        json_files = []
+        for item in requested:
+            path = item if item.is_absolute() else ROOT / item
+            try:
+                path.resolve().relative_to(CONFIG_DIR.resolve())
+            except ValueError:
+                errors.append(f"{item}: path is outside {CONFIG_DIR}")
+                continue
+            if path.suffix.lower() == ".json" and path.is_file():
+                json_files.append(path)
+            else:
+                errors.append(f"{item}: JSON file does not exist")
+        json_files = sorted(set(json_files))
+    else:
+        json_files = sorted(CONFIG_DIR.glob("*.json"))
+
     if not json_files:
-        print("ERROR: no JSON configuration files found", file=sys.stderr)
-        return 1
+        if errors:
+            print("URAAM debloat configuration validation FAILED:")
+            for error in errors:
+                print(f" - {error}")
+            return 1
+        print("No changed JSON profiles to validate.")
+        return 0
 
     for path in json_files:
         try:
@@ -130,7 +152,7 @@ def main() -> int:
         return 1
 
     print(
-        f"Validated {len(json_files)} JSON profiles; "
+        f"Validated {len(json_files)} selected JSON profiles; "
         f"{sum(1 for p in json_files if p.name.startswith('Safe-'))} Safe profiles "
         f"checked against UAD-NG revision {UAD_REVISION}."
     )
