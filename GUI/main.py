@@ -319,7 +319,12 @@ class UraamWindow(Gtk.ApplicationWindow):
 
     def _show_packages(self, payload: Any, error: str | None) -> None:
         if error:
-            self.package_summary.set_text(error)
+            self.status_label.set_text("Package inventory unavailable")
+            self.package_summary.set_text(f"Inventory unavailable: {error}")
+            self.inventory_label.set_text("The installed-package inventory could not be loaded.")
+            self._packages = []
+            while child := self.package_list.get_first_child():
+                self.package_list.remove(child)
             return
         self._packages = sorted(set(payload.get("packages", [])), key=str.casefold)
         self.package_summary.set_text(
@@ -349,6 +354,10 @@ class UraamWindow(Gtk.ApplicationWindow):
         if query:
             self.package_summary.set_text(
                 f"{len(visible)} / {len(self._packages)} package(s) match “{query}”"
+            )
+        else:
+            self.package_summary.set_text(
+                f"{len(self._packages)} installed package(s) · Android user 0 · read-only"
             )
 
 
