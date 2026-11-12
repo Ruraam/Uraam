@@ -288,6 +288,43 @@ run_device() {
     esac
 }
 
+# Run potentially blocking device commands with a bounded host-side timeout.
+# GNU timeout is available via coreutils; macOS users can install gtimeout.
+DEVICE_COMMAND_TIMED_OUT=0
+run_device_bounded() {
+    local seconds timeout_bin status command_string
+    DEVICE_COMMAND_TIMED_OUT=0
+    seconds="${URAAM_DEVICE_TIMEOUT:-30}"
+    if [[ ! "$seconds" =~ ^[1-9][0-9]*$ ]] || (( seconds > 300 )); then
+        err "URAAM_DEVICE_TIMEOUT must be an integer between 1 and 300 seconds."
+        return 125
+    fi
+    timeout_bin="$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null)" || {
+        err "A timeout utility is required for safe package operations. Install coreutils (timeout/gtimeout); no device command was sent."
+        return 125
+    }
+    case "$EXEC_TYPE" in
+        ADB)
+            [[ -n "$BACKEND_SERIAL" ]] || { err "No ADB serial selected."; return 1; }
+            "$timeout_bin" --signal=TERM --kill-after=5 "${seconds}s" adb -s "$BACKEND_SERIAL" shell "$@"
+            status=$?
+            ;;
+        ROOT)
+            command_string="$(shell_quote_args "$@")"
+            "$timeout_bin" --signal=TERM --kill-after=5 "${seconds}s" su -c "$command_string"
+            status=$?
+            ;;
+        SHIZUKU)
+            command_string="$(shell_quote_args "$@")"
+            "$timeout_bin" --signal=TERM --kill-after=5 "${seconds}s" rish -c "$command_string"
+            status=$?
+            ;;
+        *) err "No valid device backend selected."; return 1 ;;
+    esac
+    if (( status == 124 || status == 137 )); then DEVICE_COMMAND_TIMED_OUT=1; fi
+    return "$status"
+}
+
 # Check the transport independently from the package command. A package-level
 # failure must not be confused with a disconnected ADB/Shizuku/root backend.
 backend_is_available() {
@@ -700,8 +737,8 @@ select_json_file() {
 device_package_list() {
     local mode="${1:-active}" raw
     case "$mode" in
-        all)    raw="$(run_device pm list packages -u --user 0)" || return 1 ;;
-        active) raw="$(run_device pm list packages --user 0)" || return 1 ;;
+        all)    raw="$(run_device_bounded pm list packages -u --user 0)" || return 1 ;;
+        active) raw="$(run_device_bounded pm list packages --user 0)" || return 1 ;;
         *) return 2 ;;
     esac
     # Do not accept a partial inventory mixed with transport/PM errors.
@@ -1039,12 +1076,19 @@ uraam_debloat() {
             continue
         fi
         if [[ "$action" == uninstall ]]; then
-            if run_device pm uninstall -k --user 0 "$pkg" >/dev/null 2>&1; then
+            if run_device_bounded pm uninstall -k --user 0 "$pkg" >/dev/null 2>&1; then
                 ok "uninstalled for user 0"
                 ((success+=1))
             else
-                err "uninstall failed"
                 ((failed+=1))
+                if (( DEVICE_COMMAND_TIMED_OUT )); then
+                    warn "Uninstall timed out; its outcome is unknown. Do not retry this package; inspect the device and refresh inventory."
+                    remaining=$((${#SELECTED_PACKAGES[@]} - index - 1))
+                    warn "$remaining remaining operation(s) not attempted."
+                    ((skipped+=remaining))
+                    break
+                fi
+                err "uninstall failed"
                 if ! backend_is_available; then
                     remaining=$((${#SELECTED_PACKAGES[@]} - index - 1))
                     warn "Backend disconnected during operation; stopping the batch."
@@ -1054,12 +1098,19 @@ uraam_debloat() {
                 fi
             fi
         else
-            if run_device pm disable-user --user 0 "$pkg" >/dev/null 2>&1; then
+            if run_device_bounded pm disable-user --user 0 "$pkg" >/dev/null 2>&1; then
                 ok "disabled"
                 ((success+=1))
             else
-                err "disable failed"
                 ((failed+=1))
+                if (( DEVICE_COMMAND_TIMED_OUT )); then
+                    warn "Disable timed out; its outcome is unknown. Do not retry this package; inspect the device and refresh inventory."
+                    remaining=$((${#SELECTED_PACKAGES[@]} - index - 1))
+                    warn "$remaining remaining operation(s) not attempted."
+                    ((skipped+=remaining))
+                    break
+                fi
+                err "disable failed"
                 if ! backend_is_available; then
                     remaining=$((${#SELECTED_PACKAGES[@]} - index - 1))
                     warn "Backend disconnected during operation; stopping the batch."
