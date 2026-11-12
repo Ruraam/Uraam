@@ -40,7 +40,7 @@ Connected device:
 ```json
 {
   "status": "connected",
-  "version": "5.0.0",
+  "version": "5.1.0",
   "backend": "ADB",
   "serial": "DEVICE-SERIAL",
   "model": "Manufacturer Model (Android 15)",
