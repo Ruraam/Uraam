@@ -153,9 +153,21 @@ indefinitely. The default limit is 30 seconds and can be adjusted with
 `URAAM_DEVICE_TIMEOUT` to an integer from 1 to 300 seconds.
 
 The host must provide GNU `timeout` (normally from coreutils) or `gtimeout`
-(commonly installed as `gtimeout` on macOS). If neither command is available,
-URAAM refuses to send the bounded package command and reports the missing
-requirement; it does not silently run without a timeout.
+(commonly installed as `gtimeout` on macOS). URAAM probes the required GNU
+signal and kill-after options locally before invoking ADB, `su` or `rish`.
+This avoids assuming that a BusyBox or reduced `timeout` implementation has
+the same interface. If `timeout` is incompatible, URAAM tries `gtimeout`;
+if neither supports the required options, it refuses to send the device
+command.
+
+Typical installation:
+- Debian/Linux and WSL: install the `coreutils` package.
+- Termux: run `pkg install coreutils`.
+- macOS with Homebrew: run `brew install coreutils` (use the provided
+  `gtimeout` command).
+
+The timeout compatibility probe and fallback are covered by mocked regression
+tests. CI does not replace testing on each host OS or a real Android device.
 
 A timed-out uninstall or disable has an **unknown outcome**: Android may have
 applied the operation even if the host lost its response. URAAM therefore
