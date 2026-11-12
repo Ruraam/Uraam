@@ -10,6 +10,7 @@ This directory contains the operational and technical documentation for URAAM. S
 | [Shizuku and Wireless ADB](Shizuku_wireless.md) | Shizuku prerequisites, pairing, connection and troubleshooting |
 | [Safety and Recovery](Safety-and-Recovery.md) | Package preview, manual selection, Dry-run, Apply, timeouts, journal and recovery |
 | [UAD-NG review catalogue](UAD-NG-review-catalog.md) | Pinned UAD-NG metadata, risk categories and dependency caveats |
+| [URAAM Desktop architecture](GUI-Architecture.md) | Optional GTK4 frontend, read-only JSON bridge and safety boundaries |
 
 ## Technical reference
 
