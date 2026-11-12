@@ -178,12 +178,12 @@ main() {
             services_json="$(component_section_json "$dump_raw" "$package_id" Services:)"
             receivers_json="$(component_section_json "$dump_raw" "$package_id" Receivers:)"
             providers_json="$(component_section_json "$dump_raw" "$package_id" Providers:)"
-            jq -n --arg package "$package_id" --arg backend "$EXEC_TYPE" \\
-                --arg version_name "$version_name" --arg version_code "$version_code" \\
-                --argjson requested_permissions "$permissions_json" \\
-                --argjson activities "$activities_json" --argjson services "$services_json" \\
-                --argjson receivers "$receivers_json" --argjson providers "$providers_json" \\
-                --args \\
+            jq -n --arg package "$package_id" --arg backend "$EXEC_TYPE" \
+                --arg version_name "$version_name" --arg version_code "$version_code" \
+                --argjson requested_permissions "$permissions_json" \
+                --argjson activities "$activities_json" --argjson services "$services_json" \
+                --argjson receivers "$receivers_json" --argjson providers "$providers_json" \
+                --args \
                 '{status:"ok",package:$package,backend:$backend,paths:$ARGS.positional,
                   version_name:(if $version_name == "" then null else $version_name end),
                   version_code:(if $version_code == "" then null else $version_code end),
@@ -191,7 +191,7 @@ main() {
                   permissions_semantics:"requested_only_not_grant_status",
                   components:{activities:$activities,services:$services,receivers:$receivers,providers:$providers},
                   components_semantics:"entries_from_matching_dumpsys_sections_only",
-                  metadata_source:"dumpsys package",read_only:true}' \\
+                  metadata_source:"dumpsys package",read_only:true}' \
                 "${apk_paths[@]}"
             ;;
         list-packages)
