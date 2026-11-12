@@ -116,10 +116,9 @@ INPUT
 pass "disable preview and apply path"
 
 DEVICE_MUTATIONS=()
-INVENTORY_CALLS=0
 device_package_list() {
-    (( INVENTORY_CALLS += 1 ))
-    if (( INVENTORY_CALLS == 1 )); then
+    if [[ ! -e "$TMP_DIR/first-inventory" ]]; then
+        : > "$TMP_DIR/first-inventory"
         printf '%s\n' 'com.example.app' 'com.android.systemui' 'com.samsung.android.bluetooth'
     else
         printf '%s\n' 'com.android.systemui' 'com.samsung.android.bluetooth'
