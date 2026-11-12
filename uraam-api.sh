@@ -134,7 +134,7 @@ main() {
                 END { if (!found) exit 1 }
             ' <<< "$dump_raw" 2>/dev/null || true)"
             if grep -Eq '^[[:space:]]*requested permissions:[[:space:]]*$' <<< "$dump_raw"; then
-                permissions_json="$(printf '%s\\n' "$requested_permissions" | jq -Rsc 'split("\\n") | map(select(length > 0))')"
+                permissions_json="$(printf '%s\n' "$requested_permissions" | jq -Rsc 'split("\n") | map(select(length > 0))')"
             else
                 permissions_json=null
             fi
