@@ -1,155 +1,175 @@
-## ⚙️ Quick Start
+# Quick Start
 
-**Disconnect Samsung account before using tier 2 and 3 in script and for more privacy and toavoid account sync loops.**
+This guide takes you from installation to a first, non-destructive device check. For destructive package changes, read [Safety and Recovery](Safety-and-Recovery.md) first.
 
-### Universal Ruvomain ADB App-Manager (URAAM)
+## 1. Host requirements
 
-**1-USB option** ***Enable USB Debugging on your device:***
+URAAM is a Bash application. The current runtime uses these tools:
 
-* Settings > About phone > Tap "Build Number" 7 times
+| Tool | Purpose |
+|---|---|
+| Bash | Run the application |
+| `adb` | Android Debug Bridge backend |
+| `jq` | JSON configuration, metadata and journal handling |
+| `curl` | Installer and updater network access |
+| GNU `timeout` or `gtimeout` | Bound device command execution |
+| `flock` | Exclusive lock for destructive debloat apply |
+| `sync`, `mktemp`, `mv` | Durable operation journal handling |
 
-* Settings > Developer Options > Enable "USB Debugging"
+The installer can resolve some dependencies on supported package managers. If installing manually, install the tools appropriate to your platform.
 
-* Connect your device to your PC via USB
+### Debian / Ubuntu
 
-or
-
-**2-Wireless option** ***Use wireless ADB setup assistant option in Dashboard.***
-* Execute script and choose option ***[w] Wireless ADB Setup***
-* In "Wireless ADB Mode", you have 2 choice:
-
-* Wireless ADB + Shizuku:  One-Click Wireless ADB auto-connection with Shizuku
-     * [More information & Quick Start Guide](/Docs/Shizuku_wireless.md)
-
-or
-
-* Wireless ADB: Standard wireless ADB debugging connection.
-
-or
-
-**3-Shizuku option** ***(For Termux via Shizuku & Rish):***
-* Start [Shizuku](https://shizuku.rikka.app/).
-* Export the Shizuku shell (`rish`) into Termux environment.
-* URAAM will execute elevated package commands directly on-device.
-
-*Note:*
-* *- If adb connection fails, ensure your PC and Android device are on the same Wi-Fi network.*
-* *- If the pairing code is rejected, turn off Wireless Debugging and turn it back on to refresh the token.*
-
----
-## ⚡ Quick & Direct Installation
-
-# 📦 Universal 1-Line Installer
-
-**The installer will automatically detect your platform and guide you through:**
-
-- **Debian / Ubuntu / WSL**: Native `.deb` package (recommended) or standalone binary.
-- **Android (Termux)**: Automatic setup with storage and environment checks.
-- **macOS & other Linux distros**: Direct standalone installation.
-
-Run the universal installer directly in your terminal (**Linux PC, Mac, or Android Termux**):
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Ruraam/Uraam/main/installer.sh || wget -qO- https://raw.githubusercontent.com/Uraam/Uraam/main/installer.sh)
+sudo apt update
+sudo apt install bash curl jq adb coreutils util-linux
 ```
-### 🚀 Usage Anywhere
-Once installed, simply run the global command from any directory:
+
+### Termux
+
+```bash
+pkg update
+pkg install bash curl jq android-tools coreutils util-linux
+```
+
+Termux may ask for shared-storage access. Grant it only if you want URAAM to access shared files.
+
+### macOS
+
+Install Android platform-tools and GNU coreutils:
+
+```bash
+brew install android-platform-tools coreutils jq curl
+```
+
+Homebrew's GNU timeout is normally named `gtimeout`. The exclusive `flock` requirement applies to destructive debloat apply; if it is unavailable, URAAM refuses to proceed with that operation.
+
+### Other Linux / WSL
+
+Install Bash, ADB platform-tools, jq, GNU coreutils and util-linux using your distribution's package manager. WSL users must separately configure a reachable ADB transport (for example, Windows ADB or USB/IP); URAAM cannot configure USB passthrough for every WSL setup.
+
+## 2. Install URAAM
+
+### Universal installer
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/Ruraam/Uraam/main/installer.sh)
+```
+
+Review the installer source first if you prefer not to execute a downloaded script directly. You can also download it and run it locally.
+
+### Debian package
+
+Download the current `uraam-debian_..._all.deb` asset from [Releases](https://github.com/Ruraam/Uraam/releases), then:
+
+```bash
+sudo apt install ./uraam-debian_VERSION_all.deb
+```
+
+Use the exact filename from the release.
+
+### Run from source
+
+```bash
+git clone https://github.com/Ruraam/Uraam.git
+cd Uraam
+bash ./uraam.sh
+```
+
+## 3. Connect the Android device
+
+### USB ADB
+
+1. On Android, open **Settings → About phone** and tap **Build number** until Developer options are enabled.
+2. Open **Developer options** and enable **USB debugging**.
+3. Connect the device to the host with a data-capable USB cable.
+4. Unlock the device and accept the RSA authorization prompt.
+5. On the host, run:
+
+```bash
+adb devices
+```
+
+The device should appear with state `device`. If it appears as `unauthorized`, accept the prompt on Android. If no device appears, check the cable, USB mode, platform-tools and host permissions.
+
+### Wireless debugging
+
+Use Android's **Wireless debugging** developer option and the pairing code/port shown by Android, or use the wireless helper in URAAM. The host and phone must be on the same trusted network. Pairing and connection ports can change; do not assume a fixed port.
+
+See [Shizuku and Wireless ADB](Shizuku_wireless.md).
+
+### Shizuku (Termux)
+
+1. Install and start [Shizuku](https://shizuku.rikka.app/).
+2. Follow Shizuku's official instructions for your Android version to start the service.
+3. Make the Shizuku shell command `rish` available in the Termux session.
+4. Confirm that `rish -c id` succeeds before selecting the Shizuku backend in URAAM.
+
+URAAM does not install or grant Shizuku permissions on your behalf.
+
+### Local root
+
+On a rooted Android environment, URAAM can use the local `su` command when available and authorized. Root access is not required for the ADB workflow.
+
+## 4. First launch
+
+Start URAAM:
+
 ```bash
 uraam
 ```
->💡 **Desktop Integration:** If installed via the `.deb` package (Debian, Ubuntu, etc.), a desktop entryis automatically created. You can launch URAAM directly from your system applications menu under the **Accessories / Utility** category.
 
-### 📦 Updating / Uninstalling
-- **To update** to the latest release: In the URAAM dashboard, select `[u] Update URAAM` to update automatically on all platforms.
-- **To uninstall** URAAM: Simply re-run the universal command above and select the uninstall option from the menu.
+For a source checkout, run `bash ./uraam.sh` from the repository directory.
 
-*(You can also download the latest `.deb` packages directly from the [Releases Page](https://github.com/Uraam/Uraam/releases))*
+The dashboard displays the detected backend and active data paths. Confirm that the selected backend points to the intended device before running an operation.
 
----
+## 5. First safe workflow
 
-> **Note:**
-> -The installer auto-installs **Git** (after confirmation) and handles repository cloning.
-> - URAAMauto-installs **ADB** and **JQ** if missing.
-> - The `.deb` package automatically handles system dependencies.
+For a first run, do not start by uninstalling packages.
 
-### 📁 File Layout (`~/.Uraam/`)
-| Folder | Purpose|| On Debian with DEB version |
-| :--- | :--- | :--- | :--- |
-| Configs | `Configs/debloat/` | Place debloat lists here (*Canta/UAD, raw JSON supported*) | $HOME/.local/share/uraam/Configs
-| Apps | `Apps/` | Place APKs to batch-install | $HOME/.local/share/uraam/Apps
-| backup-restore | `Configs/backup-restore/` | Exported application lists & restore points | $HOME/.local/share/uraam/backup-restore
+1. Open **Debloat apps**.
+2. Select a profile and choose the requested action.
+3. Review the inventory and UAD-NG risk information.
+4. Select only packages you understand.
+5. Choose **Dry-run**.
+6. Confirm that the displayed package list and operation count match your expectations.
 
-## Other installation method
-<details>
-<sumary>Prerequisites:</sumary>
+Dry-run does not issue uninstall or disable operations. If you later choose Apply, URAAM requires the exact `APPLY N` confirmation and performs fresh identity/inventory checks.
 
-- `git` for clone repo
+## 6. Useful dashboard actions
 
-Git installation:
+| Key | Action |
+|---|---|
+| `d` | Debloat apps |
+| `i` | Install APK(s) from the Apps directory |
+| `b` | Create a restoration list |
+| `r` | Restore packages from a selected list |
+| `w` | Wireless connection menu |
+| `l` | View operation logs |
+| `u` | Update URAAM |
+| `e` | Exit |
 
->>Termux
-```bash
-pkg install git
-```
->>Debian, Ubuntu, WSL
-```bash
-sudo apt install git -y
-```
->>Arch based
-```bash
-sudo pacman -S --no-confirm git
-```
->>Fedora based
-```bash
-sudo dnf install -y git
-```
+Menu labels are shown by the running version; follow the on-screen prompt if it differs.
 
-</details>
+## 7. Where files are stored
 
-***Note:** `adb` and `jq` (The script will attempt an android-tools/jq auto-installation if missing).*
+For a portable checkout, the repository contains `Apps/`, `Configs/` and `Logs/`. For an installed build, user data normally lives under `$XDG_DATA_HOME/uraam` (or `~/.local/share/uraam`) and user profiles under `$XDG_CONFIG_HOME/uraam` (or `~/.config/uraam`).
 
+The dashboard prints the resolved paths. See [Architecture](Architecture.md#data-and-configuration-paths).
 
-<details>
-<summary><b></b>Execution:</b></summary>
+## 8. Troubleshooting
 
-- **Clone the repo:**
-  
-```bash
-git clone https://github.com/Ruraam/Uraam.git
-```
+- **ADB says unauthorized:** unlock Android and accept the authorization prompt; then rerun `adb devices`.
+- **ADB shows no device:** check platform-tools, cable/data mode, USB permissions and the selected serial.
+- **Wireless connection fails:** re-enable Wireless debugging, pair again using the current code and port, and check that both devices share a trusted network.
+- **Shizuku backend unavailable:** start Shizuku and verify `rish -c id` in the same Termux environment.
+- **Timeout utility unavailable:** install GNU coreutils. On macOS, try `gtimeout`; URAAM probes compatibility before sending a device command.
+- **Apply refuses because flock is missing:** install util-linux (or provide a compatible `flock`). Do not bypass the lock.
+- **An interrupted operation is reported:** read [Safety and Recovery](Safety-and-Recovery.md#interrupted-operation-recovery). Do not delete the journal blindly.
+- **Inventory is rejected:** reconnect the backend and retry. URAAM deliberately refuses empty, malformed or partial package inventories.
 
-Folder layout:
-* Place debloat configurations in `./Configs/debloat/` *(Canta JSON supported)*.
-* Place APKs to install in `./Apps/`.
-* Backups and restoration targets reside in `./Configs/backup-restore/`.
+## Further reading
 
-```bash
-make -C ./Uraam
-```
-Or run directly in **Bash**:
-```bash
-cd ./Uraam
-```
-
-```bash
-chmod +x uraam.sh && ./uraam.sh
-```
-</details>
-</details>
-
-***Note :***
-
-*- Make sure you run these commands from the directory where you cloned the repository. If you are in your Termux home folder, the command above is correct.*
-
-*- If `adb` fails, run `adb kill-server && adb start-server` and ensure your device appears in `adb devices`.*
-
-</details>
-
-### 🍎 For MacOS users:
-
-Install [Homebrew](https://brew.sh/) if you haven't already.
-
-**Prerequisites:**
-```bash
-brew install git android-tools jq
-```
-**Follow the same quick start than [Linux, Termux...](https://github.com/Ruvyrom/Ruvomain-Protocol/blob/main/Docs/Quick-Start-Guide.md#for-linux-termux-wsl)**
+- [Safety and Recovery](Safety-and-Recovery.md)
+- [Architecture](Architecture.md)
+- [UAD-NG review catalogue](UAD-NG-review-catalog.md)

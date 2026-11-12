@@ -1,216 +1,92 @@
-The lists above are compatible with Ruvomain App-Manager & Canta.
+# Debloat profiles
 
-### Contributing - JSON files importation
+This directory contains user-selectable JSON package profiles for URAAM. Profiles are inputs to a manual review workflow; they are not automatic uninstall instructions.
 
-You have a specific device? Create your JSON list or Canta restoration JSON list, fork this repo, place it in `/Configs/debloat`, and submit a Pull Request. Your configuration will then be available to the entire community.
+URAAM also supports compatible Canta-style package lists where they match the accepted schema.
 
-- You **must** create your JSON file list with **THIS STRUCTURE**:
+## Profile format
+
+Each profile must be a JSON object with the following fields:
 
 ```json
 {
-  "name": "NAME OF YOUR FILE HERE",
-  "description": "YOUR DESCRIPTION HERE",
-  "author": "USERNAME",
-  "version": "NUMBER VERSION",
+  "name": "Example profile",
+  "description": "A short description of the target device and intent",
+  "author": "Contributor",
+  "version": "1.0",
   "apps": [
     {
-      "packageName": "your.package.name"
-    },
-    {
-      "packageName": "your.package.name"
+      "packageName": "com.example.optionalapp"
     }
   ]
 }
 ```
 
-For using your liste with URAAM ruvomain-debloat script:
-- **Copy** your personal or Canta .json restoration files in `/Configs/debloat` folder
+The `apps` array contains Android package IDs. Do not include display names in place of package IDs.
 
-- **Execute** script and select your json file
+An example is available in [Docs/structure-example.json](../../Docs/structure-example.json).
 
-**Feel free to share your files with Pull Request in `./Configs`, to help grow the community!**
+## Using a profile
 
-**Please ensure:**
+1. Place the JSON file in your user profile directory shown by URAAM. In a portable checkout this is `Configs/debloat/`.
+2. Start URAAM and select **Debloat apps**.
+3. Choose the profile and action.
+4. Review every classification and description.
+5. Select package numbers explicitly.
+6. Use Dry-run before considering Apply.
 
-- The JSON syntax is [valid](https://github.com/Ruvyrom/Ruvomain-Protocole/blob/main/Docs/structure-example.json).
+The preview checks the live installed package inventory for Android user 0. Entries that are absent, protected, UAD-NG Unsafe or unknown/unlisted are not eligible for the UAD-NG manual selection flow.
 
-- You have tested the debloat/restore list on your own device.
+## Profile naming
 
-- You keep the minimalist philosophy of the project.
+Use a descriptive name that identifies the device family and software context, for example:
 
-You can contribute with Pull Request.
+`DeviceFamily-Model-AndroidVersion-ROMVersion.json`
 
-**Naming Convention for Imports:**
-`[Philosophy]-[DeviceName]-[OSVersion].json`
-*Example:*
+Avoid names such as `Safe-All-Devices.json`. A profile tested on one model or firmware is not automatically suitable for another.
 
-*Baremetal-Pixel6-LOS232.json*
+## OEM profiles
 
-*Degoogle-OP15-OxyOS15.json*
+Curated `Safe-*.json` files are narrow, device-family-specific candidates. Their names do not mean that every entry is harmless on every firmware.
 
-Need help with your first contribution? [Consult this guide](https://github.com/firstcontributions/first-contributions) to learn the basics of pull requests.
+The runtime OEM/ROM detection and profile cross-check are informational only:
+- a profile match does not authorize removal;
+- absence from a matching profile is not an unsafe verdict;
+- unknown OEM/ROM identity must not be guessed;
+- users must review the actual installed packages and their dependencies.
 
----
+Do not combine OEM profiles blindly.
 
-### Protocol Hierarchy (Tiers lists 1,2,3 for S24+ Exynos)
-The protocol is modular, allowing users to choose their level of optimization. *Tierslists are provided as standardized defaults, but the architecture is designed for you to edit `tier*.json` files to fit your specific operational requirements.*
+## Risk and classification policy
 
-You can modify .json files if you want keep a fonctionality in /Configs
+The bundled [UAD-NG catalogue](../uad/README.md) provides pinned risk metadata.
 
-| Tier | Strategy| Recommended For |
-|:---|:---|:---|
-| **Tier 1 (Stable/Conservative)** | Redundancy & Telemetry | All users seeking immediate gains. |
-| **Tier 2 (Advanced/Balanced)** | AI Telemetry & Cloud Bloat | Users prioritizing privacy & efficiency. |
-| **Tier 3 (Surgical/Extreme)** | Ghost Mode (System Core) | Advanced users building a bare-metal experience. |
+- Recommended, Advanced and Expert entries may be presented for manual selection.
+- Unsafe entries are blocked.
+- Unknown or unlisted entries are blocked.
+- URAAM's built-in safety whitelist takes precedence over UAD labels.
+- The catalogue is not a substitute for device-specific testing.
 
-The protocol keeps `Samsung Camera` and `gallery`, `Dolby Atmos`, `Samsung Screenshot`, `OneUI launcher`.
-For privacy, you can block internet connection (via firewall) for these apps without problem.
+The UAD-NG source is pinned in [source.json](../uad/source.json). The category review and limitations are documented in [Docs/UAD-NG-review-catalog.md](../../Docs/UAD-NG-review-catalog.md).
 
-**For view packages list and descriptions see the /docs/[package-list.md](https://github.com/Ruvyrom/Ruvomain-Protocole/blob/main/Docs/package-list.md)**
+## Validate a profile
 
-**⚠️ Before use Tier3, you must read /docs/[REMPLACEMENT.md](https://github.com/Ruvyrom/Ruvomain-Protocole/blob/main/Docs/REMPLACEMENT.md)**
+For local validation, use the repository's validator:
 
-### Safe OEM profiles (UAD-NG)
+```bash
+python3 scripts/validate-debloat-json.py Configs/debloat/your-profile.json
+```
 
-Conservative manufacturer-specific profiles added to this directory:
+For a full changed-profile validation, CI runs the repository workflow. The validator checks JSON structure and package identifiers; for curated Safe profiles it also checks the pinned UAD-NG classification. This is a data validation gate, not a device safety certification.
 
-- `Safe-ASUS-ZenUI.json`
-- `Safe-Huawei-EMUI-HarmonyOS.json`
-- `Safe-HONOR-MagicOS.json`
-- `Safe-Motorola-MyUX.json`
-- `Safe-LG-UX.json`
-- `Safe-OnePlus-OxygenOS.json`
-- `Safe-OPPO-Realme-ColorOS.json`
-- `Safe-Lenovo-ZUI.json`
-- `Safe-NothingOS.json`
-- `Safe-Nubia-RedMagic.json`
-- `Safe-TECNO-Infinix-Transsion.json`
-- `Safe-Blackview-DokeOS.json`
-- `Safe-Meizu-FlymeOS.json`
-- `Safe-Wiko-Android.json`
+## Contribute a profile
 
-**Safety policy:** each package ID was checked against the UAD-NG package database and is classified `list: Oem` and `removal: Recommended` at the source revision below. UAD defines *Recommended* as removable but still advises users to review their own needs. This does not guarantee that every package exists on every firmware or that optional features remain available. These are curated subsets, not universal guarantees. Check the packages present on your device, make a backup, and review the selected list before applying it. Do not combine OEM profiles blindly.
+Before submitting a pull request:
 
-Source: [UAD-NG package database](https://github.com/Universal-Debloater-Alliance/universal-android-debloater-next-generation/blob/9fcad87bf78c52c4270504bc8880139d95a27a29/resources/assets/uad_lists.json) (revision `9fcad87bf78c52c4270504bc8880139d95a27a29`).
+1. State the exact model, Android release, ROM and firmware/build where it was tested.
+2. Explain the purpose of each package in the profile.
+3. Confirm which features were checked after applying the profile.
+4. Include a restoration path and disclose any known side effects.
+5. Keep the profile narrowly scoped.
 
-
-### Automated validation
-
-Pull requests that modify debloat JSON profiles run
-`python3 scripts/validate-debloat-json.py` through GitHub Actions.
-The validator checks the shared JSON structure, non-empty required fields,
-duplicate package IDs, and every `Safe-*.json` package against the pinned
-UAD-NG database revision above. A Safe profile is rejected unless each package
-exists in that database and has `removal: Recommended`.
-
-The UAD source is pinned to a commit so results do not silently change when
-the upstream database is updated. This check is a data-classification gate,
-not a guarantee that removal is harmless on every device or firmware.
-
-
-### Other UAD-NG categories
-
-Google, AOSP, Carrier and Misc categories were audited, but are not imported as
-bulk-uninstall JSON profiles. They contain system dependencies, overlays,
-carrier-specific services and device-specific components. See
-[Docs/UAD-NG-review-catalog.md](../../Docs/UAD-NG-review-catalog.md) for the
-pinned category counts and the rationale for requiring per-package review.
-
-
-### Runtime OEM and ROM identification
-
-During the manual UAD-NG preview, URAAM reads Android build properties to identify
-the manufacturer family and, when an explicit vendor property is available,
-the ROM family/version (for example One UI, MIUI/HyperOS, OxygenOS, ColorOS,
-EMUI/HarmonyOS, MagicOS, ZenUI, My UX, Funtouch OS/OriginOS, Pixel Android,
-Nothing OS, or LineageOS). This identification is informational only:
-unknown or missing properties are reported conservatively and do not change
-package risk classifications or automatically select packages. The detected
-device model, OEM family and ROM/version are checked again immediately before
-applying a preview. A model change invalidates the preview.
-
-
-### Backend interruption safety
-
-During a confirmed multi-package apply, URAAM checks the selected ADB, root or
-Shizuku transport before each package operation. If the transport is no longer
-available, it stops the batch and reports the unattempted packages as skipped.
-If a package command fails, URAAM marks that operation as uncertain and stops
-the batch, even if the transport still responds. A failed host response does
-not prove Android made no change. Inspect the device and reconcile the pending
-journal before starting another destructive batch. A real device can still
-change state between checks; inspect the final summary and device state after
-any interrupted operation.
-
-Package inventory parsing is fail-closed: URAAM rejects command failures,
-empty output, and responses containing malformed/error lines even if some
-valid package rows were returned. It will not treat a partial list as a safe
-basis for a destructive preview or apply.
-
-### Device command timeouts
-
-Package inventory, uninstall and disable commands are run with a host-side
-timeout to prevent a stalled ADB, root or Shizuku session from blocking URAAM
-indefinitely. The default limit is 30 seconds and can be adjusted with
-`URAAM_DEVICE_TIMEOUT` to an integer from 1 to 300 seconds.
-
-The host must provide GNU `timeout` (normally from coreutils) or `gtimeout`
-(commonly installed as `gtimeout` on macOS). URAAM probes the required GNU
-signal and kill-after options locally before invoking ADB, `su` or `rish`.
-This avoids assuming that a BusyBox or reduced `timeout` implementation has
-the same interface. If `timeout` is incompatible, URAAM tries `gtimeout`;
-if neither supports the required options, it refuses to send the device
-command.
-
-Typical installation:
-- Debian/Linux and WSL: install the `coreutils` package.
-- Termux: run `pkg install coreutils`.
-- macOS with Homebrew: run `brew install coreutils` (use the provided
-  `gtimeout` command).
-
-The timeout compatibility probe and fallback are covered by mocked regression
-tests. CI does not replace testing on each host OS or a real Android device.
-
-A timed-out uninstall or disable has an **unknown outcome**: Android may have
-applied the operation even if the host lost its response. URAAM therefore
-counts that operation as failed/uncertain, stops the batch, marks all later
-operations as skipped, and never retries the timed-out package automatically.
-Inspect the device and refresh its package inventory before deciding what to
-do next. A timeout is not proof that the package operation did not happen.
-
-
-### Interrupted apply recovery and concurrency
-
-Before each uninstall or disable command, URAAM atomically writes a private
-journal to `Logs/debloat/active-operation.json` (portable install) or the
-URAAM user data directory. The file records the operation, package, backend,
-ADB serial when applicable, device model, batch position and UTC timestamp.
-The journal and temporary replacement file use mode `0600`; replacement is
-performed in the same directory so an interrupted write cannot expose a
-partially written JSON document as the active journal.
-
-If URAAM is terminated, Termux is closed, the host loses power, or the device
-command is interrupted after the journal is written, the next debloat session
-detects the unfinished operation. URAAM compares the recorded backend/device
-with the currently selected one and refreshes the relevant Android package
-inventory. It displays the observed state, but inventory alone is not treated
-as proof. The user must inspect the device and type the exact
-`RECONCILE package.name` acknowledgement before the journal is cleared.
-URAAM never resumes or replays an interrupted uninstall/disable command.
-
-A failed command is also marked uncertain and stops the remaining batch,
-because a lost response does not prove that Android made no change. A
-successful command clears its journal before the next package is attempted.
-A crash between the device-side success and journal cleanup is therefore
-intentionally treated as uncertain on the next launch.
-
-Apply sessions use an OS-managed `flock` lock so a second URAAM instance
-cannot mutate the same device concurrently. The lock is released automatically
-when the process exits, including after an abrupt termination. Install
-`util-linux` on Debian/Linux (it provides `flock`); on Termux install the
-`util-linux` package. If `flock` is unavailable, URAAM refuses destructive
-apply rather than running without concurrency protection.
-
-Recovery and locking are covered by mocked regression tests. They do not
-replace inspection on a real Android device. A corrupt journal fails closed
-and must be inspected manually; do not delete it blindly.
+Never submit a package list as universally safe based only on an upstream risk label.
