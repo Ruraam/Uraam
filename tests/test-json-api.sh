@@ -43,7 +43,7 @@ case "$*" in
         printf 'package:/data/app/com.example.legacy/base.apk\n'
         ;;
     '-s TEST-SERIAL shell dumpsys package com.example.legacy')
-        printf 'Package [com.example.legacy] (456):\n    versionName=2.0\n    Providers:\n      com.example.legacy/.StoreProvider\n    Activities:\n      com.example.legacy/.HomeActivity filter xyz\n      com.other.app/.ForeignActivity filter xyz\n      ResolverTableEntry com.example.legacy/.NotAComponent\n    Services:\n    Receivers:\n      com.example.legacy/com.example.legacy.BootReceiver\n'
+        printf 'Package [com.example.legacy] (456):\n    versionName=2.0\n    Providers:\n      com.example.legacy/.StoreProvider\n    Activities:\n      com.example.legacy/.HomeActivity filter xyz\n      com.other.app/.ForeignActivity filter xyz\n      com.example.legacy/.Bad-Class filter malformed\n      com.example.legacy/9InvalidClass filter malformed\n      ResolverTableEntry com.example.legacy/.NotAComponent\n    Services:\n    Receivers:\n      com.example.legacy/com.example.legacy.BootReceiver\n'
         ;;
     '-s TEST-SERIAL shell pm path --user 0 com.example.nosections')
         printf 'package:/data/app/com.example.nosections/base.apk\n'
