@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-set -x
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP_DIR="$(mktemp -d)"
@@ -37,16 +36,16 @@ case "$*" in
         printf '%s\n' "${MOCK_ONEUI_VERSION:-}"
         ;;
     '-s TEST-SERIAL shell getprop ro.mi.os.version.name')
-        printf '%s\\n' "${MOCK_HYPEROS_VERSION:-}"
+        printf '%s\n' "${MOCK_HYPEROS_VERSION:-}"
         ;;
     '-s TEST-SERIAL shell getprop ro.miui.ui.version.name')
-        printf '%s\\n' "${MOCK_MIUI_VERSION:-}"
+        printf '%s\n' "${MOCK_MIUI_VERSION:-}"
         ;;
     '-s TEST-SERIAL shell getprop ro.build.version.opporom')
-        printf '%s\\n' "${MOCK_COLOROS_VERSION:-}"
+        printf '%s\n' "${MOCK_COLOROS_VERSION:-}"
         ;;
     '-s TEST-SERIAL shell getprop ro.build.version.myux')
-        printf '%s\\n' "${MOCK_MYUX_VERSION:-}"
+        printf '%s\n' "${MOCK_MYUX_VERSION:-}"
         ;;
     '-s TEST-SERIAL shell pm list packages --user 0')
         if [[ "${MOCK_ADB_INVENTORY:-valid}" == "malformed" ]]; then
