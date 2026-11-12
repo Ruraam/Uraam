@@ -69,8 +69,21 @@ case "$*" in
     '-s TEST-SERIAL shell pm path --user 0 com.example.legacy')
         printf 'package:/data/app/com.example.legacy/base.apk\n'
         ;;
+    '-s TEST-SERIAL shell pm path --user 0 com.example.split')
+        printf 'package:/data/app/~~split/com.example.split/base.apk\npackage:/data/app/~~split/com.example.split/split_config.arm64_v8a.apk\n'
+        ;;
+    '-s TEST-SERIAL shell pm path --user 0 com.example.dumpfail')
+        printf 'package:/data/app/com.example.dumpfail/base.apk\n'
+        ;;
     '-s TEST-SERIAL shell dumpsys package com.example.legacy')
         printf 'Package [com.example.legacy] (456):\n    versionName=2.0\n    Providers:\n      com.example.legacy/.StoreProvider\n    Activities:\n      com.example.legacy/.HomeActivity filter xyz\n      com.other.app/.ForeignActivity filter xyz\n      com.example.legacy/.Bad-Class filter malformed\n      com.example.legacy/9InvalidClass filter malformed\n      ResolverTableEntry com.example.legacy/.NotAComponent\n    Services:\n    Receivers:\n      com.example.legacy/com.example.legacy.BootReceiver\n'
+        ;;
+    '-s TEST-SERIAL shell dumpsys package com.example.split')
+        printf 'Package [com.example.split] (654):\n    versionName=SplitFixture\n    Activities:\n      com.example.split/.MainActivity filter\n'
+        ;;
+    '-s TEST-SERIAL shell dumpsys package com.example.dumpfail')
+        printf 'dumpsys: service unavailable\n' >&2
+        exit 1
         ;;
     '-s TEST-SERIAL shell pm path --user 0 com.example.nosections')
         printf 'package:/data/app/com.example.nosections/base.apk\n'
@@ -221,6 +234,33 @@ jq -e '
     .components.providers == null and
     .requested_permissions == ["android.permission.INTERNET"]
 ' <<< "$missing_info" >/dev/null
+
+# Split APK installs must preserve every validated absolute path in order.
+split_info="$(bash "$ROOT/uraam-api.sh" package-info:com.example.split)"
+jq -e '
+    .status == "ok" and
+    .version_name == "SplitFixture" and
+    .paths == [
+      "/data/app/~~split/com.example.split/base.apk",
+      "/data/app/~~split/com.example.split/split_config.arm64_v8a.apk"
+    ]
+' <<< "$split_info" >/dev/null
+
+# A failed/truncated dumpsys response is non-fatal, but must not fabricate
+# version, permission or component metadata.
+dumpfail_info="$(bash "$ROOT/uraam-api.sh" package-info:com.example.dumpfail)"
+jq -e '
+    .status == "ok" and
+    .paths == ["/data/app/com.example.dumpfail/base.apk"] and
+    .version_name == null and
+    .version_code == null and
+    .requested_permissions == null and
+    .components.activities == null and
+    .components.services == null and
+    .components.receivers == null and
+    .components.providers == null and
+    .read_only == true
+' <<< "$dumpfail_info" >/dev/null
 
 
 # Legacy Android-shaped dump: absent metadata stays unknown, never guessed.
