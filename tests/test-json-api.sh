@@ -37,7 +37,7 @@ case "$*" in
         printf 'package:/data/app/~~abc/com.example.alpha/base.apk\n'
         ;;
     '-s TEST-SERIAL shell dumpsys package com.example.alpha')
-        printf 'Package [com.example.alpha] (123):\n    versionCode=42 minSdk=23 targetSdk=35\n    versionName=1.2.3\n'
+        printf 'Package [com.example.alpha] (123):\n    versionCode=42 minSdk=23 targetSdk=35\n    versionName=1.2.3\n    requested permissions:\n      android.permission.INTERNET\n      android.permission.CAMERA\n    install permissions:\n      android.permission.INTERNET: granted=true\n'
         ;;
     '-s TEST-SERIAL shell getprop '*)
         printf '\n'
@@ -69,6 +69,8 @@ jq -e '
     .backend == "ADB" and
     .version_name == "1.2.3" and
     .version_code == "42" and
+    .requested_permissions == ["android.permission.INTERNET", "android.permission.CAMERA"] and
+    .permissions_semantics == "requested_only_not_grant_status" and
     .paths == ["/data/app/~~abc/com.example.alpha/base.apk"] and
     .read_only == true
 ' <<< "$package_info" >/dev/null
