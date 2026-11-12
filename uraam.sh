@@ -42,6 +42,8 @@ CONFIGS_DIR="$USER_DEBLOAT_DIR"
 USER_BACKUPS_DIR="$USER_DATA_DIR/Configs/backup-restore"
 BACKUPS_DIR="$USER_BACKUPS_DIR"
 SYSTEM_DEBLOAT_DIR="${PREFIX:-/usr}/share/uraam/debloat"
+UAD_METADATA_FILE="$SCRIPT_DIR/Configs/uad/uad_lists.json"
+[[ -r "$UAD_METADATA_FILE" ]] || UAD_METADATA_FILE="${PREFIX:-/usr}/share/uraam/Configs/uad/uad_lists.json"
 
 LOGD_DIR="$USER_DATA_DIR/Logs/debloat"
 LOGB_DIR="$USER_DATA_DIR/Logs/backup"
@@ -561,12 +563,33 @@ package_is_installed() {
     grep -Fxq -- "$package" <<< "$installed"
 }
 
+uad_metadata_for_package() {
+    local package="$1"
+    if [[ -r "$UAD_METADATA_FILE" ]] && command -v jq >/dev/null 2>&1; then
+        jq -r --arg package "$package" '
+            if has($package) then
+                .[$package] |
+                [
+                    (.removal // "Unknown"),
+                    (.list // "Unlisted"),
+                    ((.description // "No UAD description available.") | gsub("[\r\n\t]+"; " "))
+                ] | @tsv
+            else
+                ["Unknown", "Unlisted", "Not present in the bundled UAD-NG catalogue."] | @tsv
+            end
+        ' "$UAD_METADATA_FILE" 2>/dev/null
+    else
+        printf '%s\t%s\t%s\n' "Unknown" "Unlisted" \
+            "UAD metadata unavailable; review this package manually."
+    fi
+}
+
 uraam_debloat() {
     show_logo
-    msg "${BLUE}------------------------------------------${NC}"
-    msg "        ${CYAN}=== URAAM | DEBLOATER ===${NC}"
+    msg "\${BLUE}------------------------------------------\${NC}"
+    msg "        \${CYAN}=== URAAM | DEBLOATER ===\${NC}"
     msg "Configurations: $USER_DEBLOAT_DIR"
-    msg "${BLUE}------------------------------------------${NC}"
+    msg "\${BLUE}------------------------------------------\${NC}"
     require_backend || return 1
     select_json_file "$CONFIGS_DIR" "Available debloat configurations:" || return 1
     local file="$SELECTED_FILE"
@@ -574,8 +597,14 @@ uraam_debloat() {
     load_packages_from_json "$file" || { pause; return 1; }
 
     local action mode confirm installed pkg operation_count ready_count
+    local selection token risk category description metadata index
     local success=0 skipped=0 failed=0
     local -a PREVIEW_PRESENT=() PREVIEW_PROTECTED=() PREVIEW_MISSING=()
+    local -a PREVIEW_UNSAFE=() CANDIDATE_PACKAGES=() CANDIDATE_RISKS=()
+    local -a CANDIDATE_CATEGORIES=() CANDIDATE_DESCRIPTIONS=()
+    local -a SELECTED_PACKAGES=() requested_indices=()
+    local -A selected_indices=()
+
     printf 'Choose action: [u] Uninstall for user 0 / [d] Disable / [c] Cancel: '
     read -r action
     case "$action" in
@@ -588,37 +617,112 @@ uraam_debloat() {
         err "Cannot obtain a reliable package inventory; no changes made."
         return 1
     }
-    for pkg in "${PACKAGES[@]}"; do
+    for pkg in "\${PACKAGES[@]}"; do
         if is_whitelisted "$pkg"; then
             PREVIEW_PROTECTED+=("$pkg")
         elif package_is_installed "$pkg" "$installed"; then
-            PREVIEW_PRESENT+=("$pkg")
+            metadata="$(uad_metadata_for_package "$pkg")" || return 1
+            IFS=$'\t' read -r risk category description <<< "$metadata"
+            case "$risk" in
+                Unsafe) PREVIEW_UNSAFE+=("$pkg") ;;
+                *)
+                    CANDIDATE_PACKAGES+=("$pkg")
+                    CANDIDATE_RISKS+=("\${risk:-Unknown}")
+                    CANDIDATE_CATEGORIES+=("\${category:-Unlisted}")
+                    CANDIDATE_DESCRIPTIONS+=("\${description:-No description available.}")
+                    ;;
+            esac
         else
             PREVIEW_MISSING+=("$pkg")
         fi
     done
 
-    operation_count="${#PREVIEW_PRESENT[@]}"
     msg ""
-    msg "${BOLD}=== URAAM | OPERATION PREVIEW ===${NC}"
-    printf 'Device: %s' "${CURRENT_MODEL:-Unknown device}"
+    msg "\${BOLD}=== URAAM | UAD RISK REVIEW ===\${NC}"
+    printf 'Device: %s' "\${CURRENT_MODEL:-Unknown device}"
     [[ -n "$BACKEND_SERIAL" ]] && printf ' (%s)' "$BACKEND_SERIAL"
-    printf '\nBackend: %s | Android user: 0\n' "${EXEC_TYPE:-unknown}"
-    printf 'Action: %s\n\n' "$action"
-    for pkg in "${PREVIEW_PRESENT[@]}"; do
-        printf '  [WILL %s] %s\n' "${action^^}" "$pkg"
+    printf '\nBackend: %s | Android user: 0\n' "\${EXEC_TYPE:-unknown}"
+    printf 'Action requested: %s\n\n' "$action"
+    if [[ -r "$UAD_METADATA_FILE" ]]; then
+        printf 'UAD-NG metadata: bundled catalogue available\n'
+    else
+        warn "UAD-NG catalogue missing; packages will be marked Unknown."
+    fi
+
+    for index in "\${!CANDIDATE_PACKAGES[@]}"; do
+        printf '\n  [%d] [%s] [%s] %s\n' \
+            "$((index+1))" "\${CANDIDATE_RISKS[$index]}" \
+            "\${CANDIDATE_CATEGORIES[$index]}" "\${CANDIDATE_PACKAGES[$index]}"
+        printf '      %s\n' "\${CANDIDATE_DESCRIPTIONS[$index]}"
     done
-    for pkg in "${PREVIEW_PROTECTED[@]}"; do
-        printf '  [PROTECTED] %s\n' "$pkg"
+    for pkg in "\${PREVIEW_UNSAFE[@]}"; do
+        metadata="$(uad_metadata_for_package "$pkg")"
+        IFS=$'\t' read -r risk category description <<< "$metadata"
+        printf '\n  [BLOCKED] [UNSAFE] [%s] %s\n' "$category" "$pkg"
+        printf '      %s\n' "$description"
     done
-    for pkg in "${PREVIEW_MISSING[@]}"; do
-        printf '  [NOT INSTALLED] %s\n' "$pkg"
+    for pkg in "\${PREVIEW_PROTECTED[@]}"; do
+        printf '\n  [PROTECTED BY URAAM] %s\n' "$pkg"
     done
+    for pkg in "\${PREVIEW_MISSING[@]}"; do
+        printf '\n  [NOT INSTALLED] %s\n' "$pkg"
+    done
+
     msg ""
-    printf 'Preview totals: %d to process, %d protected, %d absent, %d in source list.\n' \
-        "$operation_count" "${#PREVIEW_PROTECTED[@]}" "${#PREVIEW_MISSING[@]}" "${#PACKAGES[@]}"
+    printf 'Catalogue: %d selectable, %d Unsafe blocked, %d protected, %d absent.\n' \
+        "\${#CANDIDATE_PACKAGES[@]}" "\${#PREVIEW_UNSAFE[@]}" \
+        "\${#PREVIEW_PROTECTED[@]}" "\${#PREVIEW_MISSING[@]}"
+    (( \${#CANDIDATE_PACKAGES[@]} > 0 )) || {
+        warn "No selectable installed packages. Nothing can be changed."
+        return 0
+    }
+
+    printf '\nSelect package numbers separated by commas (example: 1,3). Empty/C cancels: '
+    read -r selection
+    [[ -n "$selection" ]] || {
+        warn "No packages selected. Nothing changed."
+        return 0
+    }
+    [[ "$selection" != "c" && "$selection" != "C" ]] || {
+        warn "Operation cancelled."
+        return 0
+    }
+    IFS=',' read -r -a requested_indices <<< "$selection"
+    for token in "\${requested_indices[@]}"; do
+        token="\${token//[[:space:]]/}"
+        [[ "$token" =~ ^[0-9]+$ ]] || {
+            err "Invalid selection '$token'. Use comma-separated numbers only; no bulk keyword is accepted."
+            return 1
+        }
+        (( token >= 1 && token <= \${#CANDIDATE_PACKAGES[@]} )) || {
+            err "Selection '$token' is outside the available range."
+            return 1
+        }
+        [[ -z "\${selected_indices[$token]:-}" ]] || {
+            err "Duplicate selection '$token'."
+            return 1
+        }
+        selected_indices[$token]=1
+        SELECTED_PACKAGES+=("\${CANDIDATE_PACKAGES[$((token-1))]}")
+    done
+
+    operation_count="\${#SELECTED_PACKAGES[@]}"
+    msg ""
+    msg "\${BOLD}=== URAAM | FINAL OPERATION PREVIEW ===\${NC}"
+    for pkg in "\${SELECTED_PACKAGES[@]}"; do
+        metadata="$(uad_metadata_for_package "$pkg")"
+        IFS=$'\t' read -r risk category description <<< "$metadata"
+        printf '  [WILL %s] [%s] %s\n' "\${action^^}" "$risk" "$pkg"
+    done
+    for index in "\${!CANDIDATE_PACKAGES[@]}"; do
+        pkg="\${CANDIDATE_PACKAGES[$index]}"
+        if [[ -z "\${selected_indices[$((index+1))]:-}" ]]; then
+            printf '  [NOT SELECTED] [%s] %s\n' "\${CANDIDATE_RISKS[$index]}" "$pkg"
+        fi
+    done
+    printf '\nExact selected operations: %d\n' "$operation_count"
     (( operation_count > 0 )) || {
-        warn "No eligible installed packages. Nothing can be changed."
+        warn "No packages selected. Nothing can be changed."
         return 0
     }
 
@@ -626,7 +730,7 @@ uraam_debloat() {
     read -r mode
     case "$mode" in
         d|D)
-            ok "DRY RUN complete: $operation_count package(s) would be $action."
+            ok "DRY RUN complete: $operation_count manually selected package(s) would be $action."
             info "No uninstall, disable, install, or package-state command was executed."
             return 0
             ;;
@@ -646,19 +750,23 @@ uraam_debloat() {
         return 1
     }
     ready_count=0
-    for pkg in "${PREVIEW_PRESENT[@]}"; do
-        if ! is_whitelisted "$pkg" && package_is_installed "$pkg" "$installed"; then
+    for pkg in "\${SELECTED_PACKAGES[@]}"; do
+        metadata="$(uad_metadata_for_package "$pkg")" || return 1
+        IFS=$'\t' read -r risk _ _ <<< "$metadata"
+        if ! is_whitelisted "$pkg" &&
+            [[ "$risk" != "Unsafe" ]] &&
+            package_is_installed "$pkg" "$installed"; then
             ((ready_count+=1))
         fi
     done
     if (( ready_count != operation_count )); then
-        warn "Device package state changed after preview ($operation_count planned, $ready_count still eligible)."
+        warn "Device or UAD safety state changed after preview ($operation_count planned, $ready_count still eligible)."
         warn "Run Preview again; no changes made."
         return 1
     fi
 
     start_log debloat "$LOGD_DIR" uraam-debloat || return 1
-    for pkg in "${PREVIEW_PRESENT[@]}"; do
+    for pkg in "\${SELECTED_PACKAGES[@]}"; do
         printf '%s: ' "$pkg"
         if is_whitelisted "$pkg"; then
             err "became protected; skipped"
@@ -683,8 +791,8 @@ uraam_debloat() {
             fi
         fi
     done
-    msg "${BLUE}----------------------------------------${NC}"
-    msg "Summary: ${GREEN}$success succeeded${NC}, ${YELLOW}$skipped skipped${NC}, ${RED}$failed failed${NC}."
+    msg "\${BLUE}----------------------------------------\${NC}"
+    msg "Summary: \${GREEN}$success succeeded\${NC}, \${YELLOW}$skipped skipped\${NC}, \${RED}$failed failed\${NC}."
     msg "Log: $LOGFILE"
     pause
 }
