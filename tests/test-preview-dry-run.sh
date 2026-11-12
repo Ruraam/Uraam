@@ -44,6 +44,11 @@ if run_device_bounded_real pm list packages --user 0 >/dev/null 2>&1; then
     fail "a command exceeding its timeout should fail"
 fi
 (( DEVICE_COMMAND_TIMED_OUT == 1 )) || fail "timeout outcome was not recorded"
+if device_package_list active >/dev/null 2>&1; then
+    fail "a timed-out package inventory must be rejected"
+fi
+MOCK_TIMEOUT_MODE=success
+export MOCK_TIMEOUT_MODE
 pass "bounded commands accept timely responses and identify timeouts"
 # The rest of the suite mocks the device backend while keeping the production
 # debloat preview/apply orchestration under test.
