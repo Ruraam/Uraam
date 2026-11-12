@@ -175,3 +175,40 @@ counts that operation as failed/uncertain, stops the batch, marks all later
 operations as skipped, and never retries the timed-out package automatically.
 Inspect the device and refresh its package inventory before deciding what to
 do next. A timeout is not proof that the package operation did not happen.
+
+
+### Interrupted apply recovery and concurrency
+
+Before each uninstall or disable command, URAAM atomically writes a private
+journal to `Logs/debloat/active-operation.json` (portable install) or the
+URAAM user data directory. The file records the operation, package, backend,
+ADB serial when applicable, device model, batch position and UTC timestamp.
+The journal and temporary replacement file use mode `0600`; replacement is
+performed in the same directory so an interrupted write cannot expose a
+partially written JSON document as the active journal.
+
+If URAAM is terminated, Termux is closed, the host loses power, or the device
+command is interrupted after the journal is written, the next debloat session
+detects the unfinished operation. URAAM compares the recorded backend/device
+with the currently selected one and refreshes the relevant Android package
+inventory. It displays the observed state, but inventory alone is not treated
+as proof. The user must inspect the device and type the exact
+`RECONCILE package.name` acknowledgement before the journal is cleared.
+URAAM never resumes or replays an interrupted uninstall/disable command.
+
+A failed command is also marked uncertain and stops the remaining batch,
+because a lost response does not prove that Android made no change. A
+successful command clears its journal before the next package is attempted.
+A crash between the device-side success and journal cleanup is therefore
+intentionally treated as uncertain on the next launch.
+
+Apply sessions use an OS-managed `flock` lock so a second URAAM instance
+cannot mutate the same device concurrently. The lock is released automatically
+when the process exits, including after an abrupt termination. Install
+`util-linux` on Debian/Linux (it provides `flock`); on Termux install the
+`util-linux` package. If `flock` is unavailable, URAAM refuses destructive
+apply rather than running without concurrency protection.
+
+Recovery and locking are covered by mocked regression tests. They do not
+replace inspection on a real Android device. A corrupt journal fails closed
+and must be inspected manually; do not delete it blindly.
