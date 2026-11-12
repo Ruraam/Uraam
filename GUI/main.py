@@ -263,8 +263,13 @@ class UraamWindow(Gtk.ApplicationWindow):
         details.append(self.package_detail_status)
         self.package_detail_version = self._make_card("Version", "Not loaded", "Reported by Android Package Manager")
         self.package_detail_path = self._make_card("APK location", "Not loaded", "Installed APK path(s)")
+        self.package_detail_permissions = self._make_card(
+            "Requested permissions", "Not loaded",
+            "Names requested by the package; grant status is not inferred"
+        )
         details.append(self.package_detail_version)
         details.append(self.package_detail_path)
+        details.append(self.package_detail_permissions)
         safety_note = Gtk.Label(
             label="Information only. System/user classification is not a removal recommendation. No package changes are available in this inspector.",
             xalign=0,
@@ -398,6 +403,10 @@ class UraamWindow(Gtk.ApplicationWindow):
         self.package_detail_status.set_text("Querying Android using read-only commands…")
         self._replace_card(self.package_detail_version, "Version", "Loading…", "Reported by Android Package Manager")
         self._replace_card(self.package_detail_path, "APK location", "Loading…", "Installed APK path(s)")
+        self._replace_card(
+            self.package_detail_permissions, "Requested permissions", "Loading…",
+            "Names requested by the package; grant status is not inferred"
+        )
         self.stack.set_visible_child_name("package-detail")
         self._run_async(f"package-info:{package}", self._show_package_info)
 
@@ -406,6 +415,10 @@ class UraamWindow(Gtk.ApplicationWindow):
             self.package_detail_status.set_text(f"Details unavailable: {error}")
             self._replace_card(self.package_detail_version, "Version", "Unavailable", "Android did not provide version metadata")
             self._replace_card(self.package_detail_path, "APK location", "Unavailable", "No verified APK path returned")
+            self._replace_card(
+                self.package_detail_permissions, "Requested permissions", "Unavailable",
+                "No permission metadata returned"
+            )
             return
         version_name = payload.get("version_name") or "Not reported"
         version_code = payload.get("version_code") or "Not reported"
@@ -419,8 +432,23 @@ class UraamWindow(Gtk.ApplicationWindow):
             f"{len(paths)} path(s) reported",
             "\n".join(str(path) for path in paths) if paths else "Android returned no APK paths"
         )
+        requested = payload.get("requested_permissions")
+        if isinstance(requested, list):
+            permission_names = [str(item) for item in requested if isinstance(item, str)]
+            permission_value = f"{len(permission_names)} requested"
+            permission_detail = (
+                "\\n".join(permission_names)
+                if permission_names else "No permission names parsed from the requested-permissions block"
+            )
+        else:
+            permission_value = "Not reported"
+            permission_detail = "This Android build did not expose a readable requested-permissions block"
+        self._replace_card(
+            self.package_detail_permissions, "Requested permissions",
+            permission_value, permission_detail
+        )
         self.package_detail_status.set_text(
-            f"Backend: {str(payload.get('backend', 'unknown')).upper()} · Read-only inspection"
+            f"Backend: {str(payload.get('backend', 'unknown')).upper()} · Read-only inspection · Requested names only"
         )
 
     def _filter_packages(
