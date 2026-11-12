@@ -258,9 +258,16 @@ ensure_jq() {
 # ---------------------------------------------------------------------------
 
 shell_quote_args() {
-    local arg
-    printf -v _QUOTED_ARGS '%q ' "$@"
-    printf '%s' "${_QUOTED_ARGS% }"
+    local arg quoted
+    local -a quoted_args=()
+
+    # POSIX single-quote escaping is understood by Android shells such as mksh.
+    for arg in "$@"; do
+        quoted="${arg//\'/\'\\\'\'}"
+        quoted_args+=("'$quoted'")
+    done
+
+    printf '%s' "${quoted_args[*]}"
 }
 
 run_adb() {
@@ -322,18 +329,38 @@ detect_backend_status() {
     BACKEND_SERIAL="${ANDROID_SERIAL:-}"
 
     if command -v adb >/dev/null 2>&1; then
-        local devices serial
-        devices="$(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {print $1}')"
+        local devices serial selection
+        local -a ready_devices=()
+        mapfile -t ready_devices < <(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {print $1}')
+
         if [[ -n "$BACKEND_SERIAL" ]]; then
-            if printf '%s\n' "$devices" | grep -Fxq "$BACKEND_SERIAL"; then
+            if printf '%s\n' "${ready_devices[@]}" | grep -Fxq -- "$BACKEND_SERIAL"; then
                 EXEC_TYPE="ADB"
+            else
+                err "ANDROID_SERIAL='$BACKEND_SERIAL' is not an authorized, connected ADB device."
+                return 1
             fi
-        else
-            serial="$(printf '%s\n' "$devices" | head -n1)"
-            if [[ -n "$serial" ]]; then
-                BACKEND_SERIAL="$serial"
-                EXEC_TYPE="ADB"
+        elif (("${#ready_devices[@]}" == 1)); then
+            BACKEND_SERIAL="${ready_devices[0]}"
+            EXEC_TYPE="ADB"
+        elif (("${#ready_devices[@]}" > 1)); then
+            warn "Multiple ADB devices are connected; refusing to select one automatically."
+            local i
+            for i in "${!ready_devices[@]}"; do
+                printf '  [%d] %s\n' "$((i + 1))" "${ready_devices[$i]}"
+            done
+            if [[ ! -t 0 ]]; then
+                err "Set ANDROID_SERIAL to the target device and retry."
+                return 1
             fi
+            read -r -p "Select target device [1-${#ready_devices[@]}]: " selection
+            [[ "$selection" =~ ^[0-9]+$ ]] || { err "Invalid device selection."; return 1; }
+            (( selection >= 1 && selection <= ${#ready_devices[@]} )) || {
+                err "Device selection is out of range."
+                return 1
+            }
+            BACKEND_SERIAL="${ready_devices[$((selection - 1))]}"
+            EXEC_TYPE="ADB"
         fi
     fi
 
