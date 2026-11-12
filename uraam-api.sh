@@ -31,7 +31,7 @@ component_section_json() {
             prefix=package "/"
             if (index(candidate, prefix) == 1) {
                 class_name=substr(candidate, length(prefix)+1)
-                if (class_name ~ /^\\.?[A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)*$/) print candidate
+                if (class_name ~ /^\.\?[A-Za-z_$][A-Za-z0-9_$]*(\.[A-Za-z_$][A-Za-z0-9_$]*)*$/) print candidate
             }
         }
         END { if (!found) exit 2 }
