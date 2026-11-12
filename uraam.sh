@@ -348,7 +348,7 @@ device_oem_family() {
 # deliberately falls back to "Unknown ROM" instead of guessing from OEM alone.
 device_rom_info() {
     local family oneui miui hyperos oxygen color realme emui harmony magic
-    local zen myux funtouch originos pixel lineage nothing android_ver rom version
+    local zen myux funtouch originos lineage nothing android_ver rom version
 
     family="$(device_oem_family)"
     oneui="$(device_getprop ro.build.version.oneui || true)"
@@ -364,7 +364,6 @@ device_rom_info() {
     myux="$(device_getprop ro.build.version.myux || true)"
     funtouch="$(device_getprop ro.vivo.os.version || true)"
     originos="$(device_getprop ro.vivo.os.name || true)"
-    pixel="$(device_getprop ro.build.version.release || true)"
     lineage="$(device_getprop ro.lineage.version || true)"
     nothing="$(device_getprop ro.nothing.version || true)"
     android_ver="$(device_getprop ro.build.version.release || true)"
