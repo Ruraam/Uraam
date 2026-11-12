@@ -546,6 +546,45 @@ recover_pending_operation <<< "RECONCILE com.example.swap" >/dev/null ||
     fail "recovery on the original device identity was rejected"
 pass "recovery rejects a changed device model even when the ADB serial is reused"
 
+# Reconciliation must fail closed if ADB is offline before inventory retrieval.
+write_operation_journal started uninstall com.example.reconnect 1 1 ||
+    fail "could not create reconnect recovery journal"
+RECOVERY_INVENTORY_CALLS=0
+RECOVERY_TRANSPORT_AVAILABLE=0
+RECOVERY_INVENTORY_FAIL=0
+backend_is_available() { (( RECOVERY_TRANSPORT_AVAILABLE )); }
+device_package_list() {
+    ((RECOVERY_INVENTORY_CALLS+=1))
+    (( RECOVERY_INVENTORY_FAIL == 0 )) || return 1
+    printf '%s\\n' com.example.reconnect
+}
+if recover_pending_operation <<< "RECONCILE com.example.reconnect" >/dev/null 2>&1; then
+    fail "recovery proceeded while ADB was offline"
+fi
+[[ -f "$URAAM_OPERATION_JOURNAL" ]] ||
+    fail "offline transport removed the pending journal"
+(( RECOVERY_INVENTORY_CALLS == 0 )) ||
+    fail "offline transport triggered an inventory query"
+
+# Simulate ADB dropping after preflight but during the inventory request.
+RECOVERY_TRANSPORT_AVAILABLE=1
+RECOVERY_INVENTORY_FAIL=1
+if recover_pending_operation <<< "RECONCILE com.example.reconnect" >/dev/null 2>&1; then
+    fail "recovery accepted an incomplete inventory after transport loss"
+fi
+[[ -f "$URAAM_OPERATION_JOURNAL" ]] ||
+    fail "inventory transport failure removed the pending journal"
+
+# Reconnect the original device and reconcile explicitly; no command is replayed.
+RECOVERY_INVENTORY_FAIL=0
+recover_pending_operation <<< "RECONCILE com.example.reconnect" >/dev/null ||
+    fail "recovery did not resume after the original device reconnected"
+[[ ! -e "$URAAM_OPERATION_JOURNAL" ]] ||
+    fail "successful reconnect reconciliation did not clear the journal"
+(( RECOVERY_INVENTORY_CALLS == 2 )) ||
+    fail "unexpected number of inventory attempts across disconnect/reconnect"
+pass "recovery retains the journal across ADB loss and succeeds after reconnect"
+
 # Corrupt journals must fail closed.
 printf '{invalid json' > "$URAAM_OPERATION_JOURNAL"
 if recover_pending_operation >/dev/null 2>&1; then
