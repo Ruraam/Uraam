@@ -120,13 +120,34 @@ main() {
             dump_raw="$(run_device_bounded dumpsys package "$package_id" 2>/dev/null || true)"
             version_name="$(sed -n 's/.*versionName=\([^[:space:]]*\).*/\1/p' <<< "$dump_raw" | head -n 1)"
             version_code="$(sed -n 's/.*versionCode=\([0-9][0-9]*\).*/\1/p' <<< "$dump_raw" | head -n 1)"
-            jq -n --arg package "$package_id" --arg backend "$EXEC_TYPE" \
-                --arg version_name "$version_name" --arg version_code "$version_code" \
-                --args \
+            # Android's requested-permissions block is separate from the
+            # install/runtime grant blocks. Report names only; never infer grants.
+            requested_permissions="$(awk '
+                /^[[:space:]]*requested permissions:[[:space:]]*$/ { in_section=1; found=1; next }
+                in_section && /^[[:space:]]*$/ { exit }
+                in_section {
+                    value=$0
+                    sub(/^[[:space:]]+/, "", value)
+                    sub(/[[:space:]]+$/, "", value)
+                    if (value ~ /^[A-Za-z0-9_]+([.][A-Za-z0-9_]+)+$/) print value
+                }
+                END { if (!found) exit 1 }
+            ' <<< "$dump_raw" 2>/dev/null || true)"
+            if grep -Eq '^[[:space:]]*requested permissions:[[:space:]]*$' <<< "$dump_raw"; then
+                permissions_json="$(printf '%s\\n' "$requested_permissions" | jq -Rsc 'split("\\n") | map(select(length > 0))')"
+            else
+                permissions_json=null
+            fi
+            jq -n --arg package "$package_id" --arg backend "$EXEC_TYPE" \\
+                --arg version_name "$version_name" --arg version_code "$version_code" \\
+                --argjson requested_permissions "$permissions_json" \\
+                --args \\
                 '{status:"ok",package:$package,backend:$backend,paths:$ARGS.positional,
                   version_name:(if $version_name == "" then null else $version_name end),
                   version_code:(if $version_code == "" then null else $version_code end),
-                  metadata_source:"dumpsys package",read_only:true}' \
+                  requested_permissions:$requested_permissions,
+                  permissions_semantics:"requested_only_not_grant_status",
+                  metadata_source:"dumpsys package",read_only:true}' \\
                 "${apk_paths[@]}"
             ;;
         list-packages)
