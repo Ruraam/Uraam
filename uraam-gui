@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Optional GTK4 desktop frontend for URAAM.
+set -euo pipefail
+
+SOURCE="${BASH_SOURCE[0]}"
+while [[ -h "$SOURCE" ]]; do
+    DIR="$(cd -P -- "$(dirname -- "$SOURCE")" >/dev/null 2>&1 && pwd)"
+    LINK="$(readlink -- "$SOURCE")"
+    [[ "$LINK" != /* ]] && LINK="$DIR/$LINK"
+    SOURCE="$LINK"
+done
+ROOT_DIR="$(cd -P -- "$(dirname -- "$SOURCE")" >/dev/null 2>&1 && pwd)"
+
+command -v python3 >/dev/null 2>&1 || {
+    printf '%s\n' "uraam-gui: Python 3 is required." >&2
+    exit 127
+}
+[[ -r "$ROOT_DIR/GUI/main.py" ]] || {
+    printf '%s\n' "uraam-gui: GUI/main.py was not found beside this launcher." >&2
+    exit 2
+}
+exec python3 "$ROOT_DIR/GUI/main.py" "$@"
