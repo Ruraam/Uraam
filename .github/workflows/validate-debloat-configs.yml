@@ -1,0 +1,36 @@
+name: Validate debloat configurations
+
+on:
+  pull_request:
+    paths:
+      - "Configs/debloat/**/*.json"
+      - "Configs/debloat/*.json"
+      - "scripts/validate-debloat-json.py"
+      - ".github/workflows/validate-debloat-configs.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "Configs/debloat/**/*.json"
+      - "Configs/debloat/*.json"
+      - "scripts/validate-debloat-json.py"
+      - ".github/workflows/validate-debloat-configs.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: JSON schema and Safe package audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Validate JSON profiles and UAD classifications
+        run: python3 scripts/validate-debloat-json.py
