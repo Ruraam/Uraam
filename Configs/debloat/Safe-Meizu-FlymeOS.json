@@ -1,0 +1,26 @@
+{
+  "name": "Meizu FlymeOS",
+  "description": "Conservative Meizu profile based on UAD-NG Recommended OEM entries. Optional store, telemetry, suggestions and diagnostics; keep account, device finding, face unlock and telephony components.",
+  "author": "Ruvyrom",
+  "version": "1.0.0",
+  "apps": [
+    {
+      "packageName": "com.meizu.mstore"
+    },
+    {
+      "packageName": "com.meizu.dataservice"
+    },
+    {
+      "packageName": "com.meizu.suggestion"
+    },
+    {
+      "packageName": "com.meizu.telephonyengineermode"
+    },
+    {
+      "packageName": "com.meizu.ems"
+    },
+    {
+      "packageName": "com.flyme.netadmin"
+    }
+  ]
+}
