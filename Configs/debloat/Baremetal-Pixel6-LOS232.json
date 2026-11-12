@@ -1,7 +1,7 @@
 {
   "name": "Ruvomain P6  LOS23.2 debloat",
   "description": "LineageOS extreme privacy debloat",
-  "author": "Ruvyrom", 
+  "author": "Ruvyrom",
   "version": "1.0",
   "apps": [
     {
@@ -284,9 +284,6 @@
       "packageName": "com.shannon.imsservice"
     },
     {
-      "packageName": "com.android.emergency"
-    },
-    {
       "packageName": "org.lineageos.camelot"
     },
     {
@@ -360,9 +357,6 @@
     },
     {
       "packageName": "com.stevesoltys.seedvault"
-    },
-    {
-      "packageName": "com.android.wallpaper.livepicker"
     },
     {
       "packageName": "com.android.bips"
