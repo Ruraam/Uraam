@@ -641,3 +641,31 @@ if flock -n "$URAAM_APPLY_LOCK" -c true >/dev/null 2>&1; then
 fi
 release_apply_lock
 pass "concurrent apply sessions are excluded by the device lock"
+
+# Restoration backups must compare all packages (-u) against active packages.
+BACKUPS_DIR="$TMP_DIR/backup-output"
+mkdir -p "$BACKUPS_DIR"
+: > "$TMP_DIR/backup-modes"
+device_package_list() {
+    printf "%s\n" "$1" >> "$TMP_DIR/backup-modes"
+    case "$1" in
+        all) printf "%s\n" com.example.active com.example.removed ;;
+        active) printf "%s\n" com.example.active ;;
+        *) return 2 ;;
+    esac
+}
+device_getprop() {
+    case "$1" in
+        ro.product.model) printf "%s\n" "Mock Android device" ;;
+        ro.build.version.release) printf "%s\n" 16 ;;
+        *) return 1 ;;
+    esac
+}
+ubackup > "$TMP_DIR/backup.out" || fail "restoration backup generation failed"
+backup_file=("$BACKUPS_DIR"/Uraam_Restoration_List_*.json)
+[[ -f "${backup_file[0]}" ]] || fail "restoration backup file was not created"
+[[ "$(cat "$TMP_DIR/backup-modes")" == $'all\nactive' ]] ||
+    fail "restoration backup did not query all packages before active packages"
+jq -e '.apps | length == 1 and .[0].packageName == "com.example.removed"' "${backup_file[0]}" >/dev/null ||
+    fail "restoration backup did not include the user-uninstalled package"
+pass "restoration backup includes packages uninstalled for Android user 0"
