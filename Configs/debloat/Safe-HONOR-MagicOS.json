@@ -1,0 +1,26 @@
+{
+  "name": "HONOR MagicOS",
+  "description": "Conservative HONOR profile based on UAD-NG Recommended OEM entries. Optional tips, support, diagnostics and promotional components.",
+  "author": "Ruvyrom",
+  "version": "1.0.0",
+  "apps": [
+    {
+      "packageName": "com.hihonor.phoneservice"
+    },
+    {
+      "packageName": "com.hihonor.hnstartupguide"
+    },
+    {
+      "packageName": "com.hihonor.detectrepair"
+    },
+    {
+      "packageName": "com.hihonor.assistant"
+    },
+    {
+      "packageName": "com.hihonor.android.hnupgradeguide"
+    },
+    {
+      "packageName": "com.hihonor.iconnect"
+    }
+  ]
+}
