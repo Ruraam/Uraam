@@ -18,5 +18,8 @@ The catalogue is metadata, not a debloat profile. URAAM never selects packages b
 - Entries absent from the catalogue or carrying an unknown risk value are blocked.
 - Whitelist-protected packages remain blocked regardless of UAD classification.
 - A destructive apply requires a fresh installed-package inventory and an exact `APPLY N` confirmation.
+- Before confirmation, URAAM displays UAD-listed `dependencies` (packages required by the selected package) and `neededBy` reverse dependencies (packages that may rely on the selected package).
+- Installed reverse dependencies produce an explicit impact warning; dependency presence is checked against Android user 0's live package inventory.
+- Relationship data is advisory and non-exhaustive. An empty field does not prove that no runtime or OEM dependency exists; URAAM does not automatically add, remove, or select related packages.
 
 The snapshot is intentionally pinned so an offline URAAM run has stable metadata. Updating it requires changing the revision in `source.json`, refreshing the data from that exact upstream revision, and running the UAD metadata validation tests.
