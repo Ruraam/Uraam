@@ -139,11 +139,25 @@ pause() {
     read -r -p "Press Enter to continue..." _ || true
 }
 
+# Pattern guards cover OEM-specific variants and resource overlays that
+# cannot be exhaustively represented by a short exact-name whitelist.
+SAFETY_PACKAGE_PATTERNS=(
+    '^com\\.android\\.providers\\.(settings|telephony|media|downloads|contacts)(\\.|$)'
+    '(^|\\.)(telephony[^.]*|telecom|ims|imsservice|ril)(\\.|$)'
+    '(^|\\.)(setupwizard|permissioncontroller|packageinstaller|systemui|keyguard|emergency)(\\.|$)'
+    '(^|\\.)(bluetooth|bluetoothagent|bluetoothservice|nfc)(\\.|$)'
+    '^com\\.android\\.(providers\\.(settings|telephony)|server\\.telecom|emergency|systemui|permissioncontroller).*overlay'
+    '^com\\.samsung\\.android\\.knox\\.(attestation|containercore|kpecore)(\\.|$)'
+)
+
 is_whitelisted() {
     local target="$1"
-    local safe_pkg
+    local safe_pkg pattern
     for safe_pkg in "${SAFETY_WHITELIST[@]}"; do
         [[ "$safe_pkg" == "$target" ]] && return 0
+    done
+    for pattern in "${SAFETY_PACKAGE_PATTERNS[@]}"; do
+        [[ "$target" =~ $pattern ]] && return 0
     done
     return 1
 }
@@ -732,11 +746,11 @@ ubackup() {
 
     comm -23 <(printf '%s\n' "$all_pkgs") <(printf '%s\n' "$active_pkgs") |
         jq -R -s --arg date "$date_str" --arg model "$model" --arg android "$android_ver" '
-            [split("\n")[] | select(test("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$")) | {packageName:.}] as $apps
+            [split("\n")[] | select(test("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$")) | {packageName:.}] as $apps
             | {
                 name:("Uraam_Restore_List_"+$date),
                 description:"Packages not currently installed for Android user 0",
-                author:"URAAM", version:"4.4.6",
+                author:"URAAM", version:"4.4.7",
                 device:$model, android_version:$android, created_at:$date, apps:$apps
             }
         ' > "$output_file" || { rm -f "$output_file"; return 1; }
