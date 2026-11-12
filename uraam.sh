@@ -275,8 +275,8 @@ recover_pending_operation() {
     warn "Unfinished operation found ($state): $action $package"
     printf 'Recorded backend: %s | device: %s | serial: %s\n' "$backend" "${model:-unknown}" "${serial:-local}"
     warn "URAAM will not replay this operation automatically."
-    if [[ "$backend" != "$EXEC_TYPE" || ( "$backend" == "ADB" && "$serial" != "$BACKEND_SERIAL" ) ]]; then
-        err "Current backend/device differs from the journal; reconnect the original device."
+    if [[ "$backend" != "$EXEC_TYPE" || ( "$backend" == "ADB" && "$serial" != "$BACKEND_SERIAL" ) || ( -n "$model" && "$model" != "$CURRENT_MODEL" ) ]]; then
+        err "Current backend/device identity differs from the journal; reconnect the original device."
         return 1
     fi
     if [[ "$action" == uninstall ]]; then
