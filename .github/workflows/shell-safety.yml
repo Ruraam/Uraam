@@ -1,0 +1,44 @@
+name: URAAM shell safety CI
+
+on:
+  pull_request:
+    paths:
+      - "uraam.sh"
+      - "tests/**"
+      - ".github/workflows/shell-safety.yml"
+  push:
+    branches:
+      - main
+      - "feat/**"
+    paths:
+      - "uraam.sh"
+      - "tests/**"
+      - ".github/workflows/shell-safety.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shell-safety:
+    name: Bash syntax, ShellCheck and dry-run regression tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes jq shellcheck
+
+      - name: Validate Bash syntax
+        run: |
+          bash -n uraam.sh
+          bash -n tests/test-preview-dry-run.sh
+
+      - name: Run ShellCheck
+        run: shellcheck --severity=error uraam.sh tests/test-preview-dry-run.sh
+
+      - name: Test preview and dry-run safety
+        run: bash tests/test-preview-dry-run.sh
