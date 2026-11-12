@@ -6,6 +6,12 @@ export URAAM_TESTING=1
 # shellcheck source=../uraam.sh
 source "$ROOT/uraam.sh"
 
+fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
+pass() { printf 'PASS: %s\n' "$*"; }
+
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "$TMP_DIR"' EXIT
+
 # Exercise the production timeout wrapper with a mocked GNU timeout command.
 eval "$(declare -f run_device_bounded | sed '1s/run_device_bounded/run_device_bounded_real/')"
 MOCK_TIMEOUT_MODE=success
@@ -36,11 +42,6 @@ pass "bounded commands accept timely responses and identify timeouts"
 # debloat preview/apply orchestration under test.
 run_device_bounded() { run_device "$@"; }
 
-fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
-pass() { printf 'PASS: %s\n' "$*"; }
-
-TMP_DIR="$(mktemp -d)"
-trap 'rm -rf "$TMP_DIR"' EXIT
 
 # Exercise the real inventory parser and ensure preview queries installed-only packages.
 run_device() {
