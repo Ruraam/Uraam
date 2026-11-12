@@ -1,0 +1,47 @@
+{
+  "name": "OPPO / Realme ColorOS",
+  "description": "Conservative OPPO/Realme profile based on UAD-NG Recommended OEM entries. Optional telemetry, logs, feedback, offers and bundled media apps; review app dependencies and replace defaults first.",
+  "author": "Ruvyrom",
+  "version": "1.0.0",
+  "apps": [
+    {
+      "packageName": "com.nearme.statistics.rom"
+    },
+    {
+      "packageName": "com.oplus.statistics.rom"
+    },
+    {
+      "packageName": "com.oplus.logkit"
+    },
+    {
+      "packageName": "com.coloros.logkit"
+    },
+    {
+      "packageName": "com.oplus.crashbox"
+    },
+    {
+      "packageName": "com.coloros.feedback"
+    },
+    {
+      "packageName": "com.coloros.operationtips"
+    },
+    {
+      "packageName": "com.coloros.avastofferwall"
+    },
+    {
+      "packageName": "com.nearme.instant.platform"
+    },
+    {
+      "packageName": "com.oppo.instant.local.service"
+    },
+    {
+      "packageName": "com.heytap.pictorial"
+    },
+    {
+      "packageName": "com.heytap.browser"
+    },
+    {
+      "packageName": "com.heytap.music"
+    }
+  ]
+}
