@@ -831,7 +831,7 @@ select_json_file() {
 # ---------------------------------------------------------------------------
 
 device_package_list() {
-    local mode="\${1:-active}" raw allow_empty=0
+    local mode="${1:-active}" raw allow_empty=0
     case "$mode" in
         all) raw="$(run_device_bounded pm list packages -u --user 0)" || return 1 ;;
         active) raw="$(run_device_bounded pm list packages --user 0)" || return 1 ;;
