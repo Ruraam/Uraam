@@ -345,7 +345,6 @@ DEVICE_MUTATIONS=()
 SIMULATE_DISCONNECT_ON_MUTATION=1
 if uraam_debloat > "$TMP_DIR/disconnect.out" 2>&1 <<'INPUT'
 u
-1
 1,2
 a
 APPLY 2
