@@ -61,7 +61,10 @@ case "$*" in
         printf 'package:com.example.alpha\npackage:com.example.beta\n'
         ;;
     '-s TEST-SERIAL shell pm path --user 0 com.example.alpha')
-        printf 'package:/data/app/~~abc/com.example.alpha/base.apk\n'
+        printf '/tmp/raw.apk\nrelative.apk\npackage:relative.apk\npackage:/data/app/../escape.apk\npackage:/data/app/space name.apk\npackage:/data/app/~~abc/com.example.alpha/base.apk\n'
+        ;;
+    '-s TEST-SERIAL shell pm path --user 0 com.example.badpaths')
+        printf '/tmp/raw.apk\nrelative.apk\npackage:relative.apk\npackage:/data/app/../escape.apk\npackage:/data/app/space name.apk\n'
         ;;
     '-s TEST-SERIAL shell dumpsys package com.example.alpha')
         printf 'Package [com.example.alpha] (123):\n    versionCode=42 minSdk=23 targetSdk=35\n    versionName=1.2.3\n    requested permissions:\n      android.permission.INTERNET\n      android.permission.CAMERA\n    install permissions:\n      android.permission.INTERNET: granted=true\n    Activities:\n      com.example.alpha/.MainActivity filter abc\n      com.example.alpha/com.example.alpha.SettingsActivity filter def\n    Services:\n      com.example.alpha/.SyncService\n    Receivers:\n      com.example.alpha/.BootReceiver\n    Providers:\n      com.example.alpha/.DataProvider\n'
@@ -197,6 +200,13 @@ jq -e '
     (.model | contains("TestPhone")) and
     .oem == "unknown"
 ' <<< "$device_json" >/dev/null
+
+# Only strict package:/absolute/path entries survive; malformed-only
+# Package Manager output must fail closed instead of exposing arbitrary paths.
+if bash "$ROOT/uraam-api.sh" package-info:com.example.badpaths >/dev/null 2>&1; then
+    printf '%s\\n' "FAIL: malformed APK paths were accepted" >&2
+    exit 1
+fi
 
 package_info="$(bash "$ROOT/uraam-api.sh" package-info:com.example.alpha)"
 jq -e '
