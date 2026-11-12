@@ -658,7 +658,16 @@ uraam_debloat() {
     done
     for pkg in "${PREVIEW_UNSAFE[@]}"; do
         metadata="$(uad_metadata_for_package "$pkg")"
-        IFS=
+        IFS=$'\t' read -r risk category description <<< "$metadata"
+        printf '\n  [BLOCKED] [UNSAFE] [%s] %s\n' "$category" "$pkg"
+        printf '      %s\n' "$description"
+    done
+    for pkg in "${PREVIEW_UNKNOWN[@]}"; do
+        metadata="$(uad_metadata_for_package "$pkg")"
+        IFS=$'\t' read -r risk category description <<< "$metadata"
+        printf '\n  [BLOCKED] [UNKNOWN] [%s] %s\n' "$category" "$pkg"
+        printf '      %s\n' "$description"
+    done
     for pkg in "${PREVIEW_PROTECTED[@]}"; do
         printf '\n  [PROTECTED BY URAAM] %s\n' "$pkg"
     done
