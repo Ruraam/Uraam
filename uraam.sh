@@ -1185,6 +1185,42 @@ uraam_debloat() {
         err "A pending operation appeared before apply; run preview/reconciliation again."
         return 1
     fi
+
+    # Revalidate after acquiring the exclusive lock: another URAAM process
+    # may have changed the device while this process waited.
+    installed="$(device_package_list active)" || {
+        release_apply_lock
+        err "Cannot verify package inventory under the apply lock; no changes made."
+        return 1
+    }
+    device_brand
+    if [[ "$CURRENT_MODEL" != "$initial_device_model" ||
+        "$(device_oem_family)" != "$oem_family" ||
+        "$(device_rom_info)" != "$initial_rom_info" ]]; then
+        release_apply_lock
+        warn "Device model, OEM or ROM identity changed while acquiring the apply lock. Run Preview again; no changes made."
+        return 1
+    fi
+    ready_count=0
+    for pkg in "${SELECTED_PACKAGES[@]}"; do
+        metadata="$(uad_metadata_for_package "$pkg")" || {
+            release_apply_lock
+            return 1
+        }
+        IFS=$'\t' read -r risk _ _ <<< "$metadata"
+        if ! is_whitelisted "$pkg" &&
+            [[ "$risk" == "Recommended" || "$risk" == "Advanced" || "$risk" == "Expert" ]] &&
+            package_is_installed "$pkg" "$installed"; then
+            ((ready_count+=1))
+        fi
+    done
+    if (( ready_count != operation_count )); then
+        release_apply_lock
+        warn "Device or UAD safety state changed while acquiring the apply lock ($operation_count planned, $ready_count still eligible)."
+        warn "Run Preview again; no changes made."
+        return 1
+    fi
+
     for index in "${!SELECTED_PACKAGES[@]}"; do
         pkg="${SELECTED_PACKAGES[$index]}"
         if ! backend_is_available; then
