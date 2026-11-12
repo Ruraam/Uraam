@@ -17,15 +17,27 @@ eval "$(declare -f run_device_bounded | sed '1s/run_device_bounded/run_device_bo
 mkdir -p "$TMP_DIR/mockbin"
 cat > "$TMP_DIR/mockbin/timeout" <<'MOCK'
 #!/usr/bin/env bash
-[[ "$1" == "--signal=TERM" && "$2" == "--kill-after=5" ]] || exit 2
-shift 2
-[[ "$1" == "30s" ]] || exit 2
+[[ "$1" == "--signal=TERM" ]] || exit 2
 shift
-[[ "${MOCK_TIMEOUT_MODE:-success}" != "expire" ]] || exit 124
-exec "$@"
+case "$1" in
+    --kill-after=1)
+        shift
+        [[ "$1" == "1s" && "$2 $3" == "sh -c" ]] || exit 2
+        exit 0
+        ;;
+    --kill-after=5)
+        shift
+        [[ "$1" == "30s" ]] || exit 2
+        shift
+        [[ "${MOCK_TIMEOUT_MODE:-success}" != "expire" ]] || exit 124
+        exec "$@"
+        ;;
+    *) exit 2 ;;
+esac
 MOCK
 cat > "$TMP_DIR/mockbin/adb" <<'MOCK'
 #!/usr/bin/env bash
+printf invoked > "$TMP_DIR/adb-called"
 [[ "$*" == "-s TEST-SERIAL shell pm list packages --user 0" ]] || exit 2
 printf "package:com.example.app\\n"
 MOCK
@@ -50,6 +62,36 @@ fi
 MOCK_TIMEOUT_MODE=success
 export MOCK_TIMEOUT_MODE
 pass "bounded commands accept timely responses and identify timeouts"
+# Prefer a compatible gtimeout when the first timeout command is BusyBox-like.
+cat > "$TMP_DIR/mockbin/timeout" <<'MOCK'
+#!/usr/bin/env bash
+exit 2
+MOCK
+cat > "$TMP_DIR/mockbin/gtimeout" <<'MOCK'
+#!/usr/bin/env bash
+[[ "$1" == "--signal=TERM" ]] || exit 2
+shift
+[[ "$1" == "--kill-after=1" ]] && { shift; [[ "$1" == "1s" ]] && exit 0; }
+[[ "$1" == "--kill-after=5" ]] || exit 2
+shift 2
+exec "$@"
+MOCK
+chmod +x "$TMP_DIR/mockbin/timeout" "$TMP_DIR/mockbin/gtimeout"
+rm -f "$TMP_DIR/adb-called"
+run_device_bounded_real pm list packages --user 0 >/dev/null || fail "compatible gtimeout fallback was not selected"
+
+# If neither implementation supports the required options, fail before ADB.
+cat > "$TMP_DIR/mockbin/gtimeout" <<'MOCK'
+#!/usr/bin/env bash
+exit 2
+MOCK
+chmod +x "$TMP_DIR/mockbin/gtimeout"
+rm -f "$TMP_DIR/adb-called"
+if run_device_bounded_real pm list packages --user 0 >/dev/null 2>&1; then
+    fail "unsupported timeout implementations must be rejected"
+fi
+[[ ! -e "$TMP_DIR/adb-called" ]] || fail "ADB was invoked without a compatible timeout utility"
+pass "unsupported timeout implementations fail closed and gtimeout fallback works"
 # The rest of the suite mocks the device backend while keeping the production
 # debloat preview/apply orchestration under test.
 run_device_bounded() { DEVICE_COMMAND_TIMED_OUT=0; run_device "$@"; }
