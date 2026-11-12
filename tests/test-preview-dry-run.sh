@@ -18,7 +18,7 @@ timeout() {
     "$@"
 }
 adb() {
-    [[ "$1 $2 $3 $4 $5" == "-s TEST-SERIAL shell pm list packages --user" ]] || return 2
+    [[ "$*" == "-s TEST-SERIAL shell pm list packages --user 0" ]] || return 2
     printf "package:com.example.app\\n"
 }
 EXEC_TYPE="ADB"
@@ -410,3 +410,28 @@ grep -Fq '1 skipped' "$TMP_DIR/disconnect.out" ||
     fail "remaining package was not counted as skipped"
 SIMULATE_DISCONNECT_ON_MUTATION=0
 pass "backend loss during an operation stops the remaining batch"
+
+# A timed-out destructive command has an unknown outcome: never retry it or
+# send subsequent mutations in the same batch.
+DEVICE_MUTATIONS=()
+SIMULATE_DISCONNECT_ON_MUTATION=0
+run_device_bounded() {
+    if [[ "$*" == "pm uninstall -k --user 0 com.example.app" ]]; then
+        DEVICE_MUTATIONS+=("$*")
+        DEVICE_COMMAND_TIMED_OUT=1
+        return 124
+    fi
+    run_device "$@"
+}
+uraam_debloat > "$TMP_DIR/timeout.out" 2>&1 <<'INPUT'
+u
+1,2
+a
+APPLY 2
+INPUT
+(( ${#DEVICE_MUTATIONS[@]} == 1 )) || fail "a timed-out destructive command must not be retried or followed by another mutation"
+grep -Fq "Uninstall timed out; its outcome is unknown" "$TMP_DIR/timeout.out" ||
+    fail "unknown outcome after uninstall timeout was not reported"
+grep -Fq "1 failed" "$TMP_DIR/timeout.out" || fail "timed-out package was not counted as failed"
+grep -Fq "1 skipped" "$TMP_DIR/timeout.out" || fail "remaining package was not skipped after timeout"
+pass "destructive timeout stops batch without retrying an uncertain operation"
