@@ -106,3 +106,12 @@ exists in that database and has `removal: Recommended`.
 The UAD source is pinned to a commit so results do not silently change when
 the upstream database is updated. This check is a data-classification gate,
 not a guarantee that removal is harmless on every device or firmware.
+
+
+### Other UAD-NG categories
+
+Google, AOSP, Carrier and Misc categories were audited, but are not imported as
+bulk-uninstall JSON profiles. They contain system dependencies, overlays,
+carrier-specific services and device-specific components. See
+[Docs/UAD-NG-review-catalog.md](../../Docs/UAD-NG-review-catalog.md) for the
+pinned category counts and the rationale for requiring per-package review.
