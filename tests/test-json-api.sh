@@ -10,7 +10,11 @@ cat > "$TMP_DIR/mockbin/adb" <<'MOCK'
 #!/usr/bin/env bash
 case "$*" in
     devices)
-        printf 'List of devices attached\nTEST-SERIAL\tdevice\n'
+        if [[ "\${MOCK_ADB_OFFLINE:-0}" == "1" ]]; then
+            printf 'List of devices attached\n'
+        else
+            printf 'List of devices attached\nTEST-SERIAL\tdevice\n'
+        fi
         ;;
     '-s TEST-SERIAL get-state')
         printf 'device\n'
@@ -60,7 +64,20 @@ case "$*" in
         ;;
 esac
 MOCK
-chmod +x "$TMP_DIR/mockbin/adb"
+cat > "$TMP_DIR/mockbin/su" <<'MOCK'
+#!/usr/bin/env bash
+[[ "\${MOCK_SU_DENY:-0}" == "1" ]] && exit 1
+[[ "\${1:-}" == "-c" && -n "\${2:-}" ]] || exit 2
+exec bash -c "$2"
+MOCK
+
+cat > "$TMP_DIR/mockbin/rish" <<'MOCK'
+#!/usr/bin/env bash
+[[ "\${1:-}" == "-c" && -n "\${2:-}" ]] || exit 2
+exec bash -c "$2"
+MOCK
+
+chmod +x "$TMP_DIR/mockbin/adb" "$TMP_DIR/mockbin/su" "$TMP_DIR/mockbin/rish"
 
 export PATH="$TMP_DIR/mockbin:$PATH"
 export ANDROID_SERIAL=TEST-SERIAL
@@ -144,5 +161,26 @@ fi
 
 help_output="$(bash "$ROOT/uraam-api.sh" --help)"
 grep -Fq 'read-only' <<< "$help_output"
+
+
+# Exercise each transport independently. These are host-side command mocks:
+# no physical device, privilege escalation or Shizuku service is contacted.
+export PREFIX="$TMP_DIR/com.termux/files/usr"
+export MOCK_ADB_OFFLINE=1
+unset ANDROID_SERIAL
+
+export MOCK_SU_DENY=0
+root_info="$(bash "$ROOT/uraam-api.sh" device-info)"
+jq -e '.status == "connected" and .backend == "ROOT" and .serial == null' <<< "$root_info" >/dev/null
+root_packages="$(bash "$ROOT/uraam-api.sh" list-packages)"
+jq -e '.status == "ok" and .backend == "ROOT" and .count == 3' <<< "$root_packages" >/dev/null
+
+export MOCK_SU_DENY=1
+shizuku_info="$(bash "$ROOT/uraam-api.sh" device-info)"
+jq -e '.status == "connected" and .backend == "SHIZUKU" and .serial == null' <<< "$shizuku_info" >/dev/null
+shizuku_packages="$(bash "$ROOT/uraam-api.sh" list-packages)"
+jq -e '.status == "ok" and .backend == "SHIZUKU" and .count == 3' <<< "$shizuku_packages" >/dev/null
+
+printf '%s\n' "PASS: mocked ADB, ROOT and SHIZUKU read-only backend paths"
 
 printf '%s\n' "PASS: JSON device information, package inventory, package inspector and strict read-only command boundary"
