@@ -1,56 +1,78 @@
-# ⚡ Quick Guide: One-Click Wireless ADB & Shizuku Setup
+# Shizuku and Wireless ADB
 
-Get rid of cables! With this guide, you only need to connect your phone witha USB cable **once**. The script will automatically start **Shizuku**, switch **ADB** to wireless mode, find your device's IP, and connect to it over Wi-Fi.
+This guide explains the connection options available to URAAM. Shizuku and ADB are separate Android mechanisms; using one does not automatically configure the other.
 
-Once completed, you can **unplug the cable** and use tools like **URAAM** completely wirelessly.
+## Prerequisites
 
----
+- A supported Android device with Developer options available.
+- A trusted host/device connection (USB or a trusted local Wi-Fi network).
+- URAAM installed and its host dependencies available.
+- For the Shizuku backend: Shizuku running and the `rish` command available in the same Termux environment.
 
-## 📋 Prerequisites
+Official project: [Shizuku](https://shizuku.rikka.app/).
 
-1. **On your phone:**
-- **Developer Options** enabled:
-- Go to `Settings` > `About phone` > Tap **Build number** $7$ times.
-- Go to `Developer Options` and enable **USB Debugging**.
-- Make sure **Shizuku** is installed from [GitHub](https://github.com/RikkaApps/Shizuku/releases) or Google Play.
-- Your phone and your computer must be connected to the **same Wi-Fi network**.
+## Option A: Android Wireless debugging (pairing flow)
 
-2. **On your computer:**
-- `adb` installed and accessible in your terminal/command line.
+1. Connect the host and Android device to the same trusted Wi-Fi network.
+2. On Android, open **Developer options → Wireless debugging** and enable it.
+3. Choose **Pair device with pairing code**.
+4. Use the IP address, pairing port and code displayed by Android with the ADB pairing flow.
+5. After pairing, connect using the separate connection endpoint shown by Android.
+6. Verify the device:
 
----
+```bash
+adb devices
+```
 
-## 🚀 Setup Instructions (Step-by-Step)
+The pairing port and connection port are not necessarily the same. Android may change them after reconnecting or rebooting. Use the current values shown on the device; do not assume a fixed port.
 
-### Step 1: Connect via USB
-Plug your Android device into your computer using a USB cable. If prompted on your phone's screen, tap **"Always allow from this computer"** and select **Allow**.
+URAAM also provides a wireless helper from the dashboard (**[w] Wireless menu**). Follow the exact prompts displayed by the installed version.
 
-### Step 2: Run the Wireless ADB Shizuku Setup
-Run URAAM, select "Wireless ADB Setup in Dashboard", in menu select "Wireless ADB + Shizuku" 
+## Option B: Shizuku from Termux
 
-### Step 3: Unplug the Cable!🎉
-Once you see:✅ Wireless ADB setup complete! You can now unplug your cable.Disconnect the USB cable. You are now fully connected over Wi-Fi!
+1. Install Shizuku from its [official project page](https://shizuku.rikka.app/).
+2. Start the Shizuku service using the official instructions for your Android version. On recent Android versions, this commonly uses Wireless debugging; some devices can use a temporary ADB connection.
+3. Follow Shizuku's instructions to install or expose its shell command `rish` in Termux.
+4. In the same Termux session, verify:
 
----
+```bash
+command -v rish
+rish -c id
+```
 
-## 🛠️ How It Works Underthe Hood
+5. Launch URAAM and choose the Shizuku backend when prompted.
 
-The script automatically executes the following actions:
-1. **Starts Shizuku:** Wakes up theShizuku background service without requiring root permissions.
-2. **Enables TCP/IP Mode:** Tells the AndroidADB daemon to listen on port `5555`.
-3. **Detects Device IP:** Reads your phone's local network IP address dynamically.
-4. **Initiates Wireless Link:** Pairs your terminal session directly over the local network via `adb connect<device-ip>:5555`.
+URAAM does not start Shizuku, grant its permissions, or install `rish` automatically. Shizuku's service lifecycle and permission model are controlled by Shizuku and Android.
 
----
+## Option C: USB ADB, then wireless connection
 
-## 💡 Good to Know & Reconnection
+A USB connection can be used as an initial transport when the device's wireless setup requires it:
 
-- **Do I need to do this every time?**
-**No!** As long as your phone stays powered on,Shizuku and wireless ADB will remain active.
-- **What happens if I reboot my phone?**
-Android disables temporary debug ports and background daemon services on system reboot for security reasons. If your phone restarts:
-1. Plug it back invia USB.
-2. Run the script once again.
-3. Unplug and enjoy wireless access again!
-- **Lost connection while phone is still on?**
-If your Wi-Fi disconnects momentarily, you don't need the cable again. Simply run: adb connect <YOUR_PHONE_IP>:5555
+1. Enable Developer options and USB debugging.
+2. Connect by USB and authorize the host.
+3. Confirm the device appears as `device` in `adb devices`.
+4. Use Android's Wireless debugging pairing workflow or URAAM's helper.
+5. Verify the wireless endpoint before unplugging USB.
+
+Do not assume that enabling legacy ADB TCP/IP on port 5555 is equivalent to Android's modern Wireless debugging pairing flow.
+
+## Reconnection
+
+- **After a reboot:** Android may disable wireless debugging or invalidate temporary pairing state. Re-enable it and pair/connect again as needed.
+- **After a Wi-Fi change:** confirm both devices are on the same trusted network and use the current IP/port.
+- **After a lost ADB session:** inspect `adb devices`, reconnect using the current endpoint and re-authorize if Android asks.
+- **After Shizuku stops:** start its service again using the official Shizuku instructions, then re-check `rish -c id`.
+
+## Troubleshooting
+
+| Symptom | Checks |
+|---|---|
+| Device is `unauthorized` | Unlock Android and accept the RSA authorization prompt |
+| `adb devices` is empty | Check cable/data mode, platform-tools, USB permissions or wireless endpoint |
+| Pairing fails | Re-open Wireless debugging and use the currently displayed pairing code and port |
+| Pairing succeeds but connection fails | Use the separate connection port/address displayed by Android |
+| `rish` not found | Revisit Shizuku's Termux integration instructions and check PATH |
+| `rish -c id` fails | Check that Shizuku is running and the shell integration is correctly installed |
+| URAAM reports backend unavailable | Verify the selected backend independently before attempting any package operation |
+
+Use only networks you trust. Wireless debugging exposes a powerful development interface to the local network while enabled.
