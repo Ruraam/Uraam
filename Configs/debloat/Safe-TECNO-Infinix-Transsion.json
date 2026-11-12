@@ -1,0 +1,44 @@
+{
+  "name": "TECNO / Infinix / Transsion",
+  "description": "Conservative Transsion profile based on UAD-NG Recommended OEM entries. Optional telemetry, tips, sponsored content and bundled utilities; do not remove apps you actively use (health, file transfer, gaming, accessibility).",
+  "author": "Ruvyrom",
+  "version": "1.0.0",
+  "apps": [
+    {
+      "packageName": "com.transsion.statisticalsales"
+    },
+    {
+      "packageName": "com.transsion.stasticalsales"
+    },
+    {
+      "packageName": "com.transsion.trancare"
+    },
+    {
+      "packageName": "com.transsion.hamal"
+    },
+    {
+      "packageName": "com.transsion.tecnospot"
+    },
+    {
+      "packageName": "com.transsion.magazineservice.hios"
+    },
+    {
+      "packageName": "com.transsion.magazineservice.xos"
+    },
+    {
+      "packageName": "com.transsion.manualguide"
+    },
+    {
+      "packageName": "com.transsion.aiwallpaper"
+    },
+    {
+      "packageName": "com.transsion.tips"
+    },
+    {
+      "packageName": "com.transsion.uxdetector"
+    },
+    {
+      "packageName": "com.infinix.xshare"
+    }
+  ]
+}
