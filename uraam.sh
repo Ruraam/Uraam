@@ -599,7 +599,7 @@ uraam_debloat() {
     local action mode confirm installed pkg operation_count ready_count
     local selection token risk category description metadata index
     local success=0 skipped=0 failed=0
-    local -a PREVIEW_PRESENT=() PREVIEW_PROTECTED=() PREVIEW_MISSING=()
+    local -a PREVIEW_PROTECTED=() PREVIEW_MISSING=()
     local -a PREVIEW_UNSAFE=() PREVIEW_UNKNOWN=() CANDIDATE_PACKAGES=() CANDIDATE_RISKS=()
     local -a CANDIDATE_CATEGORIES=() CANDIDATE_DESCRIPTIONS=()
     local -a SELECTED_PACKAGES=() requested_indices=()
@@ -644,6 +644,7 @@ uraam_debloat() {
     [[ -n "$BACKEND_SERIAL" ]] && printf ' (%s)' "$BACKEND_SERIAL"
     printf '\nBackend: %s | Android user: 0\n' "${EXEC_TYPE:-unknown}"
     printf 'Action requested: %s\n\n' "$action"
+    printf 'Risk guide: Recommended (UAD recommendation; still manual) | Advanced (review caveats) | Expert (technical review) | Unsafe/Unknown (blocked)\n'
     if [[ -r "$UAD_METADATA_FILE" ]]; then
         printf 'UAD-NG metadata: bundled catalogue available\n'
     else
@@ -694,9 +695,18 @@ uraam_debloat() {
         warn "Operation cancelled."
         return 0
     }
+    [[ "$selection" =~ ^[0-9]+([[:space:]]*,[[:space:]]*[0-9]+)*$ ]] || {
+        err "Invalid selection. Enter comma-separated package numbers only."
+        return 1
+    }
     IFS=',' read -r -a requested_indices <<< "$selection"
     for token in "${requested_indices[@]}"; do
         token="${token//[[:space:]]/}"
+        (( ${#token} <= 6 )) || {
+            err "Selection number is too long."
+            return 1
+        }
+        token=$((10#$token))
         [[ "$token" =~ ^[0-9]+$ ]] || {
             err "Invalid selection '$token'. Use comma-separated numbers only; no bulk keyword is accepted."
             return 1
