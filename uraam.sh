@@ -392,8 +392,15 @@ detect_backend_status() {
 
 require_backend() {
     show_logo
-    ensure_adb || return 1
     ensure_jq || return 1
+
+    # Root and Shizuku are local Termux backends; neither requires ADB.
+    # Keep the ADB installation prompt as a fallback when no local backend works.
+    if ! command -v adb >/dev/null 2>&1; then
+        if ! is_termux || ! detect_backend_status; then
+            ensure_adb || return 1
+        fi
+    fi
 
     if ! detect_backend_status; then
         msg "${BLUE}--------------------------------------------------------${NC}"
