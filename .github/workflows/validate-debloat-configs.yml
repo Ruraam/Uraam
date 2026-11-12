@@ -5,6 +5,8 @@ on:
     paths:
       - "Configs/debloat/**/*.json"
       - "Configs/debloat/*.json"
+      - "Configs/debloat/README.md"
+      - "Docs/UAD-NG-review-catalog.md"
       - "scripts/validate-debloat-json.py"
       - ".github/workflows/validate-debloat-configs.yml"
   push:
