@@ -901,7 +901,12 @@ uraam_debloat() {
     msg "Configurations: $USER_DEBLOAT_DIR"
     msg "${BLUE}------------------------------------------${NC}"
     require_backend || return 1
-    recover_pending_operation || return 1
+    acquire_apply_lock || return 1
+    if ! recover_pending_operation; then
+        release_apply_lock
+        return 1
+    fi
+    release_apply_lock
     select_json_file "$CONFIGS_DIR" "Available debloat configurations:" || return 1
     local file="$SELECTED_FILE"
     info "Selected: $(basename "$file")"
