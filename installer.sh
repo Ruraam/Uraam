@@ -551,7 +551,10 @@ show_menu() {
 
 main() {
     term_set_storage
-    check_dependencies
+    check_dependencies || {
+        log_error "Cannot continue: required dependencies are unavailable."
+        return 1
+    }
     show_menu
 }
 
