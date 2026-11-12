@@ -1,0 +1,20 @@
+{
+  "name": "Nothing OS",
+  "description": "Conservative Nothing OS profile based on UAD-NG Recommended OEM entries. Targets telemetry, hidden diagnostics and optional game-promotion components; preserves OTA updater and launcher.",
+  "author": "Ruvyrom",
+  "version": "1.0.0",
+  "apps": [
+    {
+      "packageName": "com.nothing.logkit"
+    },
+    {
+      "packageName": "com.nothing.enginnerservice"
+    },
+    {
+      "packageName": "com.nothing.experience"
+    },
+    {
+      "packageName": "com.aura.oobe.solutions"
+    }
+  ]
+}
