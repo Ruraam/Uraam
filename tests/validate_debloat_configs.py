@@ -10,6 +10,15 @@ CONFIG_DIR = Path("Configs/debloat")
 PACKAGE_ID = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$")
 
 # Keep aligned with SAFETY_WHITELIST in uraam.sh.
+PROTECTED_PACKAGE_PATTERNS = (
+    re.compile(r"^com\\.android\\.providers\\.(settings|telephony|media|downloads|contacts)(\\.|$)"),
+    re.compile(r"(^|\\.)(telephony[^.]*|telecom|ims|imsservice|ril)(\\.|$)"),
+    re.compile(r"(^|\\.)(setupwizard|permissioncontroller|packageinstaller|systemui|keyguard|emergency)(\\.|$)"),
+    re.compile(r"(^|\\.)(bluetooth|bluetoothagent|bluetoothservice|nfc)(\\.|$)"),
+    re.compile(r"^com\\.android\\.(providers\\.(settings|telephony)|server\\.telecom|emergency|systemui|permissioncontroller).*overlay"),
+    re.compile(r"^com\\.samsung\\.android\\.knox\\.(attestation|containercore|kpecore)(\\.|$)"),
+)
+
 PROTECTED_PACKAGES = {
     "android",
     "com.android.systemui",
@@ -102,7 +111,9 @@ def main() -> int:
             if package in seen:
                 errors.append(f"{path}: duplicate package '{package}'")
             seen.add(package)
-            if package in PROTECTED_PACKAGES:
+            if package in PROTECTED_PACKAGES or any(
+                pattern.search(package) for pattern in PROTECTED_PACKAGE_PATTERNS
+            ):
                 errors.append(f"{path}: protected Android package '{package}' must not be listed")
 
     if errors:
