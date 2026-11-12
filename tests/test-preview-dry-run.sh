@@ -415,6 +415,42 @@ grep -Fq 'Device or UAD safety state changed after preview' "$TMP_DIR/stale.out"
 (( ${#DEVICE_MUTATIONS[@]} == 0 )) || fail "stale preview executed a mutation"
 pass "stale preview is rejected before execution"
 
+# Simulate another URAAM process changing the inventory after this process
+# acquires the lock. The under-lock revalidation must prevent stale apply.
+eval "$(declare -f acquire_apply_lock | sed '1s/acquire_apply_lock/acquire_apply_lock_real/')"
+SIMULATE_STATE_CHANGE_ON_LOCK=0
+acquire_apply_lock() {
+    acquire_apply_lock_real || return 1
+    if (( SIMULATE_STATE_CHANGE_ON_LOCK )); then
+        STATE_CHANGED_AFTER_LOCK=1
+    fi
+}
+STATE_CHANGED_AFTER_LOCK=0
+SIMULATE_STATE_CHANGE_ON_LOCK=1
+device_package_list() {
+    if (( STATE_CHANGED_AFTER_LOCK )); then
+        printf '%s\\n' 'com.example.expert' 'com.android.systemui' 'com.samsung.android.bluetooth'
+    else
+        printf '%s\\n' 'com.example.app' 'com.example.expert' 'com.example.unsafe' 'com.example.unknown' 'com.example.framework' 'com.example.consumer' 'com.android.systemui' 'com.samsung.android.bluetooth'
+    fi
+}
+DEVICE_MUTATIONS=()
+if uraam_debloat > "$TMP_DIR/lock-race.out" 2>&1 <<'INPUT'
+u
+1
+a
+APPLY 1
+INPUT
+then
+    fail "inventory change while acquiring apply lock should abort"
+fi
+grep -Fq 'while acquiring the apply lock' "$TMP_DIR/lock-race.out" ||
+    fail "under-lock inventory change was not reported"
+(( ${#DEVICE_MUTATIONS[@]} == 0 )) || fail "stale selection executed after lock acquisition"
+SIMULATE_STATE_CHANGE_ON_LOCK=0
+acquire_apply_lock() { acquire_apply_lock_real; }
+pass "inventory changes while waiting for the apply lock are rejected"
+
 # A different model on the same ADB transport must invalidate the preview.
 # Restore the normal inventory mock after the preceding stale-inventory case.
 device_package_list() {
