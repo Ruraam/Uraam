@@ -267,9 +267,17 @@ class UraamWindow(Gtk.ApplicationWindow):
             "Requested permissions", "Not loaded",
             "Names requested by the package; grant status is not inferred"
         )
+        self.package_detail_components = {
+            "activities": self._make_card("Activities", "Not loaded", "Declared component entries"),
+            "services": self._make_card("Services", "Not loaded", "Declared component entries"),
+            "receivers": self._make_card("Receivers", "Not loaded", "Declared component entries"),
+            "providers": self._make_card("Providers", "Not loaded", "Declared component entries"),
+        }
         details.append(self.package_detail_version)
         details.append(self.package_detail_path)
         details.append(self.package_detail_permissions)
+        for component_card in self.package_detail_components.values():
+            details.append(component_card)
         safety_note = Gtk.Label(
             label="Information only. System/user classification is not a removal recommendation. No package changes are available in this inspector.",
             xalign=0,
@@ -407,6 +415,11 @@ class UraamWindow(Gtk.ApplicationWindow):
             self.package_detail_permissions, "Requested permissions", "Loading…",
             "Names requested by the package; grant status is not inferred"
         )
+        for component_name, component_card in self.package_detail_components.items():
+            self._replace_card(
+                component_card, component_name.title(), "Loading…",
+                "Declared component entries from Android Package Manager"
+            )
         self.stack.set_visible_child_name("package-detail")
         self._run_async(f"package-info:{package}", self._show_package_info)
 
@@ -419,6 +432,11 @@ class UraamWindow(Gtk.ApplicationWindow):
                 self.package_detail_permissions, "Requested permissions", "Unavailable",
                 "No permission metadata returned"
             )
+            for component_name, component_card in self.package_detail_components.items():
+                self._replace_card(
+                    component_card, component_name.title(), "Unavailable",
+                    "No component metadata returned"
+                )
             return
         version_name = payload.get("version_name") or "Not reported"
         version_code = payload.get("version_code") or "Not reported"
@@ -447,6 +465,24 @@ class UraamWindow(Gtk.ApplicationWindow):
             self.package_detail_permissions, "Requested permissions",
             permission_value, permission_detail
         )
+        components = payload.get("components")
+        if isinstance(components, dict):
+            for component_name, component_card in self.package_detail_components.items():
+                entries = components.get(component_name)
+                if isinstance(entries, list):
+                    names = [str(item) for item in entries if isinstance(item, str)]
+                    value = f"{len(names)} reported"
+                    detail = "\\n".join(names) if names else "No entries parsed in this section"
+                else:
+                    value = "Not reported"
+                    detail = "This Android build did not expose this component section"
+                self._replace_card(component_card, component_name.title(), value, detail)
+        else:
+            for component_name, component_card in self.package_detail_components.items():
+                self._replace_card(
+                    component_card, component_name.title(), "Not reported",
+                    "This Android build did not expose component metadata"
+                )
         self.package_detail_status.set_text(
             f"Backend: {str(payload.get('backend', 'unknown')).upper()} · Read-only inspection · Requested names only"
         )
