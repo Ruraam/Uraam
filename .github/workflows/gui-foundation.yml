@@ -5,6 +5,10 @@ on:
     paths:
       - "uraam-api.sh"
       - "uraam-gui"
+      - "installer.sh"
+      - "packaging/debian/**"
+      - "assets/uraam_logo.svg"
+      - ".github/workflows/.build-releases.yml"
       - "GUI/**"
       - "tests/test-json-api.sh"
       - ".github/workflows/gui-foundation.yml"
@@ -40,10 +44,11 @@ jobs:
           bash -n uraam.sh
           bash -n uraam-api.sh
           bash -n uraam-gui
+          bash -n installer.sh
           bash -n tests/test-json-api.sh
 
       - name: Run ShellCheck
-        run: shellcheck --severity=error uraam.sh uraam-api.sh uraam-gui tests/test-json-api.sh
+        run: shellcheck --severity=error uraam.sh uraam-api.sh uraam-gui installer.sh tests/test-json-api.sh
 
       - name: Validate Python syntax and GTK4 bindings
         run: |
