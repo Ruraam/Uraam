@@ -104,3 +104,52 @@ window.uraam-window .title-1 {
 window.uraam-window .uraam-accent {
   color: #67e8f9;
 }
+
+/* Desktop navigation and dashboard surfaces */
+window.uraam-window .uraam-sidebar {
+  background: linear-gradient(180deg, rgba(2, 6, 23, 0.78), rgba(10, 21, 48, 0.62));
+  border: 1px solid rgba(165, 243, 252, 0.16);
+  border-radius: 16px;
+  padding: 14px;
+}
+window.uraam-window .uraam-brand {
+  color: #e0f2fe;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+window.uraam-window .uraam-subtitle,
+window.uraam-window .uraam-eyebrow,
+window.uraam-window .uraam-card-heading {
+  color: #67e8f9;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+window.uraam-window button.uraam-nav-button {
+  text-align: left;
+  background: rgba(15, 23, 42, 0.55);
+  border-color: rgba(125, 211, 252, 0.12);
+}
+window.uraam-window button.uraam-nav-button:focus,
+window.uraam-window button.uraam-nav-button:hover {
+  background: linear-gradient(100deg, rgba(34, 211, 238, 0.18), rgba(99, 102, 241, 0.16));
+  border-color: rgba(103, 232, 249, 0.55);
+}
+window.uraam-window .uraam-card,
+window.uraam-window .uraam-wide-card {
+  background: linear-gradient(145deg, rgba(10, 21, 48, 0.88), rgba(20, 18, 58, 0.72));
+  border: 1px solid rgba(165, 243, 252, 0.20);
+  border-radius: 16px;
+}
+window.uraam-window .uraam-card-value {
+  color: #e0f2fe;
+  font-size: 20px;
+  font-weight: 700;
+}
+window.uraam-window list.uraam-package-row {
+  background: rgba(10, 21, 48, 0.52);
+}
+window.uraam-window list.uraam-package-row:hover {
+  background: rgba(34, 211, 238, 0.12);
+}
