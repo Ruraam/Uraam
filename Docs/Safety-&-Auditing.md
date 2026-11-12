@@ -1,13 +1,9 @@
-# Safety & Auditing
+# Safety and auditing
 
-The Ruvomain Protocol with URAAM - Universal Ruvomain ADB App-Manager are designed with security, transparency, and system integrity as its core pillars. This document outlines our approach to ensuring the safety of your device and the reliability of our automation scripts.
+This legacy filename is retained so existing links do not break.
 
-## System Integrity (Samsung Knox)
-The Ruvomain Protocol is strictly non-destructive. Our approach respects the integrity of your device's security architecture:
+The current, maintained safety reference is **[Safety and Recovery](Safety-and-Recovery.md)**. It documents the actual preview and Dry-run flow, UAD-NG classification policy, Apply confirmation, device identity revalidation, exclusive lock, bounded commands, interrupted-operation journal and recovery requirements.
 
-1. **Non-Rooted Approach:** We operate solely within the user-space boundaries allowed by ADB. No modifications are made to system-level partitions or kernels that would trigger a Knox trip (0x1).
-2. **Reversibility:** Every package modification performed by the protocol can be reverted using standard ADB commands, ensuring you retain full control over your devicestate.
-3. **No Hidden Payloads:** All operations are transparent. You can inspect the source code of every script before execution to understand exactly what each command does.
+Do not rely on older claims that package changes are universally reversible, non-destructive or guaranteed not to affect device security features. Android behavior varies by model, firmware, carrier and OS release.
 
-## Community & Transparency
-We encourage users to audit our scripts. If you find a potential improvement or a security concern, please open an issue on the repository. The security of theRuvomain Protocol relies on the collective vigilance of our community.
+For installation and connection instructions, see the [Quick Start](Quick-Start-Guide.md).
