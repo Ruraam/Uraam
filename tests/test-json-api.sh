@@ -35,6 +35,18 @@ case "$*" in
     '-s TEST-SERIAL shell getprop ro.build.version.oneui')
         printf '%s\n' "${MOCK_ONEUI_VERSION:-}"
         ;;
+    '-s TEST-SERIAL shell getprop ro.mi.os.version.name')
+        printf '%s\\n' "${MOCK_HYPEROS_VERSION:-}"
+        ;;
+    '-s TEST-SERIAL shell getprop ro.miui.ui.version.name')
+        printf '%s\\n' "${MOCK_MIUI_VERSION:-}"
+        ;;
+    '-s TEST-SERIAL shell getprop ro.build.version.opporom')
+        printf '%s\\n' "${MOCK_COLOROS_VERSION:-}"
+        ;;
+    '-s TEST-SERIAL shell getprop ro.build.version.myux')
+        printf '%s\\n' "${MOCK_MYUX_VERSION:-}"
+        ;;
     '-s TEST-SERIAL shell pm list packages --user 0')
         if [[ "${MOCK_ADB_INVENTORY:-valid}" == "malformed" ]]; then
             printf 'package:com.example.alpha\nunexpected truncated output\n'
@@ -66,11 +78,35 @@ case "$*" in
     '-s TEST-SERIAL shell pm path --user 0 com.example.old')
         printf 'package:/data/app/com.example.old/base.apk\n'
         ;;
+    '-s TEST-SERIAL shell pm path --user 0 com.lab.pixel')
+        printf 'package:/data/app/com.lab.pixel/base.apk\n'
+        ;;
+    '-s TEST-SERIAL shell pm path --user 0 com.lab.xiaomi')
+        printf 'package:/data/app/com.lab.xiaomi/base.apk\n'
+        ;;
+    '-s TEST-SERIAL shell pm path --user 0 com.lab.oppo')
+        printf 'package:/data/app/com.lab.oppo/base.apk\n'
+        ;;
+    '-s TEST-SERIAL shell pm path --user 0 com.lab.motorola')
+        printf 'package:/data/app/com.lab.motorola/base.apk\n'
+        ;;
     '-s TEST-SERIAL shell dumpsys package com.example.nosections')
         printf 'Package [com.example.nosections] (789):\n    versionName=3.0\n    requested permissions:\n      android.permission.INTERNET\n'
         ;;
     '-s TEST-SERIAL shell dumpsys package com.example.old')
         printf 'Package [com.example.old] (101):\n    codePath=/data/app/com.example.old\n'
+        ;;
+    '-s TEST-SERIAL shell dumpsys package com.lab.pixel')
+        printf 'Package [com.lab.pixel] (202):\\n    versionCode=7\\n    versionName=PixelFixture\\n    Activities:\\n      com.lab.pixel/com.lab.pixel.MainActivity filter\\n    Services:\\n      com.lab.pixel/.SyncService\\n'
+        ;;
+    '-s TEST-SERIAL shell dumpsys package com.lab.xiaomi')
+        printf 'Package [com.lab.xiaomi] (303):\\n    requested permissions:\\n      android.permission.INTERNET\\n    Receivers:\\n      com.lab.xiaomi/.BootReceiver\\n    Providers:\\n      com.lab.xiaomi/com.lab.xiaomi.StoreProvider\\n'
+        ;;
+    '-s TEST-SERIAL shell dumpsys package com.lab.oppo')
+        printf 'Package [com.lab.oppo] (404):\\n    versionName=OppoFixture\\n    Services:\\n      com.lab.oppo/.PushService\\n    Activities:\\n      com.lab.oppo/.HomeActivity\\n'
+        ;;
+    '-s TEST-SERIAL shell dumpsys package com.lab.motorola')
+        printf 'Package [com.lab.motorola] (505):\\n    versionName=MotoFixture\\n    Activities:\\n      com.lab.motorola/com.lab.motorola.LauncherActivity filter\\n    Receivers:\\n      com.lab.motorola/.UpdateReceiver\\n    Providers:\\n      com.lab.motorola/.DataProvider\\n'
         ;;
     '-s TEST-SERIAL shell getprop '*)
         printf '\n'
@@ -196,6 +232,34 @@ export MOCK_MANUFACTURER=Samsung MOCK_BRAND=samsung MOCK_ONEUI_VERSION=6.1 MOCK_
 legacy_device="$(bash "$ROOT/uraam-api.sh" device-info)"
 jq -e '.status == "connected" and .oem == "samsung" and .rom.name == "One UI" and .rom.version == "6.1"' <<< "$legacy_device" >/dev/null
 unset MOCK_MANUFACTURER MOCK_BRAND MOCK_ONEUI_VERSION MOCK_ANDROID_RELEASE
+
+
+# Android/OEM compatibility matrix: property detection and dumpsys section
+# parsing are exercised independently of physical hardware.
+export MOCK_MANUFACTURER=Google MOCK_BRAND=google MOCK_ANDROID_RELEASE=14
+pixel_device="$(bash "$ROOT/uraam-api.sh" device-info)"
+jq -e '.oem == "google" and .rom.name == "Pixel Android" and .rom.version == "14"' <<< "$pixel_device" >/dev/null
+pixel_info="$(bash "$ROOT/uraam-api.sh" package-info:com.lab.pixel)"
+jq -e '.version_name == "PixelFixture" and .version_code == "7" and .components.activities == ["com.lab.pixel/com.lab.pixel.MainActivity"] and .components.services == ["com.lab.pixel/.SyncService"]' <<< "$pixel_info" >/dev/null
+
+export MOCK_MANUFACTURER=Xiaomi MOCK_BRAND=Redmi MOCK_HYPEROS_VERSION=1.0
+xiaomi_device="$(bash "$ROOT/uraam-api.sh" device-info)"
+jq -e '.oem == "xiaomi" and .rom.name == "HyperOS" and .rom.version == "1.0"' <<< "$xiaomi_device" >/dev/null
+xiaomi_info="$(bash "$ROOT/uraam-api.sh" package-info:com.lab.xiaomi)"
+jq -e '.components.receivers == ["com.lab.xiaomi/.BootReceiver"] and .components.providers == ["com.lab.xiaomi/com.lab.xiaomi.StoreProvider"] and .components.activities == null' <<< "$xiaomi_info" >/dev/null
+
+export MOCK_MANUFACTURER=OPPO MOCK_BRAND=OPPO MOCK_HYPEROS_VERSION= MOCK_COLOROS_VERSION=14
+oppo_device="$(bash "$ROOT/uraam-api.sh" device-info)"
+jq -e '.oem == "oppo" and .rom.name == "ColorOS" and .rom.version == "14"' <<< "$oppo_device" >/dev/null
+oppo_info="$(bash "$ROOT/uraam-api.sh" package-info:com.lab.oppo)"
+jq -e '.version_name == "OppoFixture" and .components.services == ["com.lab.oppo/.PushService"] and .components.activities == ["com.lab.oppo/.HomeActivity"]' <<< "$oppo_info" >/dev/null
+
+export MOCK_MANUFACTURER=Motorola MOCK_BRAND=motorola MOCK_MYUX_VERSION=5
+moto_device="$(bash "$ROOT/uraam-api.sh" device-info)"
+jq -e '.oem == "motorola" and .rom.name == "My UX" and .rom.version == "5"' <<< "$moto_device" >/dev/null
+moto_info="$(bash "$ROOT/uraam-api.sh" package-info:com.lab.motorola)"
+jq -e '.version_name == "MotoFixture" and .components.activities == ["com.lab.motorola/com.lab.motorola.LauncherActivity"] and .components.receivers == ["com.lab.motorola/.UpdateReceiver"] and .components.providers == ["com.lab.motorola/.DataProvider"]' <<< "$moto_info" >/dev/null
+unset MOCK_MANUFACTURER MOCK_BRAND MOCK_ANDROID_RELEASE MOCK_HYPEROS_VERSION MOCK_MIUI_VERSION MOCK_COLOROS_VERSION MOCK_MYUX_VERSION
 
 # Unauthorized and offline ADB devices are not usable backends.
 export MOCK_ADB_STATE=unauthorized
