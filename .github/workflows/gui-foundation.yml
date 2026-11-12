@@ -55,5 +55,25 @@ jobs:
           python3 -m py_compile GUI/main.py
           python3 -c "import gi; gi.require_version('Gtk', '4.0'); from gi.repository import Gtk; print(Gtk.get_major_version(), Gtk.get_minor_version())"
 
+      - name: Validate Debian desktop package layout
+        run: |
+          VERSION="0.0.0"
+          PKG_DIR="uraam-debian_${VERSION}_all"
+          mkdir -p "$PKG_DIR/usr/bin" "$PKG_DIR/usr/share/uraam/GUI" "$PKG_DIR/usr/share/icons/hicolor/scalable/apps" "$PKG_DIR/DEBIAN"
+          cp uraam.sh "$PKG_DIR/usr/share/uraam/"
+          cp -r Configs "$PKG_DIR/usr/share/uraam/"
+          cp uraam-api.sh "$PKG_DIR/usr/share/uraam/"
+          cp GUI/main.py "$PKG_DIR/usr/share/uraam/GUI/"
+          cp uraam-gui "$PKG_DIR/usr/bin/uraam-gui"
+          cp assets/uraam_logo.svg "$PKG_DIR/usr/share/icons/hicolor/scalable/apps/uraam.svg"
+          cp packaging/debian/uraam.desktop "$PKG_DIR/usr/share/uraam/uraam.desktop"
+          sed "s/VERSION_PLACEHOLDER/$VERSION/" packaging/debian/DEBIAN/control > "$PKG_DIR/DEBIAN/control"
+          cp packaging/debian/DEBIAN/postinst packaging/debian/DEBIAN/postrm "$PKG_DIR/DEBIAN/"
+          chmod 0755 "$PKG_DIR/usr/share/uraam/uraam.sh" "$PKG_DIR/usr/share/uraam/uraam-api.sh" "$PKG_DIR/usr/bin/uraam-gui"
+          chmod 0755 "$PKG_DIR/DEBIAN/postinst" "$PKG_DIR/DEBIAN/postrm"
+          dpkg-deb --build "$PKG_DIR"
+          dpkg-deb --contents "${PKG_DIR}.deb" | grep -q '/usr/bin/uraam-gui'
+          dpkg-deb --contents "${PKG_DIR}.deb" | grep -q '/usr/share/uraam/GUI/main.py'
+          dpkg-deb --contents "${PKG_DIR}.deb" | grep -q '/usr/share/icons/hicolor/scalable/apps/uraam.svg'
       - name: Test read-only JSON API
         run: bash tests/test-json-api.sh
