@@ -169,7 +169,7 @@ dbp upgrade
 
 Running the new native Linux VM on Android? You can install URAAM directly with a single command:
 ```bash
-curl -L -O https://github.com/Ruraam/Uraam/releases/download/v4.4.7/uraam-debian_4.4.7_all.deb && sudo apt install -y ./uraam-debian_v4.4.3_all.deb
+curl -L -O https://github.com/Ruraam/Uraam/releases/download/v4.4.7/uraam-debian_4.4.7_all.deb && sudo apt install -y ./uraam-debian_4.4.7_all.deb
 ```
 Launch URAAM with this command:
 ```bash
