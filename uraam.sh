@@ -853,6 +853,8 @@ device_package_list() {
     case "$mode" in
         all) raw="$(run_device_bounded pm list packages -u --user 0)" || return 1 ;;
         active) raw="$(run_device_bounded pm list packages --user 0)" || return 1 ;;
+        system) raw="$(run_device_bounded pm list packages -s --user 0)" || return 1; allow_empty=1 ;;
+        user) raw="$(run_device_bounded pm list packages -3 --user 0)" || return 1; allow_empty=1 ;;
         disabled) raw="$(run_device_bounded pm list packages -d --user 0)" || return 1; allow_empty=1 ;;
         *) return 2 ;;
     esac
