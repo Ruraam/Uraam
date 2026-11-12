@@ -122,11 +122,12 @@ main() {
             version_code="$(sed -n 's/.*versionCode=\([0-9][0-9]*\).*/\1/p' <<< "$dump_raw" | head -n 1)"
             jq -n --arg package "$package_id" --arg backend "$EXEC_TYPE" \
                 --arg version_name "$version_name" --arg version_code "$version_code" \
-                --args "${apk_paths[@]}" \
+                --args \
                 '{status:"ok",package:$package,backend:$backend,paths:$ARGS.positional,
                   version_name:(if $version_name == "" then null else $version_name end),
                   version_code:(if $version_code == "" then null else $version_code end),
-                  metadata_source:"dumpsys package",read_only:true}'
+                  metadata_source:"dumpsys package",read_only:true}' \
+                "${apk_paths[@]}"
             ;;
         list-packages)
             local packages system_packages user_packages
