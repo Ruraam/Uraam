@@ -1,6 +1,6 @@
 {
   "name": "Samsung Android Debloat List",
-  "description": "https:\/\/github.com\/Willie169\/Samsung-Android-Debloat-List",
+  "description": "https://github.com/Willie169/Samsung-Android-Debloat-List",
   "author": "Willie169",
   "version": "1.0",
   "apps": [
@@ -159,9 +159,6 @@
     },
     {
       "packageName": "com.google.android.safetycenter.resources"
-    },
-    {
-      "packageName": "com.google.android.setupwizard"
     },
     {
       "packageName": "com.google.android.tts"
@@ -561,9 +558,6 @@
     },
     {
       "packageName": "com.sec.android.RilServiceModeApp"
-    },
-    {
-      "packageName": "com.sec.android.app.SecSetupWizard"
     },
     {
       "packageName": "com.sec.android.app.billing"
