@@ -48,8 +48,8 @@ jobs:
           cp -r Configs "$PKG_DIR/$PREFIX/share/uraam/"
           chmod +x "$PKG_DIR/$PREFIX/share/uraam/uraam.sh"
           sed "s/VERSION_PLACEHOLDER/$VERSION/" packaging/termux/DEBIAN/control > "$PKG_DIR/DEBIAN/control"
-          cp packaging/debian/DEBIAN/postinst "$PKG_DIR/DEBIAN/"
-          cp packaging/debian/DEBIAN/postrm "$PKG_DIR/DEBIAN/"
+          cp packaging/termux/DEBIAN/postinst "$PKG_DIR/DEBIAN/"
+          cp packaging/termux/DEBIAN/postrm "$PKG_DIR/DEBIAN/"
           chmod 755 "$PKG_DIR/DEBIAN/postinst" "$PKG_DIR/DEBIAN/postrm"
           dpkg-deb --build "$PKG_DIR"
 
