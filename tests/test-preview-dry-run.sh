@@ -12,32 +12,39 @@ pass() { printf 'PASS: %s\n' "$*"; }
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-# Exercise the production timeout wrapper with a mocked GNU timeout command.
+# Exercise the production timeout wrapper with mocked host executables.
 eval "$(declare -f run_device_bounded | sed '1s/run_device_bounded/run_device_bounded_real/')"
-MOCK_TIMEOUT_MODE=success
-timeout() {
-    [[ "$1" == "--signal=TERM" && "$2" == "--kill-after=5" ]] || return 2
-    shift 3
-    [[ "$1" == "30s" ]] || return 2
-    shift
-    if [[ "$MOCK_TIMEOUT_MODE" == "expire" ]]; then return 124; fi
-    "$@"
-}
-adb() {
-    [[ "$*" == "-s TEST-SERIAL shell pm list packages --user 0" ]] || return 2
-    printf "package:com.example.app\\n"
-}
+mkdir -p "$TMP_DIR/mockbin"
+cat > "$TMP_DIR/mockbin/timeout" <<'MOCK'
+#!/usr/bin/env bash
+[[ "$1" == "--signal=TERM" && "$2" == "--kill-after=5" ]] || exit 2
+shift 3
+[[ "$1" == "30s" ]] || exit 2
+shift
+[[ "${MOCK_TIMEOUT_MODE:-success}" != "expire" ]] || exit 124
+exec "$@"
+MOCK
+cat > "$TMP_DIR/mockbin/adb" <<'MOCK'
+#!/usr/bin/env bash
+[[ "$*" == "-s TEST-SERIAL shell pm list packages --user 0" ]] || exit 2
+printf "package:com.example.app\\n"
+MOCK
+chmod +x "$TMP_DIR/mockbin/timeout" "$TMP_DIR/mockbin/adb"
+PATH="$TMP_DIR/mockbin:$PATH"
+export PATH
 EXEC_TYPE="ADB"
 BACKEND_SERIAL="TEST-SERIAL"
+MOCK_TIMEOUT_MODE=success
+export MOCK_TIMEOUT_MODE
 run_device_bounded_real pm list packages --user 0 >/dev/null || fail "a command completing within its timeout was rejected"
 (( DEVICE_COMMAND_TIMED_OUT == 0 )) || fail "successful bounded command was marked timed out"
 MOCK_TIMEOUT_MODE=expire
+export MOCK_TIMEOUT_MODE
 if run_device_bounded_real pm list packages --user 0 >/dev/null 2>&1; then
     fail "a command exceeding its timeout should fail"
 fi
 (( DEVICE_COMMAND_TIMED_OUT == 1 )) || fail "timeout outcome was not recorded"
 pass "bounded commands accept timely responses and identify timeouts"
-
 # The rest of the suite mocks the device backend while keeping the production
 # debloat preview/apply orchestration under test.
 run_device_bounded() { run_device "$@"; }
