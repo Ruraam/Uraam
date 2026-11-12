@@ -583,6 +583,24 @@ uad_metadata_for_package() {
             "UAD metadata unavailable; review this package manually."
     fi
 }
+ 
+# UAD-NG relationship fields are advisory and intentionally non-exhaustive.
+# "dependencies" are packages required by this package; "neededBy" lists
+# reverse dependencies (packages that may rely on this package).
+uad_relationships_for_package() {
+    local package="$1" relation="$2"
+    [[ "$relation" == "dependencies" || "$relation" == "neededBy" ]] || return 2
+    [[ -r "$UAD_METADATA_FILE" ]] && command -v jq >/dev/null 2>&1 || return 0
+    jq -r --arg package "$package" --arg relation "$relation" '
+        def valid_package:
+            type == "string" and
+            test("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$");
+        .[$package][$relation] // empty
+        | if type == "array" then .[] | select(valid_package)
+          elif valid_package then .
+          else empty end
+    ' "$UAD_METADATA_FILE" 2>/dev/null
+}
 
 uraam_debloat() {
     show_logo
@@ -597,8 +615,9 @@ uraam_debloat() {
     load_packages_from_json "$file" || { pause; return 1; }
 
     local action mode confirm installed pkg operation_count ready_count
-    local selection token risk category description metadata index
+    local selection token risk category description metadata index relation
     local success=0 skipped=0 failed=0
+    local -a pkg_dependencies=() pkg_needed_by=()
     local -a PREVIEW_PROTECTED=() PREVIEW_MISSING=()
     local -a PREVIEW_UNSAFE=() PREVIEW_UNKNOWN=() CANDIDATE_PACKAGES=() CANDIDATE_RISKS=()
     local -a CANDIDATE_CATEGORIES=() CANDIDATE_DESCRIPTIONS=()
@@ -730,7 +749,37 @@ uraam_debloat() {
         metadata="$(uad_metadata_for_package "$pkg")"
         IFS=$'\t' read -r risk category description <<< "$metadata"
         printf '  [WILL %s] [%s] %s\n' "${action^^}" "$risk" "$pkg"
+
+        mapfile -t pkg_dependencies < <(uad_relationships_for_package "$pkg" dependencies)
+        mapfile -t pkg_needed_by < <(uad_relationships_for_package "$pkg" neededBy)
+
+        if ( ${#pkg_dependencies[@]} > 0 ); then
+            printf '      UAD-listed dependencies (required by this package):\n'
+            for relation in "${pkg_dependencies[@]}"; do
+                if package_is_installed "$relation" "$installed"; then
+                    printf '        [DEPENDENCY INSTALLED] %s\n' "$relation"
+                else
+                    printf '        [DEPENDENCY NOT PRESENT] %s\n' "$relation"
+                fi
+            done
+        else
+            printf '      UAD-listed dependencies: none recorded (not proof of no dependencies).\n'
+        fi
+
+        if ( ${#pkg_needed_by[@]} > 0 ); then
+            printf '      Packages UAD says may depend on this package (reverse dependencies):\n'
+            for relation in "${pkg_needed_by[@]}"; do
+                if package_is_installed "$relation" "$installed"; then
+                    warn "Installed dependent may be affected: $relation relies on $pkg"
+                else
+                    printf '        [DEPENDENT NOT PRESENT] %s\n' "$relation"
+                fi
+            done
+        else
+            printf '      UAD-listed reverse dependencies: none recorded (not proof of no dependents).\n'
+        fi
     done
+    printf '\nDependency metadata is advisory and non-exhaustive; Android/OEM runtime dependencies may be missing.\n'
     for index in "${!CANDIDATE_PACKAGES[@]}"; do
         pkg="${CANDIDATE_PACKAGES[$index]}"
         if [[ -z "${selected_indices[$((index+1))]:-}" ]]; then
