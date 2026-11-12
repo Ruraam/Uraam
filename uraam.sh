@@ -314,6 +314,57 @@ device_brand() {
     fi
 }
 
+# Normalize the Android manufacturer into a conservative profile family.
+# This is informational only: Safe-* profiles are candidate lists, not
+# authoritative critical-package blocklists.
+device_oem_family() {
+    local manufacturer brand identity
+    manufacturer="$(device_getprop ro.product.manufacturer || true)"
+    brand="$(device_getprop ro.product.brand || true)"
+    identity="${manufacturer} ${brand}"
+    identity="${identity,,}"
+    case "$identity" in
+        *samsung*) printf '%s\n' samsung ;;
+        *xiaomi*|*redmi*|*poco*) printf '%s\n' xiaomi ;;
+        *google*|*pixel*) printf '%s\n' google ;;
+        *oneplus*) printf '%s\n' oneplus ;;
+        *oppo*|*realme*|*heytap*) printf '%s\n' oppo ;;
+        *motorola*|*moto*) printf '%s\n' motorola ;;
+        *huawei*) printf '%s\n' huawei ;;
+        *honor*) printf '%s\n' honor ;;
+        *asus*) printf '%s\n' asus ;;
+        *sony*) printf '%s\n' sony ;;
+        *lenovo*) printf '%s\n' lenovo ;;
+        *nothing*) printf '%s\n' nothing ;;
+        *blackview*) printf '%s\n' blackview ;;
+        *tecno*|*infinix*|*transsion*) printf '%s\n' transsion ;;
+        *vivo*|*iqoo*) printf '%s\n' vivo ;;
+        *zte*|*nubia*|*redmagic*) printf '%s\n' zte ;;
+        *) printf '%s\n' unknown ;;
+    esac
+}
+
+# Return MATCH, NOT_LISTED or UNKNOWN. Never treats absence from a curated
+# profile as evidence that a package is unsafe.
+oem_profile_status_for_package() {
+    local package="$1" family="$2" dir file found=0
+    [[ "$family" != unknown ]] || { printf '%s\n' UNKNOWN; return 0; }
+    local -a profile_dirs=("$SCRIPT_DIR/Configs/debloat" "$SYSTEM_DEBLOAT_DIR")
+    for dir in "${profile_dirs[@]}"; do
+        [[ -d "$dir" ]] || continue
+        while IFS= read -r -d '' file; do
+            [[ "${file##*/}" == *"$family"* ]] || continue
+            found=1
+            if command -v jq >/dev/null 2>&1 &&
+                jq -e --arg package "$package"                     'any(.apps[]?; .packageName == $package)' "$file" >/dev/null 2>&1; then
+                printf '%s\n' MATCH
+                return 0
+            fi
+        done < <(find "$dir" -maxdepth 1 -type f -name 'Safe-*.json' -print0 2>/dev/null)
+    done
+    if (( found )); then printf '%s\n' NOT_LISTED; else printf '%s\n' UNKNOWN; fi
+}
+
 detect_backend_status() {
     EXEC_TYPE=""
     BACKEND_SERIAL="${ANDROID_SERIAL:-}"
@@ -615,7 +666,7 @@ uraam_debloat() {
     load_packages_from_json "$file" || { pause; return 1; }
 
     local action mode confirm installed pkg operation_count ready_count
-    local selection token risk category description metadata index relation
+    local selection token risk category description metadata index relation oem_family oem_status
     local success=0 skipped=0 failed=0
     local -a pkg_dependencies=() pkg_needed_by=()
     local -a PREVIEW_PROTECTED=() PREVIEW_MISSING=()
@@ -636,6 +687,7 @@ uraam_debloat() {
         err "Cannot obtain a reliable package inventory; no changes made."
         return 1
     }
+    oem_family="$(device_oem_family)"
     for pkg in "${PACKAGES[@]}"; do
         if is_whitelisted "$pkg"; then
             PREVIEW_PROTECTED+=("$pkg")
@@ -662,7 +714,8 @@ uraam_debloat() {
     printf 'Device: %s' "${CURRENT_MODEL:-Unknown device}"
     [[ -n "$BACKEND_SERIAL" ]] && printf ' (%s)' "$BACKEND_SERIAL"
     printf '\nBackend: %s | Android user: 0\n' "${EXEC_TYPE:-unknown}"
-    printf 'Action requested: %s\n\n' "$action"
+    printf 'Action requested: %s\n' "$action"
+    printf 'Detected OEM family: %s (profile cross-check is advisory)\n\n' "$oem_family"
     printf 'Risk guide: Recommended (UAD recommendation; still manual) | Advanced (review caveats) | Expert (technical review) | Unsafe/Unknown (blocked)\n'
     if [[ -r "$UAD_METADATA_FILE" ]]; then
         printf 'UAD-NG metadata: bundled catalogue available\n'
@@ -675,6 +728,12 @@ uraam_debloat() {
             "$((index+1))" "${CANDIDATE_RISKS[$index]}" \
             "${CANDIDATE_CATEGORIES[$index]}" "${CANDIDATE_PACKAGES[$index]}"
         printf '      %s\n' "${CANDIDATE_DESCRIPTIONS[$index]}"
+        oem_status="$(oem_profile_status_for_package "${CANDIDATE_PACKAGES[$index]}" "$oem_family")"
+        case "$oem_status" in
+            MATCH) printf '      [OEM PROFILE MATCH] Present in a curated Safe-%s profile.\n' "$oem_family" ;;
+            NOT_LISTED) printf '      [OEM PROFILE NOT LISTED] Not in the matching Safe-%s profile; this is not an unsafe verdict.\n' "$oem_family" ;;
+            UNKNOWN) printf '      [OEM PROFILE UNKNOWN] No matching curated profile or OEM identity unavailable.\n' ;;
+        esac
     done
     for pkg in "${PREVIEW_UNSAFE[@]}"; do
         metadata="$(uad_metadata_for_package "$pkg")"
@@ -749,6 +808,8 @@ uraam_debloat() {
         metadata="$(uad_metadata_for_package "$pkg")"
         IFS=$'\t' read -r risk category description <<< "$metadata"
         printf '  [WILL %s] [%s] %s\n' "${action^^}" "$risk" "$pkg"
+        oem_status="$(oem_profile_status_for_package "$pkg" "$oem_family")"
+        printf '      OEM cross-check: %s\n' "$oem_status"
 
         mapfile -t pkg_dependencies < <(uad_relationships_for_package "$pkg" dependencies)
         mapfile -t pkg_needed_by < <(uad_relationships_for_package "$pkg" neededBy)
