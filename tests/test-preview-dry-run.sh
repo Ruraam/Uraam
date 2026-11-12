@@ -13,14 +13,13 @@ TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
 # Exercise the real inventory parser and ensure preview queries installed-only packages.
-LAST_DEVICE_COMMAND=""
 run_device() {
-    LAST_DEVICE_COMMAND="$*"
+    printf '%s' "$*" > "$TMP_DIR/last-command"
     printf 'package:com.example.app\npackage:com.android.systemui\n'
 }
 device_package_list active > "$TMP_DIR/inventory.out" || fail "valid package inventory rejected"
 inventory="$(cat "$TMP_DIR/inventory.out")"
-[[ "$LAST_DEVICE_COMMAND" == 'pm list packages --user 0' ]] ||
+[[ "$(cat "$TMP_DIR/last-command")" == 'pm list packages --user 0' ]] ||
     fail "preview inventory must exclude packages uninstalled for user 0"
 grep -Fxq 'com.example.app' <<< "$inventory" || fail "package inventory parsing lost a package"
 run_device() { printf 'device offline\n'; }
