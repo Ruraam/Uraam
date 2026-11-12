@@ -368,9 +368,6 @@
       "packageName": "com.samsung.android.knox.analytics.uploader"
     },
     {
-      "packageName": "com.samsung.android.knox.attestation"
-    },
-    {
       "packageName": "com.samsung.android.knox.containercore"
     },
     {
@@ -563,9 +560,6 @@
       "packageName": "com.sec.android.app.billing"
     },
     {
-      "packageName": "com.sec.android.app.bluetoothagent"
-    },
-    {
       "packageName": "com.sec.android.app.camera"
     },
     {
@@ -597,9 +591,6 @@
     },
     {
       "packageName": "com.sec.android.app.servicemodeapp"
-    },
-    {
-      "packageName": "com.sec.android.app.setupwizardlegalprovider"
     },
     {
       "packageName": "com.sec.android.app.soundalive"
