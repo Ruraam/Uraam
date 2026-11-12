@@ -531,7 +531,7 @@ write_operation_journal started uninstall com.example.swap 1 1 ||
 RECOVERY_INVENTORY_CALLS=0
 device_package_list() {
     ((RECOVERY_INVENTORY_CALLS+=1))
-    printf '%s\\n' com.example.swap
+    printf '%s\n' com.example.swap
 }
 CURRENT_MODEL="Different Android device"
 if recover_pending_operation <<< "RECONCILE com.example.swap" >/dev/null 2>&1; then
@@ -556,7 +556,7 @@ backend_is_available() { (( RECOVERY_TRANSPORT_AVAILABLE )); }
 device_package_list() {
     ((RECOVERY_INVENTORY_CALLS+=1))
     (( RECOVERY_INVENTORY_FAIL == 0 )) || return 1
-    printf '%s\\n' com.example.reconnect
+    printf '%s\n' com.example.reconnect
 }
 if recover_pending_operation <<< "RECONCILE com.example.reconnect" >/dev/null 2>&1; then
     fail "recovery proceeded while ADB was offline"
