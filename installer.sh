@@ -309,6 +309,17 @@ gui_dependencies() {
     install_dependencies "${packages[@]}"
 }
 
+register_deb_gui() {
+    [[ -r /usr/share/uraam/uraam.desktop ]] || {
+        log_error "The packaged desktop entry is missing."
+        return 1
+    }
+    run_as_root install -D -m 0644 /usr/share/uraam/uraam.desktop /usr/share/applications/uraam.desktop || return 1
+    have_command update-desktop-database && run_as_root update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
+    have_command gtk-update-icon-cache && run_as_root gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor >/dev/null 2>&1 || true
+    log_success "URAAM Desktop is registered in the applications menu."
+}
+
 install_standalone_gui() {
     local tmp_dir base_url
     [[ "$IS_TERMUX" == true ]] && return 1
@@ -495,7 +506,7 @@ deb_uraam() {
         log_success "Current system runtime is strictly up-to-date."
         if confirm_yes "Install dependencies for optional URAAM Desktop (GTK4 GUI)?"; then
             if [[ -x /usr/bin/uraam-gui && -r /usr/share/uraam/GUI/main.py ]]; then
-                gui_dependencies && log_success "URAAM Desktop dependencies are ready."
+                gui_dependencies && register_deb_gui && log_success "URAAM Desktop dependencies are ready."
             else
                 log_warn "This package does not include URAAM Desktop. Update to a release with GUI integration first."
             fi
@@ -545,7 +556,7 @@ deb_uraam() {
         rm -f -- "$tmp_deb"
         log_success "URAAM successfully updated to ${BOLD}${latest_tag}${NC}."
         if confirm_yes "Install optional URAAM Desktop (GTK4 GUI)?"; then
-            gui_dependencies || log_warn "The Bash version is installed, but GUI dependencies could not be installed."
+            if gui_dependencies; then register_deb_gui || log_warn "GUI dependencies are installed, but desktop registration failed."; else log_warn "The Bash version is installed, but GUI dependencies could not be installed."; fi
         fi
         pause_menu
         return 0
@@ -583,6 +594,10 @@ uninstall_uraam() {
         if [[ -e /usr/local/bin/uraam ]]; then
             run_as_root rm -f -- /usr/local/bin/uraam || return 1
         fi
+        run_as_root rm -f -- /usr/local/bin/uraam-gui /usr/local/share/applications/uraam.desktop /usr/local/share/icons/hicolor/scalable/apps/uraam.svg || return 1
+        run_as_root rm -rf -- /usr/local/share/uraam || return 1
+        have_command update-desktop-database && run_as_root update-desktop-database /usr/local/share/applications >/dev/null 2>&1 || true
+        have_command gtk-update-icon-cache && run_as_root gtk-update-icon-cache -q -t -f /usr/local/share/icons/hicolor >/dev/null 2>&1 || true
     fi
 
     log_success "URAAM executable system hooks successfully removed."
