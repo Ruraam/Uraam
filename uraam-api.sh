@@ -33,6 +33,10 @@ EOF
 
 main() {
     local action="${1:-}"
+    if (($# != 1)); then
+        json_error "Expected exactly one API command. Use --help for usage." 2
+        return $?
+    fi
     case "$action" in
         -h|--help|help) usage; return 0 ;;
         device-info|list-packages) ;;
