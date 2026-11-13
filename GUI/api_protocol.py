@@ -42,7 +42,9 @@ def _validate_payload_shape(payload: dict[str, Any]) -> None:
     if "package_types" in payload:
         package_types = payload["package_types"]
         if not isinstance(package_types, dict) or any(
-            not isinstance(name, str) or kind not in {"system", "user", "unknown"}
+            not isinstance(name, str)
+            or not isinstance(kind, str)
+            or kind not in {"system", "user", "unknown"}
             for name, kind in package_types.items()
         ):
             raise RuntimeError("The bridge returned invalid package classifications.")
@@ -97,7 +99,7 @@ def decode_api_response(stdout: str, stderr: str, returncode: int) -> dict[str, 
             message = stderr.strip() or "URAAM request failed."
         raise RuntimeError(message)
 
-    if status not in VALID_STATUSES:
+    if not isinstance(status, str) or status not in VALID_STATUSES:
         raise RuntimeError("The bridge returned an unexpected or missing response status.")
 
     _validate_payload_shape(payload)
