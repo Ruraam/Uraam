@@ -13,6 +13,7 @@ from api_protocol import (
     device_identity,
     device_matches_request,
     inventory_matches_device,
+    package_detail_payload_matches,
     package_detail_request_is_current,
     request_is_current,
     take_pending_request,
@@ -259,6 +260,31 @@ class PendingRequestPolicyTests(unittest.TestCase):
 
     def test_empty_pending_slot_stays_empty(self):
         self.assertIsNone(take_pending_request(None, False))
+
+
+class PackageDetailPayloadIdentityTests(unittest.TestCase):
+    def test_accepts_metadata_for_requested_package(self):
+        self.assertTrue(
+            package_detail_payload_matches(
+                {"package": "com.example.app"}, "com.example.app"
+            )
+        )
+
+    def test_rejects_metadata_for_another_package(self):
+        self.assertFalse(
+            package_detail_payload_matches(
+                {"package": "com.example.other"}, "com.example.app"
+            )
+        )
+
+    def test_rejects_missing_package_identity(self):
+        self.assertFalse(package_detail_payload_matches({}, "com.example.app"))
+
+    def test_rejects_non_object_payload(self):
+        self.assertFalse(package_detail_payload_matches([], "com.example.app"))
+
+    def test_rejects_empty_expected_package(self):
+        self.assertFalse(package_detail_payload_matches({"package": ""}, ""))
 
 
 class PackageDetailFreshnessTests(unittest.TestCase):
