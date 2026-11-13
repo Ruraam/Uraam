@@ -569,15 +569,21 @@ class UraamWindow(Gtk.ApplicationWindow):
         _keycode: int,
         state: Gdk.ModifierType,
     ) -> bool:
-        """Provide predictable page shortcuts without intercepting normal typing."""
-        if state & Gdk.ModifierType.CONTROL_MASK:
+        """Provide predictable shortcuts without accepting extra modifiers."""
+        modifiers = (
+            Gdk.ModifierType.CONTROL_MASK
+            | Gdk.ModifierType.SHIFT_MASK
+            | Gdk.ModifierType.ALT_MASK
+        )
+        navigation_modifiers = state & modifiers
+        if navigation_modifiers == Gdk.ModifierType.CONTROL_MASK:
             if keyval == Gdk.KEY_1:
                 self._show_view("dashboard")
                 return True
             if keyval == Gdk.KEY_2:
                 self._on_packages(None)
                 return True
-        if keyval == Gdk.KEY_Escape:
+        if navigation_modifiers == 0 and keyval == Gdk.KEY_Escape:
             if self.stack.get_visible_child_name() == "package-detail":
                 self._show_view("packages")
                 return True
