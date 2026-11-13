@@ -11,6 +11,7 @@ from api_protocol import (
     decode_api_response,
     device_identity,
     inventory_matches_device,
+    request_is_current,
 )
 
 
@@ -175,6 +176,21 @@ class InventoryIdentityTests(unittest.TestCase):
                 None, self.device, 4, 4, self.identity
             )
         )
+
+
+class ViewRequestFreshnessTests(unittest.TestCase):
+    def test_accepts_request_for_current_view(self):
+        self.assertTrue(request_is_current(7, 7, False))
+
+    def test_rejects_request_after_navigation(self):
+        self.assertFalse(request_is_current(7, 8, False))
+
+    def test_rejects_request_when_window_is_closing(self):
+        self.assertFalse(request_is_current(7, 7, True))
+
+    def test_rejects_request_after_navigation_away_and_back(self):
+        # Returning to the same named view must not revive an older callback.
+        self.assertFalse(request_is_current(7, 9, False))
 
 
 if __name__ == "__main__":
