@@ -9,6 +9,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "GUI"))
 from api_protocol import (
     MAX_JSON_CONTAINER_ENTRIES,
+    MAX_JSON_INTEGER_DIGITS,
     MAX_JSON_STRING_BYTES,
     coalesce_pending_request,
     decode_api_response,
@@ -146,6 +147,26 @@ class ApiProtocolTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(RuntimeError, "finite floating-point range"):
             decode_api_response(payload, "", 0)
+
+    def test_rejects_oversized_json_integer_in_unknown_extension(self):
+        digits = "9" * (MAX_JSON_INTEGER_DIGITS + 1)
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"counter":' + digits + '}}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "128-digit safety limit"):
+            decode_api_response(payload, "", 0)
+
+    def test_accepts_json_integer_at_digit_limit_in_unknown_extension(self):
+        digits = "9" * MAX_JSON_INTEGER_DIGITS
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"counter":' + digits + '}}'
+        )
+        decoded = decode_api_response(payload, "", 0)
+        self.assertEqual(decoded["future_metrics"]["counter"], int(digits))
 
     def test_accepts_finite_json_float_in_unknown_extension(self):
         payload = (

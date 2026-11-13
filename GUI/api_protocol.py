@@ -11,6 +11,7 @@ MAX_API_RESPONSE_BYTES = 8 * 1024 * 1024
 MAX_JSON_STRING_BYTES = 1024 * 1024
 MAX_JSON_NESTING = 100
 MAX_JSON_CONTAINER_ENTRIES = 100_000
+MAX_JSON_INTEGER_DIGITS = 128
 VALID_STATUSES = {"ok", "connected", "disconnected"}
 STRING_FIELDS = {
     "backend", "serial", "model", "oem", "version", "package",
@@ -51,6 +52,17 @@ def _parse_finite_json_float(value: str) -> float:
             "The bridge returned a JSON number outside the finite floating-point range."
         )
     return parsed
+
+
+def _parse_bounded_json_integer(value: str) -> int:
+    """Bound integer token conversion, including values in unknown extensions."""
+    digits = value[1:] if value.startswith("-") else value
+    if len(digits) > MAX_JSON_INTEGER_DIGITS:
+        raise ValueError(
+            f"The bridge returned a JSON integer exceeding the "
+            f"{MAX_JSON_INTEGER_DIGITS}-digit safety limit."
+        )
+    return int(value)
 
 
 def _validate_json_nesting(value: Any) -> None:
@@ -323,6 +335,7 @@ def decode_api_response(stdout: str, stderr: str, returncode: int) -> dict[str, 
             object_pairs_hook=_reject_duplicate_keys,
             parse_constant=_reject_non_json_constant,
             parse_float=_parse_finite_json_float,
+            parse_int=_parse_bounded_json_integer,
         )
     except json.JSONDecodeError as exc:
         fallback = (
