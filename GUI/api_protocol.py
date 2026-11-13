@@ -224,7 +224,9 @@ def _bounded_error_message(value: Any, fallback: str) -> str:
     for escaped_control in (r"\x00", r"\n", r"\r", r"\t"):
         normalized = normalized.replace(escaped_control, " ")
     normalized = "".join(
-        character if ord(character) >= 32 and ord(character) != 127 else " "
+        character
+        if ord(character) >= 32 and not 0x7F <= ord(character) <= 0x9F
+        else " "
         for character in normalized
     )
     message = " ".join(normalized.split()).strip() or fallback
