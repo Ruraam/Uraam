@@ -190,8 +190,8 @@ def _bounded_error_message(value: Any, fallback: str) -> str:
     if not isinstance(value, str):
         value = ""
     normalized = "".join(
-        character for character in value
-        if ord(character) >= 32 and ord(character) != 127
+        character if ord(character) >= 32 and ord(character) != 127 else " "
+        for character in value
     )
     message = " ".join(normalized.split()).strip() or fallback
     if len(message) > MAX_ERROR_MESSAGE_CHARS:
