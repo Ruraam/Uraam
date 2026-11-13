@@ -218,6 +218,7 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         window._replace_card = lambda *_args: None
         window._run_async = lambda _command, callback: callbacks.append(callback)
         window._show_view = lambda name: uraam_gui.UraamWindow._show_view(window, name)
+        window._show_package_info = lambda *args: uraam_gui.UraamWindow._show_package_info(window, *args)
 
         class FakeLabelWidget:
             def __init__(self, label=""):
