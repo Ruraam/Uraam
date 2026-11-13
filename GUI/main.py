@@ -442,8 +442,6 @@ class UraamWindow(Gtk.ApplicationWindow):
             cwd=str(ROOT_DIR),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
-            errors="replace",
             start_new_session=True,
         )
         with self._process_lock:
