@@ -17,6 +17,7 @@ from api_protocol import (
     device_identity,
     device_matches_request,
     inventory_matches_device,
+    package_detail_payload_matches,
     package_detail_request_is_current,
     request_is_current,
     take_pending_request,
@@ -698,14 +699,24 @@ class UraamWindow(Gtk.ApplicationWindow):
                     "No component metadata returned"
                 )
             return
-        if payload.get("package") != expected_package:
-            self.package_detail_status.set_text(
-                "Details discarded: Android returned metadata for a different package."
-            )
+        if not package_detail_payload_matches(payload, expected_package):
+            message = "Details discarded: Android returned metadata for a different package."
+            self.package_detail_status.set_text(message)
             self._replace_card(
                 self.package_detail_version, "Version", "Unavailable",
                 "The bridge response did not match the selected package"
             )
+            self._replace_card(
+                self.package_detail_path, "APK location", "Unavailable", message
+            )
+            self._replace_card(
+                self.package_detail_permissions, "Requested permissions",
+                "Unavailable", message
+            )
+            for component_name, component_card in self.package_detail_components.items():
+                self._replace_card(
+                    component_card, component_name.title(), "Unavailable", message
+                )
             return
         version_name = payload.get("version_name") or "Not reported"
         version_code = payload.get("version_code") or "Not reported"
