@@ -6,7 +6,7 @@ import json
 from typing import Any
 
 
-VALID_STATUSES = {"ok", "connected", "disconnected"}
+MAX_API_RESPONSE_BYTES = 8 * 1024 * 1024\nVALID_STATUSES = {"ok", "connected", "disconnected"}
 
 
 def decode_api_response(stdout: str, stderr: str, returncode: int) -> dict[str, Any]:
