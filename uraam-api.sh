@@ -41,12 +41,12 @@ api_capture_device_output() {
 # API inventory reader: preserve the engine transport and timeout layer while
 # enforcing a byte ceiling before parsing or retaining package names.
 api_device_package_list() {
-    local mode="${1:-active}" raw allow_empty=0
+    local mode="${1:-active}" raw allow_empty=0 status
     case "$mode" in
-        all) raw="$(api_capture_device_output "$API_MAX_INVENTORY_BYTES" pm list packages -u --user 0)" || return $? ;;
-        active) raw="$(api_capture_device_output "$API_MAX_INVENTORY_BYTES" pm list packages --user 0)" || return $? ;;
-        system) raw="$(api_capture_device_output "$API_MAX_INVENTORY_BYTES" pm list packages -s --user 0)" || return $?; allow_empty=1 ;;
-        user) raw="$(api_capture_device_output "$API_MAX_INVENTORY_BYTES" pm list packages -3 --user 0)" || return $?; allow_empty=1 ;;
+        all) raw="$(api_capture_device_output "$API_MAX_INVENTORY_BYTES" pm list packages -u --user 0)" || { status=$?; (( status == 126 )) && return 126; return "$status"; } ;;
+        active) raw="$(api_capture_device_output "$API_MAX_INVENTORY_BYTES" pm list packages --user 0)" || { status=$?; (( status == 126 )) && return 126; return "$status"; } ;;
+        system) raw="$(api_capture_device_output "$API_MAX_INVENTORY_BYTES" pm list packages -s --user 0)" || { status=$?; (( status == 126 )) && return 126; return "$status"; }; allow_empty=1 ;;
+        user) raw="$(api_capture_device_output "$API_MAX_INVENTORY_BYTES" pm list packages -3 --user 0)" || { status=$?; (( status == 126 )) && return 126; return "$status"; }; allow_empty=1 ;;
         *) return 2 ;;
     esac
     if ! printf '%s\\n' "$raw" | tr -d '\\r' | awk -v allow_empty="$allow_empty" '
