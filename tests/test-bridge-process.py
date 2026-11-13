@@ -652,7 +652,7 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
                 pass
 
             def start(self):
-                raise RuntimeError("thread creation denied\\n" + ("x" * 3000))
+                raise RuntimeError("thread creation denied\n" + ("x" * 3000))
 
         window = type("WindowState", (), {})()
         window._closing = False
@@ -667,9 +667,7 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
             uraam_gui.UraamWindow._start_async(
                 window,
                 "device-info",
-                lambda _payload, _error: self.fail(
-                    "GTK callback must remain queued in this worker-isolation test"
-                ),
+                lambda payload, error: delivered.append((payload, error)),
             )
         finally:
             uraam_gui.threading.Thread = original_thread
@@ -688,7 +686,7 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
         self.assertTrue(delivered[0][1].startswith("Unable to start the read-only bridge request"))
         self.assertEqual(len(delivered[0][1]), 2048)
         self.assertTrue(delivered[0][1].endswith("..."))
-        self.assertNotIn("\\n", delivered[0][1])
+        self.assertNotIn("\n", delivered[0][1])
 
     def test_worker_exception_is_sanitized_and_bounded(self):
         class FakeSpinner:
@@ -729,13 +727,16 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
         window = type("WindowState", (), {})()
         window._closing = False
         window._loading = False
+        window._finish_async = uraam_gui.UraamWindow._finish_async.__get__(
+            window, uraam_gui.UraamWindow
+        )
         window.refresh_button = FakeButton()
         window.loading_spinner = FakeSpinner()
         window.status_label = type(
             "FakeLabel", (), {"set_text": lambda self, _message: None}
         )()
         window._api_call = lambda _command: (_ for _ in ()).throw(
-            RuntimeError("bridge failure\\n" + ("y" * 3000))
+            RuntimeError("bridge failure\n" + ("y" * 3000))
         )
         original_thread = uraam_gui.threading.Thread
         original_glib = uraam_gui.GLib
@@ -756,13 +757,14 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
         self.assertTrue(window._loading)
         self.assertEqual(len(queued_callbacks), 1)
         callback, args = queued_callbacks[0]
-        self.assertEqual(callback, uraam_gui.UraamWindow._finish_async)
+        self.assertIs(callback.__self__, window)
+        self.assertIs(callback.__func__, uraam_gui.UraamWindow._finish_async)
         self.assertIsNone(args[1])
         error = args[2]
         self.assertTrue(error.startswith("bridge failure"))
         self.assertEqual(len(error), 2048)
         self.assertTrue(error.endswith("..."))
-        self.assertNotIn("\\n", error)
+        self.assertNotIn("\n", error)
 
     def test_async_api_error_restores_ui_and_allows_next_request(self):
         class FakeSpinner:
