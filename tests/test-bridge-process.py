@@ -182,6 +182,71 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         self.assertEqual(window._view_generation, 9)
         self.assertEqual(window.stack.set_calls, 1)
 
+    def test_reselecting_package_invalidates_an_older_same_package_callback(self):
+        class FakeStack:
+            def __init__(self):
+                self.visible = "packages"
+
+            def get_visible_child_name(self):
+                return self.visible
+
+            def set_visible_child_name(self, name):
+                self.visible = name
+
+        class FakeLabel:
+            def __init__(self):
+                self.text = ""
+
+            def set_text(self, value):
+                self.text = value
+
+        callbacks = []
+        window = type("WindowState", (), {})()
+        window._package_request_generation = 0
+        window._device_generation = 3
+        window._view_generation = 0
+        window._closing = False
+        window._inventory_loaded = True
+        window._selected_package = None
+        window.stack = FakeStack()
+        window.package_detail_name = FakeLabel()
+        window.package_detail_status = FakeLabel()
+        window.package_detail_version = object()
+        window.package_detail_path = object()
+        window.package_detail_permissions = object()
+        window.package_detail_components = {}
+        window._replace_card = lambda *_args: None
+        window._run_async = lambda _command, callback: callbacks.append(callback)
+        window._show_view = lambda name: uraam_gui.UraamWindow._show_view(window, name)
+
+        def activate(package):
+            row = uraam_gui.Gtk.ListBoxRow()
+            child = uraam_gui.Gtk.Box()
+            child.append(uraam_gui.Gtk.Label(label=package))
+            row.set_child(child)
+            uraam_gui.UraamWindow._on_package_activated(window, None, row)
+
+        activate("com.example.alpha")
+        first_generation = window._package_request_generation
+        activate("com.example.beta")
+        activate("com.example.alpha")
+
+        self.assertEqual(len(callbacks), 3)
+        self.assertEqual(window._package_request_generation, first_generation + 2)
+        self.assertEqual(window._selected_package, "com.example.alpha")
+        self.assertEqual(
+            window.package_detail_status.text,
+            "Querying Android using read-only commands…",
+        )
+
+        # The first Alpha response has the same package name as the current
+        # selection, but belongs to an older activation and must be discarded.
+        callbacks[0]({"package": "com.example.alpha"}, None)
+        self.assertEqual(
+            window.package_detail_status.text,
+            "Querying Android using read-only commands…",
+        )
+
     def test_completed_response_is_discarded_when_close_precedes_ui_dispatch(self):
         process = self._start("print('response-ready', flush=True)")
         stdout, stderr = communicate_process(process, threading.Event())
