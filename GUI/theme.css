@@ -153,3 +153,21 @@ window.uraam-window list.uraam-package-row {
 window.uraam-window list.uraam-package-row:hover {
   background: rgba(34, 211, 238, 0.12);
 }
+
+
+/* Compact disclosure rows keep verbose package metadata easy to scan. */
+window.uraam-window expander.uraam-detail-expander {
+  background: rgba(10, 21, 48, 0.58);
+  border: 1px solid rgba(103, 232, 249, 0.20);
+  border-radius: 12px;
+  padding: 10px 14px;
+}
+
+window.uraam-window expander.uraam-detail-expander > title {
+  color: #67e8f9;
+  font-weight: 700;
+}
+
+window.uraam-window expander.uraam-detail-expander > title:hover {
+  color: #e0f2fe;
+}
