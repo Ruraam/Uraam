@@ -598,6 +598,8 @@ class UraamWindow(Gtk.ApplicationWindow):
     def _on_close_request(self, _window: Gtk.ApplicationWindow) -> bool:
         """Cancel the active read-only bridge process before the window closes."""
         with self._process_lock:
+            if self._closing:
+                return False
             self._closing = True
             self._pending_request = None
             self._shutdown_event.set()
