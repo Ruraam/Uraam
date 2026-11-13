@@ -13,6 +13,12 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from bridge_process import (
+    BridgeProcessCancelled,
+    BridgeProcessTimeout,
+    communicate_process,
+    signal_process_group,
+)
 from api_protocol import (
     coalesce_pending_request,
     decode_api_response,
@@ -45,6 +51,7 @@ class UraamWindow(Gtk.ApplicationWindow):
         self._loading = False
         self._closing = False
         self._process_lock = threading.Lock()
+        self._shutdown_event = threading.Event()
         self._active_process: subprocess.Popen[str] | None = None
         self._pending_request: tuple[str, Any] | None = None
         self._device_identity: tuple[str, str] | None = None
@@ -333,7 +340,7 @@ class UraamWindow(Gtk.ApplicationWindow):
             raise RuntimeError(f"URAAM JSON bridge not found: {API_PATH}")
         with self._process_lock:
             if self._closing:
-                raise RuntimeError("The read-only bridge is shutting down.")
+                raise BridgeProcessCancelled("The read-only bridge is shutting down.")
         process = subprocess.Popen(
             ["bash", str(API_PATH), command],
             cwd=str(ROOT_DIR),
@@ -345,35 +352,25 @@ class UraamWindow(Gtk.ApplicationWindow):
         )
         with self._process_lock:
             if self._closing:
-                self._signal_process_group(process, signal.SIGTERM)
+                self._shutdown_event.set()
             else:
                 self._active_process = process
         try:
             try:
-                stdout, stderr = process.communicate(timeout=45)
-            except subprocess.TimeoutExpired as exc:
-                self._signal_process_group(process, signal.SIGKILL)
-                process.communicate()
+                stdout, stderr = communicate_process(
+                    process, self._shutdown_event, timeout_seconds=45
+                )
+            except BridgeProcessCancelled as exc:
+                raise RuntimeError(str(exc)) from exc
+            except BridgeProcessTimeout as exc:
                 raise RuntimeError(
                     f"The read-only bridge request '{command}' timed out after 45 seconds."
                 ) from exc
-            if self._closing:
-                raise RuntimeError("The read-only bridge request was cancelled during shutdown.")
             return decode_api_response(stdout, stderr, process.returncode)
         finally:
             with self._process_lock:
                 if self._active_process is process:
                     self._active_process = None
-
-    @staticmethod
-    def _signal_process_group(process: subprocess.Popen[str], sig: int) -> None:
-        """Signal the isolated bridge process group without touching other jobs."""
-        if process.poll() is not None:
-            return
-        try:
-            os.killpg(process.pid, sig)
-        except ProcessLookupError:
-            pass
 
     def _run_async(self, command: str, callback: Any) -> None:
         """Run serialized bridge work; reject new work once shutdown begins."""
@@ -452,9 +449,10 @@ class UraamWindow(Gtk.ApplicationWindow):
         with self._process_lock:
             self._closing = True
             self._pending_request = None
+            self._shutdown_event.set()
             process = self._active_process
             if process is not None:
-                self._signal_process_group(process, signal.SIGTERM)
+                signal_process_group(process, signal.SIGTERM)
         return False
 
     def _reset_package_views(self, message: str) -> None:
