@@ -482,6 +482,9 @@ class UraamWindow(Gtk.ApplicationWindow):
         self._start_async(command, callback)
 
     def _start_async(self, command: str, callback: Any) -> None:
+        """Start bridge work only while the window is still accepting requests."""
+        if self._closing:
+            return
         self._loading = True
         self.refresh_button.set_sensitive(False)
         self.loading_spinner.start()
