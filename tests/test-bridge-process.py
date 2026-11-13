@@ -14,6 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "GUI"))
 from bridge_process import (
     BridgeProcessCancelled,
+    BridgeProcessEncodingError,
     BridgeProcessOutputLimit,
     BridgeProcessTimeout,
     communicate_process,
@@ -37,6 +38,18 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         stdout, stderr = communicate_process(process, threading.Event())
         self.assertEqual(stdout.strip(), "bridge-ok")
         self.assertEqual(stderr.strip(), "note")
+        self.assertEqual(process.returncode, 0)
+
+    def test_invalid_utf8_stdout_is_rejected_instead_of_replaced(self):
+        process = self._start(
+            "import sys; "
+            "sys.stdout.buffer.write(b'{\\\"status\\\":\\\"ok\\\",\\\"bad\\\":\\\"\\\\xff\\\"}'); "
+            "sys.stdout.flush()"
+        )
+
+        with self.assertRaisesRegex(BridgeProcessEncodingError, "not valid UTF-8"):
+            communicate_process(process, threading.Event())
+
         self.assertEqual(process.returncode, 0)
 
     def test_partial_json_from_nonzero_process_is_never_accepted(self):
