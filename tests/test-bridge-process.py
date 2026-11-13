@@ -396,7 +396,8 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
                 "refresh_button": ForbiddenWidget(),
                 "status_label": ForbiddenWidget(),
             },
-        )()        delivered = []
+        )()
+        delivered = []
         callbacks = [
             lambda payload, error, index=index: delivered.append(
                 (index, payload, error)
