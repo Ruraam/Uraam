@@ -134,3 +134,11 @@ def inventory_matches_device(
     )
     return inventory_identity == expected_identity
 
+def request_is_current(
+    expected_view_generation: int,
+    current_view_generation: int,
+    closing: bool,
+) -> bool:
+    """Allow a view-bound callback only while its originating view is active."""
+    return not closing and expected_view_generation == current_view_generation
+
