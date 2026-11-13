@@ -940,7 +940,11 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
             get_visible_child_name=lambda: "package-detail"
         )
         fake_gdk = SimpleNamespace(
-            ModifierType=SimpleNamespace(CONTROL_MASK=4),
+            ModifierType=SimpleNamespace(
+                CONTROL_MASK=4,
+                SHIFT_MASK=1,
+                ALT_MASK=8,
+            ),
             KEY_1=49,
             KEY_2=50,
             KEY_Escape=65307,
@@ -967,6 +971,46 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
                 ("view", "packages"),
             ],
         )
+
+    def test_keyboard_shortcuts_ignore_extra_or_wrong_modifiers(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        calls = []
+        window = type("WindowState", (), {})()
+        window._show_view = lambda name: calls.append(("view", name))
+        window._on_packages = lambda _button: calls.append(("packages", None))
+        window.stack = SimpleNamespace(
+            get_visible_child_name=lambda: "package-detail"
+        )
+        fake_gdk = SimpleNamespace(
+            ModifierType=SimpleNamespace(
+                CONTROL_MASK=4,
+                SHIFT_MASK=1,
+                ALT_MASK=8,
+            ),
+            KEY_1=49,
+            KEY_2=50,
+            KEY_Escape=65307,
+        )
+        with patch.object(uraam_gui, "Gdk", fake_gdk):
+            self.assertFalse(
+                uraam_gui.UraamWindow._on_key_pressed(window, None, 49, 0, 1)
+            )
+            self.assertFalse(
+                uraam_gui.UraamWindow._on_key_pressed(window, None, 49, 0, 5)
+            )
+            self.assertFalse(
+                uraam_gui.UraamWindow._on_key_pressed(window, None, 50, 0, 8)
+            )
+            self.assertFalse(
+                uraam_gui.UraamWindow._on_key_pressed(window, None, 65307, 0, 4)
+            )
+            self.assertFalse(
+                uraam_gui.UraamWindow._on_key_pressed(window, None, 65307, 0, 1)
+            )
+
+        self.assertEqual(calls, [])
 
 
     def test_accessible_description_helper_updates_widget_description(self):
