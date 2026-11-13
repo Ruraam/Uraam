@@ -34,7 +34,7 @@ def _reject_non_json_constant(value: str) -> None:
 
 
 def _validate_display_string(value: str, field: str) -> None:
-    """Reject control characters that can break or spoof GTK text presentation."""
+    """Reject control characters and invalid Unicode that can break GTK text."""
     if any(
         ord(character) < 32
         or 0x7F <= ord(character) <= 0x9F
@@ -42,7 +42,7 @@ def _validate_display_string(value: str, field: str) -> None:
         for character in value
     ):
         raise RuntimeError(
-            f"The bridge returned unsafe Unicode characters in '{field}'."
+            f"The bridge returned unsafe control characters or Unicode in '{field}'."
         )
 
 
