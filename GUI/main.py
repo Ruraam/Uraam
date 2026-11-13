@@ -38,6 +38,8 @@ class UraamWindow(Gtk.ApplicationWindow):
         self._packages: list[str] = []
         self._package_types: dict[str, str] = {}
         self._package_classification = "Inventory not loaded"
+        self._package_request_generation = 0
+        self._inventory_loaded = False
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.set_child(outer)
@@ -238,6 +240,9 @@ class UraamWindow(Gtk.ApplicationWindow):
         self.package_filter.set_selected(0)
         self.package_filter.connect("notify::selected", self._filter_packages)
         page.append(self.package_filter)
+        self.package_count_label = Gtk.Label(label="No inventory loaded.", xalign=0)
+        self.package_count_label.add_css_class("dim-label")
+        page.append(self.package_count_label)
         scroller = Gtk.ScrolledWindow()
         scroller.set_vexpand(True)
         scroller.set_hexpand(True)
@@ -370,6 +375,8 @@ class UraamWindow(Gtk.ApplicationWindow):
     def _reset_package_views(self, message: str) -> None:
         """Remove device-specific data when the bridge cannot confirm a device."""
         self._selected_package = None
+        self._package_request_generation += 1
+        self._inventory_loaded = False
         self._packages = []
         self._package_types = {}
         self._package_classification = message
@@ -456,6 +463,7 @@ class UraamWindow(Gtk.ApplicationWindow):
             return
         if self._device_identity is None:
             self._device_identity = identity
+        self._inventory_loaded = True
         self._selected_package = None
         self._packages = sorted(set(payload.get("packages", [])), key=str.casefold)
         raw_types = payload.get("package_types", {})
@@ -498,18 +506,27 @@ class UraamWindow(Gtk.ApplicationWindow):
                 "Declared component entries from Android Package Manager"
             )
         self.stack.set_visible_child_name("package-detail")
+        generation = self._package_request_generation
         self._run_async(
             f"package-info:{package}",
-            lambda payload, error, expected=package: self._show_package_info(
-                payload, error, expected
+            lambda payload, error, expected=package, expected_generation=generation: self._show_package_info(
+                payload, error, expected, expected_generation
             ),
         )
 
     def _show_package_info(
-        self, payload: Any, error: str | None, expected_package: str
+        self,
+        payload: Any,
+        error: str | None,
+        expected_package: str,
+        expected_generation: int,
     ) -> None:
-        # A delayed response must never replace the details for a newer selection.
-        if self._selected_package != expected_package:
+        # A delayed response must never replace details after a reset or device change.
+        if (
+            not self._inventory_loaded
+            or self._package_request_generation != expected_generation
+            or self._selected_package != expected_package
+        ):
             return
         if error:
             self.package_detail_status.set_text(f"Details unavailable: {error}")
@@ -626,6 +643,9 @@ class UraamWindow(Gtk.ApplicationWindow):
             self._package_empty_label.set_text(
                 "No packages match this search and filter. Try a different query."
             )
+        self.package_count_label.set_text(
+            f"Showing {len(visible)} of {len(self._packages)} package(s)"
+        )
         self.package_summary.set_text(
             f"{len(visible)} / {len(self._packages)} package(s) · {filter_name} · "
             f"{self._package_classification}"
