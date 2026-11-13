@@ -278,6 +278,41 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
             "Querying Android using read-only commands…",
         )
 
+        # The newest Alpha response is accepted while its originating view is
+        # still active and its request/device generations remain current.
+        callbacks[2](
+            {
+                "package": "com.example.alpha",
+                "backend": "adb",
+                "paths": ["/data/app/com.example.alpha/base.apk"],
+                "version_name": "1.2",
+                "version_code": "12",
+                "requested_permissions": [],
+                "components": {},
+                "metadata_limited": False,
+                "read_only": True,
+            },
+            None,
+        )
+        self.assertEqual(
+            window.package_detail_status.text,
+            "Backend: ADB · Read-only inspection · Requested names only",
+        )
+
+        # Leaving the detail view and returning creates a new view generation;
+        # an already delivered callback must not overwrite the refreshed view.
+        uraam_gui.UraamWindow._show_view(window, "dashboard")
+        uraam_gui.UraamWindow._show_view(window, "package-detail")
+        window.package_detail_status.set_text("Waiting for a fresh selection…")
+        callbacks[2](
+            {"package": "com.example.alpha", "backend": "adb"},
+            None,
+        )
+        self.assertEqual(
+            window.package_detail_status.text,
+            "Waiting for a fresh selection…",
+        )
+
     def test_completed_response_is_discarded_when_close_precedes_ui_dispatch(self):
         process = self._start("print('response-ready', flush=True)")
         stdout, stderr = communicate_process(process, threading.Event())
