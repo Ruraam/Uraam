@@ -188,3 +188,12 @@ window.uraam-window expander.uraam-detail-expander > title {
 window.uraam-window expander.uraam-detail-expander > title:hover {
   color: #e0f2fe;
 }
+
+
+/* Make keyboard guidance discoverable without relying on hover tooltips. */
+window.uraam-window label.uraam-shortcut-hint {
+  color: #94a3b8;
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 10px 8px 4px;
+}
