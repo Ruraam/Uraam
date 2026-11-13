@@ -34,6 +34,7 @@ class UraamWindow(Gtk.ApplicationWindow):
         self._closing = False
         self._pending_request: tuple[str, Any] | None = None
         self._device_identity: tuple[str, str] | None = None
+        self._device_generation = 0
         self._selected_package: str | None = None
         self._packages: list[str] = []
         self._package_types: dict[str, str] = {}
@@ -420,6 +421,7 @@ class UraamWindow(Gtk.ApplicationWindow):
 
     def _show_device(self, payload: Any, error: str | None) -> None:
         if error:
+            self._device_generation += 1
             self._device_identity = None
             self.status_label.set_text("Bridge unavailable")
             self._replace_card(self.device_card, "Device", "Bridge unavailable", error)
@@ -429,6 +431,7 @@ class UraamWindow(Gtk.ApplicationWindow):
             self._reset_package_views("Device information is unavailable; cached package data was cleared.")
             return
         if payload.get("status") != "connected":
+            self._device_generation += 1
             self._device_identity = None
             self.status_label.set_text("No Android device connected")
             self._replace_card(self.device_card, "Device", "No device connected", "Connect via ADB, Root or Shizuku")
@@ -439,6 +442,7 @@ class UraamWindow(Gtk.ApplicationWindow):
             return
         identity = (str(payload.get("backend") or "unknown"), str(payload.get("serial") or "local"))
         if identity != self._device_identity:
+            self._device_generation += 1
             self._reset_package_views("Device identity changed; reload the application inventory.")
             self._device_identity = identity
         self.status_label.set_text("Android device connected")
@@ -465,9 +469,19 @@ class UraamWindow(Gtk.ApplicationWindow):
 
     def _on_packages(self, _button: Gtk.Button) -> None:
         self._show_view("packages")
-        self._run_async("list-packages", self._show_packages)
+        expected_device_generation = self._device_generation
+        self._run_async(
+            "list-packages",
+            lambda payload, error, expected=expected_device_generation: self._show_packages(
+                payload, error, expected
+            ),
+        )
 
-    def _show_packages(self, payload: Any, error: str | None) -> None:
+    def _show_packages(
+        self, payload: Any, error: str | None, expected_device_generation: int
+    ) -> None:
+        if expected_device_generation != self._device_generation:
+            return
         if error:
             self.status_label.set_text("Package inventory unavailable")
             self._reset_package_views(f"Inventory unavailable: {error}")
@@ -527,11 +541,12 @@ class UraamWindow(Gtk.ApplicationWindow):
             )
         self._show_view("package-detail")
         generation = self._package_request_generation
+        device_generation = self._device_generation
         view_generation = self._view_generation
         self._run_async(
             f"package-info:{package}",
-            lambda payload, error, expected=package, expected_generation=generation, expected_view=view_generation: self._show_package_info(
-                payload, error, expected, expected_generation, expected_view
+            lambda payload, error, expected=package, expected_generation=generation, expected_device=device_generation, expected_view=view_generation: self._show_package_info(
+                payload, error, expected, expected_generation, expected_device, expected_view
             ),
         )
 
@@ -541,12 +556,14 @@ class UraamWindow(Gtk.ApplicationWindow):
         error: str | None,
         expected_package: str,
         expected_generation: int,
+        expected_device_generation: int,
         expected_view_generation: int,
     ) -> None:
         # A delayed response must never replace details after a reset or device change.
         if (
             not self._inventory_loaded
             or self._package_request_generation != expected_generation
+            or self._device_generation != expected_device_generation
             or self._selected_package != expected_package
             or self._view_generation != expected_view_generation
             or self.stack.get_visible_child_name() != "package-detail"
