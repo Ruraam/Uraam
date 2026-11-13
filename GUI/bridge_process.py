@@ -27,6 +27,10 @@ class BridgeProcessOutputLimit(RuntimeError):
     """Raised when a bridge process exceeds a bounded output stream."""
 
 
+class BridgeProcessEncodingError(RuntimeError):
+    """Raised when the bridge protocol stream is not valid UTF-8."""
+
+
 def signal_process_group(process: subprocess.Popen[bytes], sig: int) -> None:
     """Signal only the isolated process group created with start_new_session=True."""
     try:
@@ -130,8 +134,15 @@ def communicate_process(
         process.wait()
         # A descendant may close inherited pipes and outlive its leader.
         signal_process_group(process, signal.SIGKILL)
+        try:
+            stdout = buffers["stdout"].decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise BridgeProcessEncodingError(
+                "The read-only bridge stdout is not valid UTF-8."
+            ) from exc
+
         return (
-            buffers["stdout"].decode("utf-8", errors="replace"),
+            stdout,
             buffers["stderr"].decode("utf-8", errors="replace"),
         )
     finally:
