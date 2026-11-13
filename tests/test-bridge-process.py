@@ -135,6 +135,67 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         self.assertEqual(signalled, [(process, signal.SIGTERM)])
 
 
+    def test_process_created_during_close_is_cancelled_before_communication(self):
+        from unittest.mock import patch
+
+        popen_entered = threading.Event()
+        allow_popen_return = threading.Event()
+        shutdown = threading.Event()
+        process = type("FakeProcess", (), {"returncode": None})()
+        window = type(
+            "WindowState",
+            (),
+            {
+                "_closing": False,
+                "_process_lock": threading.Lock(),
+                "_shutdown_event": shutdown,
+                "_active_process": None,
+            },
+        )()
+        errors = []
+        communicate_events = []
+
+        def delayed_popen(*_args, **_kwargs):
+            popen_entered.set()
+            if not allow_popen_return.wait(timeout=3):
+                raise AssertionError("test did not release process creation")
+            return process
+
+        def observe_communication(_process, shutdown_event, **_kwargs):
+            communicate_events.append(shutdown_event.is_set())
+            raise BridgeProcessCancelled("The read-only bridge is shutting down.")
+
+        def run_api_call():
+            try:
+                uraam_gui.UraamWindow._api_call(window, "device-info")
+            except Exception as exc:
+                errors.append(exc)
+
+        with (
+            patch.object(uraam_gui, "API_PATH", Path(__file__)),
+            patch.object(uraam_gui.subprocess, "Popen", side_effect=delayed_popen),
+            patch.object(
+                uraam_gui, "communicate_process", side_effect=observe_communication
+            ),
+        ):
+            worker = threading.Thread(target=run_api_call)
+            worker.start()
+            self.assertTrue(popen_entered.wait(timeout=3))
+
+            close_result = uraam_gui.UraamWindow._on_close_request(window, window)
+            allow_popen_return.set()
+            worker.join(timeout=3)
+
+        self.assertFalse(worker.is_alive())
+        self.assertFalse(close_result)
+        self.assertTrue(shutdown.is_set())
+        self.assertIsNone(window._active_process)
+        self.assertEqual(communicate_events, [True])
+        self.assertEqual(len(errors), 1)
+        self.assertIsInstance(errors[0], RuntimeError)
+        self.assertIn("shutting down", str(errors[0]))
+
+
     def test_start_async_does_not_create_worker_after_shutdown(self):
         from unittest.mock import patch
 
