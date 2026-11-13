@@ -868,6 +868,33 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
         self.assertTrue(scroller.vexpand)
 
 
+    def test_accessible_label_helper_updates_widget_label_property(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        class FakeWidget:
+            def __init__(self):
+                self.update = None
+
+            def update_property(self, properties, values):
+                self.update = (properties, values)
+
+        widget = FakeWidget()
+        accessible_label = object()
+        fake_gtk = SimpleNamespace(
+            AccessibleProperty=SimpleNamespace(LABEL=accessible_label)
+        )
+        with patch.object(uraam_gui, "Gtk", fake_gtk):
+            uraam_gui.UraamWindow._set_accessible_label(
+                widget, "Search installed packages"
+            )
+
+        self.assertEqual(
+            widget.update,
+            ([accessible_label], ["Search installed packages"]),
+        )
+
+
     def test_package_metadata_expander_starts_collapsed_and_keeps_child(self):
         from types import SimpleNamespace
         from unittest.mock import patch
