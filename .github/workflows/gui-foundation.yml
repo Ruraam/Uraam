@@ -12,7 +12,7 @@ on:
       - "GUI/**"
       - "tests/test-json-api.sh"
       - "tests/test-api-protocol.py"
-      - "tests/test-api-protocol.py"
+      - "tests/test-api-output-limits.sh"
       - ".github/workflows/gui-foundation.yml"
   push:
     branches:
@@ -22,6 +22,8 @@ on:
       - "uraam-gui"
       - "GUI/**"
       - "tests/test-json-api.sh"
+      - "tests/test-api-protocol.py"
+      - "tests/test-api-output-limits.sh"
       - ".github/workflows/gui-foundation.yml"
   workflow_dispatch:
 
@@ -80,3 +82,6 @@ jobs:
           dpkg-deb --contents "${PKG_DIR}.deb" | grep -q '/usr/share/icons/hicolor/scalable/apps/uraam.svg'
       - name: Test read-only JSON API
         run: bash tests/test-json-api.sh
+
+      - name: Test API output size limits
+        run: bash tests/test-api-output-limits.sh
