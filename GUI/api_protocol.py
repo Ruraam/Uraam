@@ -115,6 +115,20 @@ def device_identity(payload: Any) -> tuple[str, str] | None:
     )
 
 
+
+def device_matches_request(
+    device: Any,
+    expected_generation: int,
+    current_generation: int,
+    expected_identity: tuple[str, str] | None,
+) -> bool:
+    """Confirm the same connected device without requiring a successful inventory payload."""
+    return (
+        expected_generation == current_generation
+        and expected_identity is not None
+        and device_identity(device) == expected_identity
+    )
+
 def inventory_matches_device(
     inventory: Any,
     device: Any,
@@ -123,10 +137,9 @@ def inventory_matches_device(
     expected_identity: tuple[str, str] | None,
 ) -> bool:
     """Accept inventory only when generation and both reported identities agree."""
-    if expected_generation != current_generation or expected_identity is None:
-        return False
-    current_identity = device_identity(device)
-    if current_identity != expected_identity or not isinstance(inventory, dict):
+    if not device_matches_request(
+        device, expected_generation, current_generation, expected_identity
+    ) or not isinstance(inventory, dict):
         return False
     inventory_identity = (
         str(inventory.get("backend") or "unknown"),
