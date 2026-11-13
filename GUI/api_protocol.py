@@ -16,6 +16,12 @@ STRING_FIELDS = {
 }
 COUNT_FIELDS = {"count", "user", "system_count", "user_count", "unclassified_count"}
 COMPONENT_FIELDS = {"activities", "services", "receivers", "providers"}
+BIDI_CONTROL_CODEPOINTS = frozenset({
+    0x061C,  # Arabic Letter Mark
+    0x200E, 0x200F,  # Left-to-Right / Right-to-Left Mark
+    0x202A, 0x202B, 0x202C, 0x202D, 0x202E,  # Embedding / override controls
+    0x2066, 0x2067, 0x2068, 0x2069,  # Directional isolates
+})
 
 
 
@@ -59,17 +65,11 @@ def _validate_json_nesting(value: Any) -> None:
 
 def _validate_display_string(value: str, field: str) -> None:
     """Reject controls, bidi overrides and invalid Unicode in GTK text."""
-    bidi_controls = {
-        0x061C,  # Arabic Letter Mark
-        0x200E, 0x200F,  # Left-to-Right / Right-to-Left Mark
-        0x202A, 0x202B, 0x202C, 0x202D, 0x202E,  # Embedding / override controls
-        0x2066, 0x2067, 0x2068, 0x2069,  # Directional isolates
-    }
     if any(
         ord(character) < 32
         or 0x7F <= ord(character) <= 0x9F
         or 0xD800 <= ord(character) <= 0xDFFF
-        or ord(character) in bidi_controls
+        or ord(character) in BIDI_CONTROL_CODEPOINTS
         for character in value
     ):
         raise RuntimeError(
@@ -265,6 +265,7 @@ def _bounded_error_message(value: Any, fallback: str) -> str:
             ord(character) >= 32
             and not 0x7F <= ord(character) <= 0x9F
             and not 0xD800 <= ord(character) <= 0xDFFF
+            and ord(character) not in BIDI_CONTROL_CODEPOINTS
         )
         else " "
         for character in normalized
