@@ -212,7 +212,8 @@ class ApiProtocolTests(unittest.TestCase):
         self.assertEqual(decoded["future_metrics"]["zero_with_large_exponent"], -0.0)
 
     def test_accepts_json_at_exact_nesting_limit_in_unknown_extension(self):
-        depth = 100
+        # The outer protocol object itself occupies one nesting level.
+        depth = 99
         value = "0"
         for _ in range(depth):
             value = '{"next":' + value + "}"
