@@ -12,10 +12,12 @@ from pathlib import Path
 from typing import Any
 
 from api_protocol import (
+    coalesce_pending_request,
     decode_api_response,
     device_identity,
     inventory_matches_device,
     request_is_current,
+    take_pending_request,
 )
 
 import gi
@@ -339,11 +341,14 @@ class UraamWindow(Gtk.ApplicationWindow):
         return decode_api_response(result.stdout, result.stderr, result.returncode)
 
     def _run_async(self, command: str, callback: Any) -> None:
-        """Run one bridge request at a time, retaining the latest pending action."""
+        """Run serialized bridge work; reject new work once shutdown begins."""
+        if self._closing:
+            return
         if self._loading:
-            # Device queries share the same ADB/Root/Shizuku transport. Keep them
-            # serialized, but do not silently lose the user's most recent action.
-            self._pending_request = (command, callback)
+            # Explicit latest-wins policy: replace, never queue unbounded work.
+            self._pending_request = coalesce_pending_request(
+                self._pending_request, (command, callback)
+            )
             self.status_label.set_text(f"Waiting to load {command}…")
             return
         self._start_async(command, callback)
@@ -371,7 +376,7 @@ class UraamWindow(Gtk.ApplicationWindow):
             self._pending_request = None
             return GLib.SOURCE_REMOVE
 
-        pending = self._pending_request
+        pending = take_pending_request(self._pending_request, self._closing)
         self._pending_request = None
         if pending is not None:
             # A newer action superseded this result. Start it before touching
