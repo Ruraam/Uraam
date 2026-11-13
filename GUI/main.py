@@ -139,6 +139,10 @@ class UraamWindow(Gtk.ApplicationWindow):
         self.loading_spinner.set_halign(Gtk.Align.START)
         self.loading_spinner.set_tooltip_text("A read-only bridge request is running")
         self._set_accessible_label(self.loading_spinner, "Read-only request in progress")
+        self._set_accessible_description(
+            self.loading_spinner,
+            "Indicates that a read-only Android bridge request is in progress.",
+        )
         sidebar.append(self.loading_spinner)
 
         key_controller = Gtk.EventControllerKey()
@@ -323,6 +327,10 @@ class UraamWindow(Gtk.ApplicationWindow):
         self.package_search = Gtk.SearchEntry()
         self.package_search.set_placeholder_text("Search package name…")
         self._set_accessible_label(self.package_search, "Search installed packages")
+        self._set_accessible_description(
+            self.package_search,
+            "Type a package name to narrow the installed-applications list.",
+        )
         self.package_search.connect("search-changed", self._filter_packages)
         page.append(self.package_search)
         self.package_filter = Gtk.DropDown.new_from_strings(
@@ -330,6 +338,10 @@ class UraamWindow(Gtk.ApplicationWindow):
         )
         self.package_filter.set_selected(0)
         self._set_accessible_label(self.package_filter, "Filter packages by category")
+        self._set_accessible_description(
+            self.package_filter,
+            "Choose all, system, user, or unclassified packages.",
+        )
         self.package_filter.connect("notify::selected", self._filter_packages)
         page.append(self.package_filter)
         self.package_count_label = Gtk.Label(label="No inventory loaded.", xalign=0)
@@ -341,6 +353,10 @@ class UraamWindow(Gtk.ApplicationWindow):
         self.package_list = Gtk.ListBox()
         self.package_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
         self._set_accessible_label(self.package_list, "Installed Android packages")
+        self._set_accessible_description(
+            self.package_list,
+            "Select an application to inspect its read-only Android metadata.",
+        )
         self.package_list.set_activate_on_single_click(True)
         self.package_list.connect("row-activated", self._on_package_activated)
         self.package_list.add_css_class("boxed-list")
