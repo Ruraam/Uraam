@@ -185,6 +185,18 @@ class UraamWindow(Gtk.ApplicationWindow):
         if isinstance(detail_label, Gtk.Label):
             detail_label.set_text(detail)
 
+    def _add_scrollable_page(self, page: Gtk.Widget, name: str) -> None:
+        """Keep long dashboard and inspector content reachable in short windows."""
+        scroller = Gtk.ScrolledWindow()
+        scroller.set_policy(
+            Gtk.PolicyType.AUTOMATIC,
+            Gtk.PolicyType.AUTOMATIC,
+        )
+        scroller.set_hexpand(True)
+        scroller.set_vexpand(True)
+        scroller.set_child(page)
+        self.stack.add_named(scroller, name)
+
     def _build_dashboard(self) -> None:
         page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)
         page.set_margin_top(28)
@@ -240,7 +252,7 @@ class UraamWindow(Gtk.ApplicationWindow):
         note.set_wrap(True)
         note.add_css_class("dim-label")
         page.append(note)
-        self.stack.add_named(page, "dashboard")
+        self._add_scrollable_page(page, "dashboard")
 
     def _build_packages(self) -> None:
         page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
@@ -333,7 +345,7 @@ class UraamWindow(Gtk.ApplicationWindow):
         safety_note.set_wrap(True)
         safety_note.add_css_class("dim-label")
         details.append(safety_note)
-        self.stack.add_named(details, "package-detail")
+        self._add_scrollable_page(details, "package-detail")
 
     def _api_call(self, command: str) -> dict[str, Any]:
         if not API_PATH.is_file():
