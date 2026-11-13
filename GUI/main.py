@@ -71,6 +71,7 @@ class UraamWindow(Gtk.ApplicationWindow):
         header.set_title_widget(Gtk.Label(label="URAAM Desktop"))
         self.refresh_button = Gtk.Button(label="Refresh")
         self.refresh_button.set_tooltip_text("Refresh device information")
+        self._set_accessible_label(self.refresh_button, "Refresh device information")
         self.refresh_button.connect("clicked", self._on_refresh)
         header.pack_end(self.refresh_button)
         outer.append(header)
@@ -103,10 +104,12 @@ class UraamWindow(Gtk.ApplicationWindow):
 
         dashboard_button = Gtk.Button(label="◈  Dashboard")
         dashboard_button.add_css_class("uraam-nav-button")
+        self._set_accessible_label(dashboard_button, "Open dashboard")
         dashboard_button.connect("clicked", lambda _button: self._show_view("dashboard"))
         sidebar.append(dashboard_button)
         packages_button = Gtk.Button(label="▦  Applications")
         packages_button.add_css_class("uraam-nav-button")
+        self._set_accessible_label(packages_button, "Open installed applications")
         packages_button.connect("clicked", self._on_packages)
         sidebar.append(packages_button)
 
@@ -117,6 +120,7 @@ class UraamWindow(Gtk.ApplicationWindow):
         self.loading_spinner = Gtk.Spinner()
         self.loading_spinner.set_halign(Gtk.Align.START)
         self.loading_spinner.set_tooltip_text("A read-only bridge request is running")
+        self._set_accessible_label(self.loading_spinner, "Read-only request in progress")
         sidebar.append(self.loading_spinner)
 
         self.connect("close-request", self._on_close_request)
@@ -146,6 +150,14 @@ class UraamWindow(Gtk.ApplicationWindow):
             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
         )
         self._theme_provider = provider
+
+    @staticmethod
+    def _set_accessible_label(widget: Gtk.Widget, label: str) -> None:
+        """Expose a concise accessible name for controls without visible labels."""
+        widget.update_property(
+            [Gtk.AccessibleProperty.LABEL],
+            [label],
+        )
 
     @staticmethod
     def _make_card(title: str, value: str, detail: str) -> Gtk.Frame:
@@ -280,12 +292,14 @@ class UraamWindow(Gtk.ApplicationWindow):
         page.append(self.package_summary)
         self.package_search = Gtk.SearchEntry()
         self.package_search.set_placeholder_text("Search package name…")
+        self._set_accessible_label(self.package_search, "Search installed packages")
         self.package_search.connect("search-changed", self._filter_packages)
         page.append(self.package_search)
         self.package_filter = Gtk.DropDown.new_from_strings(
             ["All packages", "System apps", "User apps", "Unclassified"]
         )
         self.package_filter.set_selected(0)
+        self._set_accessible_label(self.package_filter, "Filter packages by category")
         self.package_filter.connect("notify::selected", self._filter_packages)
         page.append(self.package_filter)
         self.package_count_label = Gtk.Label(label="No inventory loaded.", xalign=0)
@@ -296,6 +310,7 @@ class UraamWindow(Gtk.ApplicationWindow):
         scroller.set_hexpand(True)
         self.package_list = Gtk.ListBox()
         self.package_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self._set_accessible_label(self.package_list, "Installed Android packages")
         self.package_list.set_activate_on_single_click(True)
         self.package_list.connect("row-activated", self._on_package_activated)
         self.package_list.add_css_class("boxed-list")
