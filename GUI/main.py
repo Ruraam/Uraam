@@ -6,7 +6,6 @@ device information and the installed Android user-0 package inventory.
 """
 from __future__ import annotations
 
-import os
 import signal
 import subprocess
 import threading
