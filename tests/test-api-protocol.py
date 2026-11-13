@@ -334,6 +334,58 @@ class ApiProtocolTests(unittest.TestCase):
                 "", 0
             )
 
+    def test_rejects_package_detail_with_missing_or_empty_package_identity(self):
+        base = {
+            "status": "ok",
+            "backend": "adb",
+            "paths": ["/data/app/com.example.app/base.apk"],
+            "version_name": None,
+            "version_code": None,
+            "requested_permissions": None,
+            "components": {},
+            "metadata_limited": False,
+            "read_only": True,
+        }
+        for package in (None, ""):
+            with self.subTest(package=package):
+                payload = dict(base)
+                if package is not None:
+                    payload["package"] = package
+                with self.assertRaisesRegex(RuntimeError, "valid package identity"):
+                    decode_api_response(__import__("json").dumps(payload), "", 0)
+
+    def test_rejects_non_string_package_detail_identity(self):
+        payload = {
+            "status": "ok",
+            "package": 123,
+            "backend": "adb",
+            "paths": ["/data/app/com.example.app/base.apk"],
+            "version_name": None,
+            "version_code": None,
+            "requested_permissions": None,
+            "components": {},
+            "metadata_limited": False,
+            "read_only": True,
+        }
+        with self.assertRaisesRegex(RuntimeError, "package"):
+            decode_api_response(__import__("json").dumps(payload), "", 0)
+
+    def test_rejects_package_detail_without_backend_identity(self):
+        payload = {
+            "status": "ok",
+            "package": "com.example.app",
+            "backend": None,
+            "paths": ["/data/app/com.example.app/base.apk"],
+            "version_name": None,
+            "version_code": None,
+            "requested_permissions": None,
+            "components": {},
+            "metadata_limited": False,
+            "read_only": True,
+        }
+        with self.assertRaisesRegex(RuntimeError, "backend"):
+            decode_api_response(__import__("json").dumps(payload), "", 0)
+
     def test_error_without_message_is_safe(self):
         with self.assertRaisesRegex(RuntimeError, "URAAM request failed"):
             decode_api_response('{"status":"error","error":null}', "", 1)
