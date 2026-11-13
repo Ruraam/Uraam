@@ -21,17 +21,71 @@ from api_protocol import (
 
 
 class ApiProtocolTests(unittest.TestCase):
-    def test_accepts_success_object(self):
-        self.assertEqual(
-            decode_api_response('{"status":"ok","count":2}', "", 0)["count"],
-            2,
+    def test_accepts_success_inventory_object(self):
+        payload = (
+            '{"status":"ok","backend":"adb","serial":"device-123","user":0,'
+            '"count":2,"packages":["com.example.one","com.example.two"],'
+            '"package_types":{"com.example.one":"system","com.example.two":"user"},'
+            '"system_count":1,"user_count":1,"unclassified_count":0,'
+            '"classification_available":true}'
         )
+        self.assertEqual(decode_api_response(payload, "", 0)["count"], 2)
 
-    def test_accepts_disconnected_device(self):
-        self.assertEqual(
-            decode_api_response('{"status":"disconnected","backend":null}', "", 0)["status"],
-            "disconnected",
+    def test_accepts_connected_device_contract(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google",'
+            '"rom":{"name":"Android","version":"15"}}'
         )
+        self.assertEqual(decode_api_response(payload, "", 0)["status"], "connected")
+
+    def test_accepts_disconnected_device_contract(self):
+        payload = (
+            '{"status":"disconnected","version":"4.4.3","backend":null,'
+            '"serial":null,"model":null,"oem":"unknown","rom":null}'
+        )
+        self.assertEqual(decode_api_response(payload, "", 0)["status"], "disconnected")
+
+    def test_rejects_incomplete_connected_device_contract(self):
+        with self.assertRaisesRegex(RuntimeError, "backend"):
+            decode_api_response(
+                '{"status":"connected","version":"4.4.3","model":"Pixel",'
+                '"oem":"google","serial":"device-123","rom":null}',
+                "", 0
+            )
+
+    def test_rejects_connected_identity_in_disconnected_contract(self):
+        with self.assertRaisesRegex(RuntimeError, "identity"):
+            decode_api_response(
+                '{"status":"disconnected","version":"4.4.3","backend":"adb",'
+                '"serial":null,"model":null,"oem":"unknown","rom":null}',
+                "", 0
+            )
+
+    def test_rejects_inventory_with_inconsistent_counts(self):
+        payload = (
+            '{"status":"ok","backend":"adb","serial":"device-123","user":0,'
+            '"count":2,"packages":["com.example.one"],'
+            '"package_types":{"com.example.one":"user"},'
+            '"system_count":0,"user_count":1,"unclassified_count":0,'
+            '"classification_available":true}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "count"):
+            decode_api_response(payload, "", 0)
+
+    def test_rejects_inventory_with_incomplete_classification(self):
+        payload = (
+            '{"status":"ok","backend":"adb","serial":"device-123","user":0,'
+            '"count":1,"packages":["com.example.one"],"package_types":{},'
+            '"system_count":0,"user_count":0,"unclassified_count":1,'
+            '"classification_available":false}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "classifications"):
+            decode_api_response(payload, "", 0)
+
+    def test_rejects_unrecognized_ok_payload(self):
+        with self.assertRaisesRegex(RuntimeError, "recognized payload"):
+            decode_api_response('{"status":"ok","count":2}', "", 0)
 
     def test_rejects_stdout_noise(self):
         with self.assertRaisesRegex(RuntimeError, "invalid JSON"):
@@ -124,12 +178,32 @@ class ApiProtocolTests(unittest.TestCase):
 
     def test_accepts_nullable_package_versions_and_valid_metadata_flags(self):
         payload = (
-            '{"status":"ok","package":"com.example.app",'
+            '{"status":"ok","package":"com.example.app","backend":"adb",'
+            '"paths":["/data/app/com.example.app/base.apk"],'
             '"version_name":null,"version_code":null,'
+            '"requested_permissions":null,"components":{'
+            '"activities":null,"services":null,"receivers":null,"providers":null},'
             '"metadata_limited":false,"read_only":true,'
             '"permissions_semantics":"requested_only_not_grant_status"}'
         )
         self.assertTrue(decode_api_response(payload, "", 0)["read_only"])
+
+    def test_rejects_package_details_without_explicit_read_only_flag(self):
+        payload = (
+            '{"status":"ok","package":"com.example.app","backend":"adb",'
+            '"paths":["/data/app/base.apk"],"version_name":null,"version_code":null,'
+            '"requested_permissions":null,"components":{},"metadata_limited":false,'
+            '"read_only":false}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "not explicitly read-only"):
+            decode_api_response(payload, "", 0)
+
+    def test_rejects_ok_response_with_missing_package_detail_fields(self):
+        with self.assertRaisesRegex(RuntimeError, "missing required fields"):
+            decode_api_response(
+                '{"status":"ok","package":"com.example.app","backend":"adb"}',
+                "", 0
+            )
 
     def test_error_without_message_is_safe(self):
         with self.assertRaisesRegex(RuntimeError, "URAAM request failed"):
