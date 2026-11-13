@@ -397,6 +397,7 @@ jq -e '.status == "ok" and .backend == "SHIZUKU" and .paths == ["/data/app/~~abc
 # Each mock deliberately sleeps; the API must fail closed instead of hanging.
 export URAAM_API_DEVICE_TIMEOUT=1
 unset ANDROID_SERIAL
+export MOCK_SU_DENY=1 MOCK_RISH_DENY=1
 export MOCK_ADB_STATE=device MOCK_ADB_HANG=devices
 adb_discovery_timeout="$(timeout 4s bash "$ROOT/uraam-api.sh" device-info)"
 jq -e '.status == "disconnected" and .backend == null' <<< "$adb_discovery_timeout" >/dev/null
