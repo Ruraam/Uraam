@@ -972,6 +972,73 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
             ],
         )
 
+    def test_escape_is_ignored_outside_package_detail(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        calls = []
+        window = type("WindowState", (), {})()
+        window._show_view = lambda name: calls.append(name)
+        window.stack = SimpleNamespace(
+            get_visible_child_name=lambda: "dashboard"
+        )
+        fake_gdk = SimpleNamespace(
+            ModifierType=SimpleNamespace(
+                CONTROL_MASK=4,
+                SHIFT_MASK=1,
+                ALT_MASK=8,
+            ),
+            KEY_1=49,
+            KEY_2=50,
+            KEY_Escape=65307,
+        )
+        with patch.object(uraam_gui, "Gdk", fake_gdk):
+            self.assertFalse(
+                uraam_gui.UraamWindow._on_key_pressed(window, None, 65307, 0, 0)
+            )
+
+        self.assertEqual(calls, [])
+
+    def test_repeated_navigation_shortcuts_are_handled_in_order(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        calls = []
+        window = type("WindowState", (), {})()
+        window._show_view = lambda name: calls.append(("view", name))
+        window._on_packages = lambda _button: calls.append(("packages", None))
+        window.stack = SimpleNamespace(
+            get_visible_child_name=lambda: "dashboard"
+        )
+        fake_gdk = SimpleNamespace(
+            ModifierType=SimpleNamespace(
+                CONTROL_MASK=4,
+                SHIFT_MASK=1,
+                ALT_MASK=8,
+            ),
+            KEY_1=49,
+            KEY_2=50,
+            KEY_Escape=65307,
+        )
+        with patch.object(uraam_gui, "Gdk", fake_gdk):
+            for keyval in (49, 50, 49, 50):
+                self.assertTrue(
+                    uraam_gui.UraamWindow._on_key_pressed(
+                        window, None, keyval, 0, 4
+                    )
+                )
+
+        self.assertEqual(
+            calls,
+            [
+                ("view", "dashboard"),
+                ("packages", None),
+                ("view", "dashboard"),
+                ("packages", None),
+            ],
+        )
+
+
     def test_keyboard_shortcuts_ignore_extra_or_wrong_modifiers(self):
         from types import SimpleNamespace
         from unittest.mock import patch
