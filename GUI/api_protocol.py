@@ -35,9 +35,14 @@ def _reject_non_json_constant(value: str) -> None:
 
 def _validate_display_string(value: str, field: str) -> None:
     """Reject control characters that can break or spoof GTK text presentation."""
-    if any(ord(character) < 32 or 0x7F <= ord(character) <= 0x9F for character in value):
+    if any(
+        ord(character) < 32
+        or 0x7F <= ord(character) <= 0x9F
+        or 0xD800 <= ord(character) <= 0xDFFF
+        for character in value
+    ):
         raise RuntimeError(
-            f"The bridge returned unsafe control characters in '{field}'."
+            f"The bridge returned unsafe Unicode characters in '{field}'."
         )
 
 
@@ -225,7 +230,11 @@ def _bounded_error_message(value: Any, fallback: str) -> str:
         normalized = normalized.replace(escaped_control, " ")
     normalized = "".join(
         character
-        if ord(character) >= 32 and not 0x7F <= ord(character) <= 0x9F
+        if (
+            ord(character) >= 32
+            and not 0x7F <= ord(character) <= 0x9F
+            and not 0xD800 <= ord(character) <= 0xDFFF
+        )
         else " "
         for character in normalized
     )
