@@ -216,7 +216,7 @@ main() {
             dump_raw="$(api_capture_device_output "$API_MAX_DUMPSYS_BYTES" dumpsys package "$package_id")" || dump_status=$?
             if (( dump_status != 0 )); then
                 dump_raw=""
-                [[ "$API_OUTPUT_LIMIT_EXCEEDED" == 1 ]] && metadata_limited=true
+                (( dump_status == 126 )) && metadata_limited=true
             fi
             version_name="$(sed -n 's/.*versionName=\([^[:space:]]*\).*/\1/p' <<< "$dump_raw" | head -n 1)"
             version_code="$(sed -n 's/.*versionCode=\([0-9][0-9]*\).*/\1/p' <<< "$dump_raw" | head -n 1)"
