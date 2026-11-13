@@ -150,6 +150,27 @@ class ApiProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "permission denied"):
             decode_api_response('{"status":"ok"}', "permission denied", 5)
 
+    def test_response_limit_counts_utf8_bytes(self):
+        oversized = '{"status":"ok","padding":"' + ("é" * (4 * 1024 * 1024)) + '"}'
+        with self.assertRaisesRegex(RuntimeError, "8 MiB"):
+            decode_api_response(oversized, "", 0)
+
+    def test_invalid_json_surfaces_bridge_stderr(self):
+        with self.assertRaisesRegex(RuntimeError, "adb: device offline"):
+            decode_api_response('{"status":', "adb: device offline", 1)
+
+    def test_nonzero_exit_rejects_success_shaped_payload(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "transport failed"):
+            decode_api_response(payload, "transport failed", 1)
+
+    def test_nonzero_exit_without_payload_error_uses_stderr(self):
+        with self.assertRaisesRegex(RuntimeError, "permission denied"):
+            decode_api_response('{"status":"ok"}', "permission denied", 7)
+
     def test_rejects_oversized_response(self):
         oversized = '{"status":"ok","padding":"' + ("x" * (8 * 1024 * 1024)) + '"}'
         with self.assertRaisesRegex(RuntimeError, "8 MiB"):
