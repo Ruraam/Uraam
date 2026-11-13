@@ -229,6 +229,52 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         self.assertIn("shutting down", str(errors[0]))
 
 
+    def test_api_call_releases_active_process_after_success_or_failure(self):
+        from unittest.mock import patch
+
+        for communication_error in (None, subprocess.TimeoutExpired("bridge", 1)):
+            with self.subTest(communication_error=communication_error):
+                process = type("FakeProcess", (), {"returncode": 0})()
+                shutdown = threading.Event()
+                observed = []
+                window = type("WindowState", (), {})()
+                window._closing = False
+                window._process_lock = threading.Lock()
+                window._shutdown_event = shutdown
+                window._active_process = None
+
+                def communicate(target, _shutdown, **_kwargs):
+                    observed.append(window._active_process is target)
+                    if communication_error is not None:
+                        raise communication_error
+                    return ("{}", "")
+
+                with (
+                    patch.object(uraam_gui, "API_PATH", Path(__file__)),
+                    patch.object(uraam_gui.subprocess, "Popen", return_value=process),
+                    patch.object(
+                        uraam_gui, "communicate_process", side_effect=communicate
+                    ),
+                    patch.object(
+                        uraam_gui,
+                        "decode_api_response",
+                        return_value={"status": "connected"},
+                    ),
+                ):
+                    if communication_error is None:
+                        result = uraam_gui.UraamWindow._api_call(
+                            window, "device-info"
+                        )
+                        self.assertEqual(result, {"status": "connected"})
+                    else:
+                        with self.assertRaises(RuntimeError):
+                            uraam_gui.UraamWindow._api_call(
+                                window, "device-info"
+                            )
+
+                self.assertEqual(observed, [True])
+                self.assertIsNone(window._active_process)
+
     def test_start_async_does_not_create_worker_after_shutdown(self):
         from unittest.mock import patch
 
