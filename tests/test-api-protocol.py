@@ -12,6 +12,7 @@ from api_protocol import (
     decode_api_response,
     device_identity,
     inventory_matches_device,
+    package_detail_request_is_current,
     request_is_current,
     take_pending_request,
 )
@@ -215,6 +216,49 @@ class PendingRequestPolicyTests(unittest.TestCase):
 
     def test_empty_pending_slot_stays_empty(self):
         self.assertIsNone(take_pending_request(None, False))
+
+
+class PackageDetailFreshnessTests(unittest.TestCase):
+    def _is_current(self, **overrides):
+        values = {
+            "inventory_loaded": True,
+            "expected_request_generation": 5,
+            "current_request_generation": 5,
+            "expected_device_generation": 3,
+            "current_device_generation": 3,
+            "expected_package": "com.example.app",
+            "selected_package": "com.example.app",
+            "expected_view_generation": 8,
+            "current_view_generation": 8,
+            "visible_view": "package-detail",
+            "closing": False,
+        }
+        values.update(overrides)
+        return package_detail_request_is_current(**values)
+
+    def test_accepts_current_package_detail_response(self):
+        self.assertTrue(self._is_current())
+
+    def test_rejects_response_after_another_package_is_selected(self):
+        self.assertFalse(self._is_current(selected_package="com.example.other"))
+
+    def test_rejects_response_after_selection_generation_changes(self):
+        self.assertFalse(self._is_current(current_request_generation=6))
+
+    def test_rejects_response_after_device_generation_changes(self):
+        self.assertFalse(self._is_current(current_device_generation=4))
+
+    def test_rejects_response_after_navigation(self):
+        self.assertFalse(self._is_current(current_view_generation=9))
+
+    def test_rejects_response_when_detail_view_is_not_visible(self):
+        self.assertFalse(self._is_current(visible_view="packages"))
+
+    def test_rejects_response_after_inventory_reset(self):
+        self.assertFalse(self._is_current(inventory_loaded=False))
+
+    def test_rejects_response_during_shutdown(self):
+        self.assertFalse(self._is_current(closing=True))
 
 
 if __name__ == "__main__":
