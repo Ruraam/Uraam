@@ -147,6 +147,9 @@ def _validate_display_string(value: str, field: str) -> None:
 
 def _validate_package_identifier(value: str, field: str) -> None:
     """Reject non-ASCII or malformed Android package identifiers."""
+    # Preserve the dedicated missing/empty identity contract and its error.
+    if value == "":
+        return
     if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)*", value):
         raise RuntimeError(
             f"The bridge returned an invalid Android package identifier in '{field}'."
