@@ -42,7 +42,7 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
     def test_partial_json_from_nonzero_process_is_never_accepted(self):
         code = (
             "import sys; "
-            "sys.stdout.write('{\\"status\\":\\"connected\\",\\"version\\":'); "
+            "sys.stdout.write('{\"status\":\"connected\",\"version\":'); "
             "sys.stdout.flush(); "
             "sys.stderr.write('bridge failed after partial output'); "
             "sys.stderr.flush(); "
