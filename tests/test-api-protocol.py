@@ -288,7 +288,7 @@ class ApiProtocolTests(unittest.TestCase):
 
     def test_rejects_mixed_nested_objects_and_lists_over_entry_limit(self):
         # Count all containers together: 8 top-level keys, 2 extension keys,
-        # 50,000 list items, and 50,001 nested object keys.
+        # 50,000 list items, and 49,991 nested object keys.
         label_count = MAX_JSON_CONTAINER_ENTRIES // 2
         sample_count = MAX_JSON_CONTAINER_ENTRIES - 8 - 2 - label_count + 1
         labels = ",".join('"x"' for _ in range(label_count))
