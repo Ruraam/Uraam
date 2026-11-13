@@ -263,6 +263,10 @@ def decode_api_response(stdout: str, stderr: str, returncode: int) -> dict[str, 
         )
         detail = _bounded_error_message(stderr, fallback)
         raise RuntimeError(detail) from exc
+    except RecursionError as exc:
+        raise RuntimeError(
+            "The bridge JSON nesting exceeds the decoder safety limit."
+        ) from exc
     except ValueError as exc:
         detail = _bounded_error_message(str(exc), "The bridge returned invalid JSON.")
         raise RuntimeError(detail) from exc
