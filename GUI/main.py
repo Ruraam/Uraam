@@ -46,10 +46,10 @@ class UraamWindow(Gtk.ApplicationWindow):
 
         header = Gtk.HeaderBar()
         header.set_title_widget(Gtk.Label(label="URAAM Desktop"))
-        refresh_button = Gtk.Button(label="Refresh")
-        refresh_button.set_tooltip_text("Refresh device information")
-        refresh_button.connect("clicked", self._on_refresh)
-        header.pack_end(refresh_button)
+        self.refresh_button = Gtk.Button(label="Refresh")
+        self.refresh_button.set_tooltip_text("Refresh device information")
+        self.refresh_button.connect("clicked", self._on_refresh)
+        header.pack_end(self.refresh_button)
         outer.append(header)
 
         body = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
@@ -91,6 +91,10 @@ class UraamWindow(Gtk.ApplicationWindow):
         self.status_label.set_wrap(True)
         self.status_label.add_css_class("dim-label")
         sidebar.append(self.status_label)
+        self.loading_spinner = Gtk.Spinner()
+        self.loading_spinner.set_halign(Gtk.Align.START)
+        self.loading_spinner.set_tooltip_text("A read-only bridge request is running")
+        sidebar.append(self.loading_spinner)
 
         self.connect("close-request", self._on_close_request)
 
@@ -311,15 +315,20 @@ class UraamWindow(Gtk.ApplicationWindow):
     def _api_call(self, command: str) -> dict[str, Any]:
         if not API_PATH.is_file():
             raise RuntimeError(f"URAAM JSON bridge not found: {API_PATH}")
-        result = subprocess.run(
-            ["bash", str(API_PATH), command],
-            cwd=str(ROOT_DIR),
-            capture_output=True,
-            text=True,
-            errors="replace",
-            timeout=45,
-            check=False,
-        )
+        try:
+            result = subprocess.run(
+                ["bash", str(API_PATH), command],
+                cwd=str(ROOT_DIR),
+                capture_output=True,
+                text=True,
+                errors="replace",
+                timeout=45,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(
+                f"The read-only bridge request '{command}' timed out after 45 seconds."
+            ) from exc
         return decode_api_response(result.stdout, result.stderr, result.returncode)
 
     def _run_async(self, command: str, callback: Any) -> None:
@@ -334,6 +343,8 @@ class UraamWindow(Gtk.ApplicationWindow):
 
     def _start_async(self, command: str, callback: Any) -> None:
         self._loading = True
+        self.refresh_button.set_sensitive(False)
+        self.loading_spinner.start()
         self.status_label.set_text(f"Loading {command}…")
 
         def worker() -> None:
@@ -363,6 +374,8 @@ class UraamWindow(Gtk.ApplicationWindow):
             return GLib.SOURCE_REMOVE
 
         self._loading = False
+        self.loading_spinner.stop()
+        self.refresh_button.set_sensitive(True)
         callback(payload, error)
         return GLib.SOURCE_REMOVE
 
