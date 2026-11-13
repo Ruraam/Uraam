@@ -11,6 +11,9 @@ MAX_API_RESPONSE_BYTES = 8 * 1024 * 1024\nVALID_STATUSES = {"ok", "connected", "
 
 def decode_api_response(stdout: str, stderr: str, returncode: int) -> dict[str, Any]:
     """Decode one JSON object and reject malformed or inconsistent responses."""
+    if len(stdout.encode("utf-8")) > MAX_API_RESPONSE_BYTES:
+        raise RuntimeError("The bridge response exceeds the 8 MiB safety limit.")
+
     try:
         payload = json.loads(stdout)
     except json.JSONDecodeError as exc:
