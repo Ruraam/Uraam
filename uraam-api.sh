@@ -32,7 +32,7 @@ api_capture_device_output() {
     local LC_ALL=C
     if (( ${#output} > limit )); then
         API_OUTPUT_LIMIT_EXCEEDED=1
-        return 125
+        return 126
     fi
     (( status == 0 )) || return "$status"
     printf '%s' "$output"
