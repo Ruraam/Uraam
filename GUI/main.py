@@ -6,6 +6,8 @@ device information and the installed Android user-0 package inventory.
 """
 from __future__ import annotations
 
+import os
+import signal
 import subprocess
 import threading
 from pathlib import Path
@@ -42,6 +44,8 @@ class UraamWindow(Gtk.ApplicationWindow):
         self.set_size_request(760, 520)
         self._loading = False
         self._closing = False
+        self._process_lock = threading.Lock()
+        self._active_process: subprocess.Popen[str] | None = None
         self._pending_request: tuple[str, Any] | None = None
         self._device_identity: tuple[str, str] | None = None
         self._device_generation = 0
@@ -327,21 +331,49 @@ class UraamWindow(Gtk.ApplicationWindow):
     def _api_call(self, command: str) -> dict[str, Any]:
         if not API_PATH.is_file():
             raise RuntimeError(f"URAAM JSON bridge not found: {API_PATH}")
+        with self._process_lock:
+            if self._closing:
+                raise RuntimeError("The read-only bridge is shutting down.")
+        process = subprocess.Popen(
+            ["bash", str(API_PATH), command],
+            cwd=str(ROOT_DIR),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            errors="replace",
+            start_new_session=True,
+        )
+        with self._process_lock:
+            if self._closing:
+                self._signal_process_group(process, signal.SIGTERM)
+            else:
+                self._active_process = process
         try:
-            result = subprocess.run(
-                ["bash", str(API_PATH), command],
-                cwd=str(ROOT_DIR),
-                capture_output=True,
-                text=True,
-                errors="replace",
-                timeout=45,
-                check=False,
-            )
-        except subprocess.TimeoutExpired as exc:
-            raise RuntimeError(
-                f"The read-only bridge request '{command}' timed out after 45 seconds."
-            ) from exc
-        return decode_api_response(result.stdout, result.stderr, result.returncode)
+            try:
+                stdout, stderr = process.communicate(timeout=45)
+            except subprocess.TimeoutExpired as exc:
+                self._signal_process_group(process, signal.SIGKILL)
+                process.communicate()
+                raise RuntimeError(
+                    f"The read-only bridge request '{command}' timed out after 45 seconds."
+                ) from exc
+            if self._closing:
+                raise RuntimeError("The read-only bridge request was cancelled during shutdown.")
+            return decode_api_response(stdout, stderr, process.returncode)
+        finally:
+            with self._process_lock:
+                if self._active_process is process:
+                    self._active_process = None
+
+    @staticmethod
+    def _signal_process_group(process: subprocess.Popen[str], sig: int) -> None:
+        """Signal the isolated bridge process group without touching other jobs."""
+        if process.poll() is not None:
+            return
+        try:
+            os.killpg(process.pid, sig)
+        except ProcessLookupError:
+            pass
 
     def _run_async(self, command: str, callback: Any) -> None:
         """Run serialized bridge work; reject new work once shutdown begins."""
@@ -416,9 +448,13 @@ class UraamWindow(Gtk.ApplicationWindow):
         self.stack.set_visible_child_name(name)
 
     def _on_close_request(self, _window: Gtk.ApplicationWindow) -> bool:
-        """Prevent queued worker completions from touching a closing window."""
-        self._closing = True
-        self._pending_request = None
+        """Cancel the active read-only bridge process before the window closes."""
+        with self._process_lock:
+            self._closing = True
+            self._pending_request = None
+            process = self._active_process
+            if process is not None:
+                self._signal_process_group(process, signal.SIGTERM)
         return False
 
     def _reset_package_views(self, message: str) -> None:
