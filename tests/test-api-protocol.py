@@ -198,6 +198,19 @@ class ApiProtocolTests(unittest.TestCase):
         decoded = decode_api_response(payload, "", 0)
         self.assertEqual(decoded["future_metrics"]["upper_bound"], 1e308)
 
+    def test_accepts_signed_and_uppercase_json_exponent_notation(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"positive_exponent":1e+308,"uppercase_exponent":1E-308,'
+            '"fractional_exponent":1.0E+10,"zero_with_large_exponent":-0e+999}}'
+        )
+        decoded = decode_api_response(payload, "", 0)
+        self.assertEqual(decoded["future_metrics"]["positive_exponent"], 1e308)
+        self.assertEqual(decoded["future_metrics"]["uppercase_exponent"], 1e-308)
+        self.assertEqual(decoded["future_metrics"]["fractional_exponent"], 1e10)
+        self.assertEqual(decoded["future_metrics"]["zero_with_large_exponent"], -0.0)
+
     def test_rejects_excessively_nested_json(self):
         payload = '{"status":"ok","padding":' + ("[" * 2000) + "0" + ("]" * 2000) + "}"
         with self.assertRaisesRegex(RuntimeError, "JSON nesting.*safety limit"):
