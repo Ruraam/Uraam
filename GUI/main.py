@@ -39,6 +39,7 @@ class UraamWindow(Gtk.ApplicationWindow):
         self._package_types: dict[str, str] = {}
         self._package_classification = "Inventory not loaded"
         self._package_request_generation = 0
+        self._view_generation = 0
         self._inventory_loaded = False
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -80,7 +81,7 @@ class UraamWindow(Gtk.ApplicationWindow):
 
         dashboard_button = Gtk.Button(label="◈  Dashboard")
         dashboard_button.add_css_class("uraam-nav-button")
-        dashboard_button.connect("clicked", lambda _button: self.stack.set_visible_child_name("dashboard"))
+        dashboard_button.connect("clicked", lambda _button: self._show_view("dashboard"))
         sidebar.append(dashboard_button)
         packages_button = Gtk.Button(label="▦  Applications")
         packages_button.add_css_class("uraam-nav-button")
@@ -100,7 +101,7 @@ class UraamWindow(Gtk.ApplicationWindow):
 
         self._build_dashboard()
         self._build_packages()
-        self.stack.set_visible_child_name("dashboard")
+        self._show_view("dashboard")
         self._refresh_device()
 
     def _load_theme(self) -> None:
@@ -274,7 +275,7 @@ class UraamWindow(Gtk.ApplicationWindow):
         details.set_margin_end(30)
         back = Gtk.Button(label="←  Back to applications")
         back.set_halign(Gtk.Align.START)
-        back.connect("clicked", lambda _button: self.stack.set_visible_child_name("packages"))
+        back.connect("clicked", lambda _button: self._show_view("packages"))
         details.append(back)
         detail_title = Gtk.Label(label="Application inspector", xalign=0)
         detail_title.add_css_class("title-1")
@@ -379,6 +380,12 @@ class UraamWindow(Gtk.ApplicationWindow):
         callback(payload, error)
         return GLib.SOURCE_REMOVE
 
+    def _show_view(self, name: str) -> None:
+        """Invalidate callbacks captured for a view the user has left."""
+        if self.stack.get_visible_child_name() != name:
+            self._view_generation += 1
+        self.stack.set_visible_child_name(name)
+
     def _on_close_request(self, _window: Gtk.ApplicationWindow) -> bool:
         """Prevent queued worker completions from touching a closing window."""
         self._closing = True
@@ -457,7 +464,7 @@ class UraamWindow(Gtk.ApplicationWindow):
         self._refresh_device()
 
     def _on_packages(self, _button: Gtk.Button) -> None:
-        self.stack.set_visible_child_name("packages")
+        self._show_view("packages")
         self._run_async("list-packages", self._show_packages)
 
     def _show_packages(self, payload: Any, error: str | None) -> None:
@@ -518,12 +525,13 @@ class UraamWindow(Gtk.ApplicationWindow):
                 component_card, component_name.title(), "Loading…",
                 "Declared component entries from Android Package Manager"
             )
-        self.stack.set_visible_child_name("package-detail")
+        self._show_view("package-detail")
         generation = self._package_request_generation
+        view_generation = self._view_generation
         self._run_async(
             f"package-info:{package}",
-            lambda payload, error, expected=package, expected_generation=generation: self._show_package_info(
-                payload, error, expected, expected_generation
+            lambda payload, error, expected=package, expected_generation=generation, expected_view=view_generation: self._show_package_info(
+                payload, error, expected, expected_generation, expected_view
             ),
         )
 
@@ -533,12 +541,15 @@ class UraamWindow(Gtk.ApplicationWindow):
         error: str | None,
         expected_package: str,
         expected_generation: int,
+        expected_view_generation: int,
     ) -> None:
         # A delayed response must never replace details after a reset or device change.
         if (
             not self._inventory_loaded
             or self._package_request_generation != expected_generation
             or self._selected_package != expected_package
+            or self._view_generation != expected_view_generation
+            or self.stack.get_visible_child_name() != "package-detail"
         ):
             return
         if error:
