@@ -747,7 +747,7 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
 
         process = BoundaryProcess()
         with (
-            patch("bridge_process.time.monotonic", side_effect=[10.0, 10.5]),
+            patch("bridge_process.time.monotonic", side_effect=[10.0, 10.0]),
             patch(
                 "bridge_process.signal_process_group",
                 side_effect=lambda target, sig: signals.append((target, sig)),
