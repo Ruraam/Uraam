@@ -100,7 +100,7 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         )
         process = self._start(code)
         child_pid = int(process.stdout.readline().strip())
-        self.assertEqual(process.stdout.readline().strip(), "ready")
+        self.assertEqual(process.stdout.readline().decode().strip(), "ready")
 
         shutdown = threading.Event()
         shutdown.set()
