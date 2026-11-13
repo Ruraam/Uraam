@@ -8,7 +8,6 @@ import sys
 import threading
 import time
 import unittest
-from unittest import mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "GUI"))
@@ -598,6 +597,175 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
         self.assertEqual([command for command, _ in started], ["latest"])
         self.assertEqual(deliveries, [])
 
+
+
+
+    def test_run_async_rejects_new_work_after_shutdown(self):
+        started = []
+        window = type(
+            "WindowState",
+            (),
+            {
+                "_closing": True,
+                "_loading": False,
+                "_pending_request": None,
+                "_start_async": lambda self, command, callback: started.append(
+                    (command, callback)
+                ),
+            },
+        )()
+        callback = lambda _payload, _error: None
+
+        uraam_gui.UraamWindow._run_async(window, "device-info", callback)
+
+        self.assertEqual(started, [])
+        self.assertIsNone(window._pending_request)
+
+    def test_start_async_restores_ui_and_reports_thread_start_failure(self):
+        class FakeSpinner:
+            def __init__(self):
+                self.started = 0
+                self.stopped = 0
+
+            def start(self):
+                self.started += 1
+
+            def stop(self):
+                self.stopped += 1
+
+        class FakeButton:
+            def __init__(self):
+                self.sensitivity = []
+
+            def set_sensitive(self, value):
+                self.sensitivity.append(value)
+
+        class FakeLabel:
+            def __init__(self):
+                self.messages = []
+
+            def set_text(self, value):
+                self.messages.append(value)
+
+        class BrokenThread:
+            def __init__(self, **_kwargs):
+                pass
+
+            def start(self):
+                raise RuntimeError("thread creation denied")
+
+        window = type("WindowState", (), {})()
+        window._closing = False
+        window._loading = False
+        window.refresh_button = FakeButton()
+        window.loading_spinner = FakeSpinner()
+        window.status_label = FakeLabel()
+        delivered = []
+        original_thread = uraam_gui.threading.Thread
+        try:
+            uraam_gui.threading.Thread = BrokenThread
+            uraam_gui.UraamWindow._start_async(
+                window,
+                "device-info",
+                lambda payload, error: delivered.append((payload, error)),
+            )
+        finally:
+            uraam_gui.threading.Thread = original_thread
+
+        self.assertFalse(window._loading)
+        self.assertEqual(window.loading_spinner.started, 1)
+        self.assertEqual(window.loading_spinner.stopped, 1)
+        self.assertEqual(window.refresh_button.sensitivity, [False, True])
+        self.assertEqual(
+            window.status_label.messages[-1],
+            "Unable to start bridge request",
+        )
+        self.assertEqual(len(delivered), 1)
+        self.assertIsNone(delivered[0][0])
+        self.assertIn("device-info", delivered[0][1])
+        self.assertIn("thread creation denied", delivered[0][1])
+
+    def test_async_api_error_restores_ui_and_allows_next_request(self):
+        class FakeSpinner:
+            def __init__(self):
+                self.stopped = 0
+
+            def start(self):
+                pass
+
+            def stop(self):
+                self.stopped += 1
+
+        class FakeButton:
+            def __init__(self):
+                self.sensitivity = []
+
+            def set_sensitive(self, value):
+                self.sensitivity.append(value)
+
+        class FakeLabel:
+            def set_text(self, _value):
+                pass
+
+        class InlineThread:
+            def __init__(self, target, **_kwargs):
+                self.target = target
+
+            def start(self):
+                self.target()
+
+        class FakeGLib:
+            SOURCE_REMOVE = False
+
+            @staticmethod
+            def idle_add(callback, *args):
+                queued.append((callback, args))
+                return 1
+
+        queued = []
+        delivered = []
+        window = type("WindowState", (), {})()
+        window._closing = False
+        window._loading = False
+        window.refresh_button = FakeButton()
+        window.loading_spinner = FakeSpinner()
+        window.status_label = FakeLabel()
+        window._api_call = lambda _command: (_ for _ in ()).throw(
+            RuntimeError("bridge temporarily unavailable")
+        )
+
+        original_thread = uraam_gui.threading.Thread
+        original_glib = uraam_gui.GLib
+        try:
+            uraam_gui.threading.Thread = InlineThread
+            uraam_gui.GLib = FakeGLib
+            uraam_gui.UraamWindow._start_async(
+                window,
+                "device-info",
+                lambda payload, error: delivered.append((payload, error)),
+            )
+            self.assertEqual(len(queued), 1)
+            callback, args = queued.pop()
+            callback(*args)
+        finally:
+            uraam_gui.threading.Thread = original_thread
+            uraam_gui.GLib = original_glib
+
+        self.assertFalse(window._loading)
+        self.assertEqual(window.loading_spinner.stopped, 1)
+        self.assertEqual(window.refresh_button.sensitivity, [False, True])
+        self.assertEqual(len(delivered), 1)
+        self.assertIsNone(delivered[0][0])
+        self.assertEqual(delivered[0][1], "bridge temporarily unavailable")
+
+        # A transient API error must not leave the request pipeline wedged.
+        started = []
+        window._start_async = lambda command, callback: started.append(
+            (command, callback)
+        )
+        next_callback = lambda _payload, _error: None
+        uraam_gui.UraamWindow._run_async(window, "list-packages", next_callback)
+        self.assertEqual(started, [("list-packages", next_callback)])
 
 
 if __name__ == "__main__":
