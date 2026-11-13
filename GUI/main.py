@@ -570,6 +570,8 @@ class UraamWindow(Gtk.ApplicationWindow):
         state: Gdk.ModifierType,
     ) -> bool:
         """Provide predictable shortcuts without accepting extra modifiers."""
+        if getattr(self, "_closing", False):
+            return False
         modifiers = (
             Gdk.ModifierType.CONTROL_MASK
             | Gdk.ModifierType.SHIFT_MASK
