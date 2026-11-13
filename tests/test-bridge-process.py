@@ -1088,6 +1088,39 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         self.assertIsNotNone(process.poll())
 
 
+    def test_concurrent_stdout_and_stderr_below_limits(self):
+        code = (
+            "import os; "
+            "out = b'o' * 4096; err = b'e' * 2048; "
+            "for _ in range(32): os.write(1, out); os.write(2, err)"
+        )
+        process = self._start(code)
+        stdout, stderr = communicate_process(process, threading.Event())
+        self.assertEqual(len(stdout), 32 * 4096)
+        self.assertEqual(len(stderr), 32 * 2048)
+        self.assertEqual(process.returncode, 0)
+
+    def test_stderr_limit_enforced_while_stdout_continues(self):
+        code = (
+            "import os; out = b'o' * 16384; err = b'e' * 1024; "
+            "while True: os.write(1, out); os.write(2, err)"
+        )
+        process = self._start(code)
+        with self.assertRaisesRegex(BridgeProcessOutputLimit, "stderr"):
+            communicate_process(process, threading.Event(), timeout_seconds=5)
+        self.assertIsNotNone(process.poll())
+
+    def test_stdout_limit_enforced_while_stderr_continues(self):
+        code = (
+            "import os; out = b'o' * 65536; err = b'e' * 1024; "
+            "while True: os.write(1, out); os.write(2, err)"
+        )
+        process = self._start(code)
+        with self.assertRaisesRegex(BridgeProcessOutputLimit, "stdout"):
+            communicate_process(process, threading.Event(), timeout_seconds=5)
+        self.assertIsNotNone(process.poll())
+
+
 class AsyncRequestCoalescingTests(unittest.TestCase):
     def test_latest_pending_request_replaces_intermediate_requests(self):
         class FakeStatusLabel:
