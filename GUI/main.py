@@ -373,6 +373,7 @@ class UraamWindow(Gtk.ApplicationWindow):
         self._packages = []
         self._package_types = {}
         self._package_classification = message
+        self._package_empty_label.set_text(message)
         while child := self.package_list.get_first_child():
             self.package_list.remove(child)
         self.package_summary.set_text(message)
