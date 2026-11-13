@@ -136,6 +136,11 @@ class ApiProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "non-standard JSON constant"):
             decode_api_response('{"status":"ok","value":NaN}', "", 0)
 
+    def test_rejects_excessively_nested_json(self):
+        payload = '{"status":"connected","padding":' + ("[" * 2000) + "0" + ("]" * 2000) + "}"
+        with self.assertRaisesRegex(RuntimeError, "JSON nesting.*safety limit"):
+            decode_api_response(payload, "", 0)
+
     def test_preserves_unknown_fields_for_forward_compatibility(self):
         payload = (
             '{"status":"connected","version":"4.4.3","backend":"adb",'
