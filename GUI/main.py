@@ -371,7 +371,22 @@ class UraamWindow(Gtk.ApplicationWindow):
                 error = str(exc)
             GLib.idle_add(self._finish_async, callback, payload, error)
 
-        threading.Thread(target=worker, daemon=True, name="uraam-api-request").start()
+        try:
+            thread = threading.Thread(
+                target=worker,
+                daemon=True,
+                name="uraam-api-request",
+            )
+            thread.start()
+        except Exception as exc:
+            # Restore the UI immediately if the runtime cannot create a worker.
+            # This path runs on the GTK thread, so it is safe to update widgets
+            # and deliver the normal callback contract directly.
+            self._loading = False
+            self.loading_spinner.stop()
+            self.refresh_button.set_sensitive(True)
+            self.status_label.set_text("Unable to start bridge request")
+            callback(None, f"Unable to start the read-only bridge request '{command}': {exc}")
 
     def _finish_async(self, callback: Any, payload: Any, error: str | None) -> bool:
         if self._closing:
