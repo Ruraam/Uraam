@@ -160,8 +160,9 @@ class ApiProtocolTests(unittest.TestCase):
             '"future_metrics":{"cafe\\u0301":"ok"}}'
         )
         decoded = decode_api_response(payload, "", 0)
-        self.assertIn("cafe\\u0301", decoded["future_metrics"])
-        self.assertEqual(decoded["future_metrics"]["cafe\\u0301"], "ok")
+        decomposed_key = "cafe\u0301"
+        self.assertIn(decomposed_key, decoded["future_metrics"])
+        self.assertEqual(decoded["future_metrics"][decomposed_key], "ok")
 
     def test_accepts_valid_unicode_keys_in_unknown_extensions(self):
         payload = (
