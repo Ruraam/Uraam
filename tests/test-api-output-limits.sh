@@ -22,6 +22,18 @@ run_device_bounded() {
         "pm path --user 0 com.example.demo")
             printf 'package:/data/app/com.example.demo/base.apk\n'
             ;;
+        "pm path --user 0 com.example.path-boundary")
+            # 8-byte "package:" + 119-byte absolute path + newline = 128 bytes.
+            printf 'package:/'
+            head -c 118 /dev/zero | tr '\0' 'a'
+            printf '\n'
+            ;;
+        "pm path --user 0 com.example.path-overflow")
+            # One byte beyond the 128-byte API ceiling.
+            printf 'package:/'
+            head -c 119 /dev/zero | tr '\0' 'a'
+            printf '\n'
+            ;;
         "dumpsys package com.example.demo")
             # Deliberately exceed the configured 4 KiB capture ceiling.
             head -c 8192 /dev/zero | base64 -w0
@@ -68,6 +80,24 @@ jq -e '
     .status == "error" and
     (.error | contains("exceeds the API size limit"))
 ' <<< "$inventory_json" >/dev/null
+
+# The APK-path ceiling is independent and accepts an exact-boundary response.
+export URAAM_API_MAX_PATHS_BYTES=128
+boundary_json="$(bash "$ROOT/uraam-api.sh" package-info:com.example.path-boundary)"
+jq -e '
+    .status == "ok" and
+    (.paths | length == 1) and
+    (.paths[0] | length == 119)
+' <<< "$boundary_json" >/dev/null
+
+if path_overflow_json="$(bash "$ROOT/uraam-api.sh" package-info:com.example.path-overflow 2>/dev/null)"; then
+    printf '%s\n' "FAIL: oversized APK path output was accepted" >&2
+    exit 1
+fi
+jq -e '
+    .status == "error" and
+    (.error | contains("APK paths exceeded the API limit"))
+' <<< "$path_overflow_json" >/dev/null
 
 printf '%s\n' "PASS: oversized dumpsys metadata degrades to null without losing APK paths"
 printf '%s\n' "PASS: oversized package inventory is rejected without returning partial data"
