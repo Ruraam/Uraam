@@ -232,7 +232,7 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
     def test_api_call_releases_active_process_after_success_or_failure(self):
         from unittest.mock import patch
 
-        for communication_error in (None, subprocess.TimeoutExpired("bridge", 1)):
+        for communication_error in (None, BridgeProcessTimeout("bridge timed out")):
             with self.subTest(communication_error=communication_error):
                 process = type("FakeProcess", (), {"returncode": 0})()
                 shutdown = threading.Event()
