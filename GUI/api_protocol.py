@@ -170,6 +170,16 @@ def take_pending_request(
     """Drop queued work on shutdown; otherwise return the latest queued action."""
     return None if closing else pending
 
+
+def package_detail_payload_matches(payload: Any, expected_package: str) -> bool:
+    """Accept package metadata only when it names the requested package."""
+    return (
+        isinstance(payload, dict)
+        and isinstance(expected_package, str)
+        and bool(expected_package)
+        and payload.get("package") == expected_package
+    )
+
 def package_detail_request_is_current(
     inventory_loaded: bool,
     expected_request_generation: int,
