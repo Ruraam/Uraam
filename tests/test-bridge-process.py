@@ -724,6 +724,51 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
             communicate_process(process, shutdown, shutdown_grace_seconds=0.3)
         self.assertIsNotNone(process.poll())
 
+    def test_shutdown_wins_when_requested_at_timeout_boundary(self):
+        from unittest.mock import patch
+
+        shutdown = threading.Event()
+        signals = []
+
+        class BoundaryProcess:
+            def __init__(self):
+                self.pid = 4242
+                self.returncode = None
+                self.communicate_calls = 0
+
+            def communicate(self, timeout=None):
+                self.communicate_calls += 1
+                if self.communicate_calls == 1:
+                    # Model the poll expiring at the same instant shutdown lands.
+                    shutdown.set()
+                    raise subprocess.TimeoutExpired("bridge", timeout)
+                self.returncode = -signal.SIGTERM
+                return ("", "")
+
+        process = BoundaryProcess()
+        with (
+            patch("bridge_process.time.monotonic", side_effect=[10.0, 10.5]),
+            patch(
+                "bridge_process.signal_process_group",
+                side_effect=lambda target, sig: signals.append((target, sig)),
+            ),
+        ):
+            with self.assertRaises(BridgeProcessCancelled):
+                communicate_process(
+                    process,
+                    shutdown,
+                    timeout_seconds=0.5,
+                    poll_interval=0.05,
+                    shutdown_grace_seconds=0.2,
+                )
+
+        self.assertTrue(shutdown.is_set())
+        self.assertEqual(process.communicate_calls, 2)
+        self.assertEqual(
+            signals,
+            [(process, signal.SIGTERM), (process, signal.SIGKILL)],
+        )
+
     def test_timeout_kills_and_reaps_process(self):
         process = self._start("import time; time.sleep(30)")
         started = time.monotonic()
