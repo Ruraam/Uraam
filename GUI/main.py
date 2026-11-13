@@ -31,6 +31,7 @@ class UraamWindow(Gtk.ApplicationWindow):
         self.set_default_size(1000, 680)
         self.set_size_request(760, 520)
         self._loading = False
+        self._pending_request: tuple[str, Any] | None = None
         self._packages: list[str] = []
         self._package_types: dict[str, str] = {}
 
@@ -303,8 +304,16 @@ class UraamWindow(Gtk.ApplicationWindow):
         return decode_api_response(result.stdout, result.stderr, result.returncode)
 
     def _run_async(self, command: str, callback: Any) -> None:
+        """Run one bridge request at a time, retaining the latest pending action."""
         if self._loading:
+            # Device queries share the same ADB/Root/Shizuku transport. Keep them
+            # serialized, but do not silently lose the user's most recent action.
+            self._pending_request = (command, callback)
+            self.status_label.set_text(f"Waiting to load {command}…")
             return
+        self._start_async(command, callback)
+
+    def _start_async(self, command: str, callback: Any) -> None:
         self._loading = True
         self.status_label.set_text(f"Loading {command}…")
 
@@ -317,9 +326,18 @@ class UraamWindow(Gtk.ApplicationWindow):
                 error = str(exc)
             GLib.idle_add(self._finish_async, callback, payload, error)
 
-        threading.Thread(target=worker, daemon=True).start()
+        threading.Thread(target=worker, daemon=True, name="uraam-api-request").start()
 
     def _finish_async(self, callback: Any, payload: Any, error: str | None) -> bool:
+        pending = self._pending_request
+        self._pending_request = None
+        if pending is not None:
+            # A newer action superseded this result. Start it before touching
+            # widgets so an older response cannot overwrite the current view.
+            self._loading = False
+            self._start_async(*pending)
+            return GLib.SOURCE_REMOVE
+
         self._loading = False
         callback(payload, error)
         return GLib.SOURCE_REMOVE
