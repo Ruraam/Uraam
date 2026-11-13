@@ -761,6 +761,9 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
             def __init__(self):
                 self.calls = []
 
+            def start(self):
+                self.calls.append(("start",))
+
             def stop(self):
                 self.calls.append(("stop",))
 
@@ -816,6 +819,11 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
 
                 # This is the critical race boundary: bridge work has completed,
                 # but the GTK main loop has not yet delivered its result.
+                widget_calls_before_dispatch = (
+                    list(window.loading_spinner.calls),
+                    list(window.refresh_button.calls),
+                    list(window.status_label.calls),
+                )
                 self.assertFalse(
                     uraam_gui.UraamWindow._on_close_request(window, window)
                 )
@@ -828,9 +836,15 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
                 self.assertFalse(window._loading)
                 self.assertIsNone(window._pending_request)
                 self.assertEqual(delivered, [])
-                self.assertEqual(window.loading_spinner.calls, [])
-                self.assertEqual(window.refresh_button.calls, [])
-                self.assertEqual(window.status_label.calls, [])
+                # The queued completion must not stop/update widgets after close.
+                self.assertEqual(
+                    (
+                        window.loading_spinner.calls,
+                        window.refresh_button.calls,
+                        window.status_label.calls,
+                    ),
+                    widget_calls_before_dispatch,
+                )
 
     def test_completed_response_is_discarded_when_close_precedes_ui_dispatch(self):
         process = self._start("print('response-ready', flush=True)")
