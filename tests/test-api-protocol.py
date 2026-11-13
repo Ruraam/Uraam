@@ -95,6 +95,42 @@ class ApiProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "component metadata"):
             decode_api_response('{"status":"ok","components":{"activities":"MainActivity"}}', "", 0)
 
+    def test_rejects_non_string_package_version_metadata(self):
+        for field in ("version_name", "version_code"):
+            with self.subTest(field=field):
+                payload = __import__("json").dumps(
+                    {"status": "ok", "package": "com.example.app", field: 42}
+                )
+                with self.assertRaisesRegex(RuntimeError, field):
+                    decode_api_response(payload, "", 0)
+
+    def test_rejects_non_string_package_semantics_metadata(self):
+        for field in ("permissions_semantics", "components_semantics", "metadata_source"):
+            with self.subTest(field=field):
+                payload = __import__("json").dumps(
+                    {"status": "ok", "package": "com.example.app", field: []}
+                )
+                with self.assertRaisesRegex(RuntimeError, field):
+                    decode_api_response(payload, "", 0)
+
+    def test_rejects_non_boolean_metadata_flags(self):
+        for field in ("metadata_limited", "read_only", "classification_available"):
+            with self.subTest(field=field):
+                payload = __import__("json").dumps(
+                    {"status": "ok", "package": "com.example.app", field: "false"}
+                )
+                with self.assertRaisesRegex(RuntimeError, field):
+                    decode_api_response(payload, "", 0)
+
+    def test_accepts_nullable_package_versions_and_valid_metadata_flags(self):
+        payload = (
+            '{"status":"ok","package":"com.example.app",'
+            '"version_name":null,"version_code":null,'
+            '"metadata_limited":false,"read_only":true,'
+            '"permissions_semantics":"requested_only_not_grant_status"}'
+        )
+        self.assertTrue(decode_api_response(payload, "", 0)["read_only"])
+
     def test_error_without_message_is_safe(self):
         with self.assertRaisesRegex(RuntimeError, "URAAM request failed"):
             decode_api_response('{"status":"error","error":null}', "", 1)
