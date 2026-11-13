@@ -947,6 +947,33 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
         )
 
 
+    def test_accessible_description_helper_updates_widget_description(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        class FakeWidget:
+            def __init__(self):
+                self.update = None
+
+            def update_property(self, properties, values):
+                self.update = (properties, values)
+
+        widget = FakeWidget()
+        accessible_description = object()
+        fake_gtk = SimpleNamespace(
+            AccessibleProperty=SimpleNamespace(DESCRIPTION=accessible_description)
+        )
+        with patch.object(uraam_gui, "Gtk", fake_gtk):
+            uraam_gui.UraamWindow._set_accessible_description(
+                widget, "Current page. Keyboard shortcut: Ctrl+1."
+            )
+
+        self.assertEqual(
+            widget.update,
+            ([accessible_description], ["Current page. Keyboard shortcut: Ctrl+1."]),
+        )
+
+
     def test_accessible_label_helper_updates_widget_label_property(self):
         from types import SimpleNamespace
         from unittest.mock import patch
