@@ -906,11 +906,27 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
         self.assertEqual(window.stack.visible, "package-detail")
         self.assertIn("active", window.packages_button.classes)
         self.assertNotIn("active", window.dashboard_button.classes)
+        self.assertEqual(
+            window.packages_button.accessible_description[1],
+            ["Current page. Keyboard shortcut: Ctrl+2."],
+        )
+        self.assertEqual(
+            window.dashboard_button.accessible_description[1],
+            ["Open page. Keyboard shortcut: Ctrl+1."],
+        )
         self.assertEqual(window._view_generation, 1)
 
         uraam_gui.UraamWindow._show_view(window, "dashboard")
         self.assertIn("active", window.dashboard_button.classes)
         self.assertNotIn("active", window.packages_button.classes)
+        self.assertEqual(
+            window.dashboard_button.accessible_description[1],
+            ["Current page. Keyboard shortcut: Ctrl+1."],
+        )
+        self.assertEqual(
+            window.packages_button.accessible_description[1],
+            ["Open page. Keyboard shortcut: Ctrl+2."],
+        )
 
     def test_keyboard_shortcuts_navigate_and_escape_detail(self):
         from types import SimpleNamespace
