@@ -27,14 +27,18 @@ API_OUTPUT_LIMIT_EXCEEDED=0
 api_capture_device_output() {
     local limit="$1" output status
     shift
-    output="$({ run_device_bounded "$@" 2>/dev/null || exit $?; printf '\\001'; } | head -c "$((limit + 2))")"
+    # Append a non-newline sentinel so command substitution cannot hide
+    # trailing newline bytes when the exact output length is measured.
+    output="$({ run_device_bounded "$@" 2>/dev/null; status=$?; printf X; exit "$status"; } | head -c "$((limit + 2))")"
     status=$?
     local LC_ALL=C
     if (( ${#output} > limit + 1 )); then
         API_OUTPUT_LIMIT_EXCEEDED=1
         return 126
     fi
-    [[ "$output" == *
+    output="${output%X}"
+    (( status == 0 )) || return "$status"
+    printf '%s' "$output"
 }
 
 # API inventory reader: preserve the engine transport and timeout layer while
