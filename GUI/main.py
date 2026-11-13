@@ -103,11 +103,13 @@ class UraamWindow(Gtk.ApplicationWindow):
         sidebar.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
 
         dashboard_button = Gtk.Button(label="◈  Dashboard")
+        self.dashboard_button = dashboard_button
         dashboard_button.add_css_class("uraam-nav-button")
         self._set_accessible_label(dashboard_button, "Open dashboard")
         dashboard_button.connect("clicked", lambda _button: self._show_view("dashboard"))
         sidebar.append(dashboard_button)
         packages_button = Gtk.Button(label="▦  Applications")
+        self.packages_button = packages_button
         packages_button.add_css_class("uraam-nav-button")
         self._set_accessible_label(packages_button, "Open installed applications")
         packages_button.connect("clicked", self._on_packages)
@@ -122,6 +124,10 @@ class UraamWindow(Gtk.ApplicationWindow):
         self.loading_spinner.set_tooltip_text("A read-only bridge request is running")
         self._set_accessible_label(self.loading_spinner, "Read-only request in progress")
         sidebar.append(self.loading_spinner)
+
+        key_controller = Gtk.EventControllerKey()
+        key_controller.connect("key-pressed", self._on_key_pressed)
+        self.add_controller(key_controller)
 
         self.connect("close-request", self._on_close_request)
 
@@ -493,10 +499,40 @@ class UraamWindow(Gtk.ApplicationWindow):
         return GLib.SOURCE_REMOVE
 
     def _show_view(self, name: str) -> None:
-        """Invalidate callbacks captured for a view the user has left."""
+        """Switch pages and keep sidebar navigation state synchronized."""
         if self.stack.get_visible_child_name() != name:
             self._view_generation += 1
         self.stack.set_visible_child_name(name)
+        active_page = "packages" if name == "package-detail" else name
+        for button, page in (
+            (self.dashboard_button, "dashboard"),
+            (self.packages_button, "packages"),
+        ):
+            if page == active_page:
+                button.add_css_class("active")
+            else:
+                button.remove_css_class("active")
+
+    def _on_key_pressed(
+        self,
+        _controller: Gtk.EventControllerKey,
+        keyval: int,
+        _keycode: int,
+        state: Gdk.ModifierType,
+    ) -> bool:
+        """Provide predictable page shortcuts without intercepting normal typing."""
+        if state & Gdk.ModifierType.CONTROL_MASK:
+            if keyval == Gdk.KEY_1:
+                self._show_view("dashboard")
+                return True
+            if keyval == Gdk.KEY_2:
+                self._on_packages(None)
+                return True
+        if keyval == Gdk.KEY_Escape:
+            if self.stack.get_visible_child_name() == "package-detail":
+                self._show_view("packages")
+                return True
+        return False
 
     def _on_close_request(self, _window: Gtk.ApplicationWindow) -> bool:
         """Cancel the active read-only bridge process before the window closes."""
