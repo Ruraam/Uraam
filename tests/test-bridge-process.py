@@ -7,6 +7,7 @@ import subprocess
 import sys
 import threading
 import time
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -1054,19 +1055,45 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
             self.fail("descendant survived timeout as a running process")
 
     def test_timeout_kills_descendant_after_leader_exits(self):
-        code = (
-            "import subprocess, sys; "
-            "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])"
-        )
-        process = self._start(code)
-        started = time.monotonic()
-        with self.assertRaises(BridgeProcessTimeout):
-            communicate_process(
-                process, threading.Event(), timeout_seconds=0.2,
-                poll_interval=0.05, shutdown_grace_seconds=0.2
+        with tempfile.TemporaryDirectory() as temp_dir:
+            child_pid_file = Path(temp_dir) / "child.pid"
+            child = (
+                "import os, time; "
+                f"open({str(child_pid_file)!r}, 'w').write(str(os.getpid())); "
+                "time.sleep(30)"
             )
-        self.assertIsNotNone(process.poll())
-        self.assertLess(time.monotonic() - started, 3.0)
+            code = (
+                "import subprocess, sys; "
+                f"subprocess.Popen([sys.executable, '-c', {child!r}])"
+            )
+            process = self._start(code)
+            started = time.monotonic()
+            with self.assertRaises(BridgeProcessTimeout):
+                communicate_process(
+                    process, threading.Event(), timeout_seconds=0.2,
+                    poll_interval=0.05, shutdown_grace_seconds=0.2
+                )
+
+            self.assertIsNotNone(process.poll())
+            self.assertLess(time.monotonic() - started, 3.0)
+            self.assertTrue(child_pid_file.exists())
+            child_pid = int(child_pid_file.read_text())
+
+            # The child inherited both pipes after its leader exited. The
+            # deadline must still kill the whole process group, not just reap
+            # the already-finished leader.
+            deadline = time.monotonic() + 2.0
+            while time.monotonic() < deadline:
+                stat_path = Path(f"/proc/{child_pid}/stat")
+                try:
+                    state = stat_path.read_text().split(") ", 1)[1].split()[0]
+                except OSError:
+                    break
+                if state == "Z":
+                    break
+                time.sleep(0.02)
+            else:
+                self.fail("descendant survived the bridge deadline")
 
     def test_signal_skips_process_that_has_already_exited(self):
         process = self._start("pass")
