@@ -10,6 +10,7 @@ cat > "$TMP_DIR/mockbin/adb" <<'MOCK'
 #!/usr/bin/env bash
 case "$*" in
     devices)
+        [[ "${MOCK_ADB_HANG:-}" != "devices" ]] || sleep 10
         case "${MOCK_ADB_STATE:-device}" in
             unauthorized) printf 'List of devices attached\nTEST-SERIAL\tunauthorized\n' ;;
             offline) printf 'List of devices attached\n' ;;
@@ -17,6 +18,7 @@ case "$*" in
         esac
         ;;
     '-s TEST-SERIAL get-state')
+        [[ "${MOCK_ADB_HANG:-}" != "get-state" ]] || sleep 10
         [[ "${MOCK_ADB_STATE:-device}" == "device" ]] || exit 1
         printf 'device\n'
         ;;
@@ -135,6 +137,7 @@ esac
 MOCK
 cat > "$TMP_DIR/mockbin/su" <<'MOCK'
 #!/usr/bin/env bash
+if [[ "${MOCK_SU_HANG:-0}" == "1" && "${1:-}" == "-c" && "${2:-}" == "id" ]]; then sleep 10; fi
 [[ "${MOCK_SU_DENY:-0}" == "1" ]] && exit 1
 [[ "${1:-}" == "-c" && -n "${2:-}" ]] || exit 2
 exec bash -c "$2"
@@ -142,6 +145,7 @@ MOCK
 
 cat > "$TMP_DIR/mockbin/rish" <<'MOCK'
 #!/usr/bin/env bash
+if [[ "${MOCK_RISH_HANG:-0}" == "1" && "$#" -eq 0 ]]; then sleep 10; fi
 if [[ "${1:-}" == "-c" && -n "${2:-}" ]]; then
     exec bash -c "$2"
 fi
@@ -388,6 +392,29 @@ shizuku_packages="$(bash "$ROOT/uraam-api.sh" list-packages)"
 jq -e '.status == "ok" and .backend == "SHIZUKU" and .count == 3' <<< "$shizuku_packages" >/dev/null
 shizuku_package="$(bash "$ROOT/uraam-api.sh" package-info:com.example.alpha)"
 jq -e '.status == "ok" and .backend == "SHIZUKU" and .paths == ["/data/app/~~abc/com.example.alpha/base.apk"] and .version_name == "1.2.3" and .read_only == true' <<< "$shizuku_package" >/dev/null
+
+# Host-side backend discovery and availability probes must be bounded.
+# Each mock deliberately sleeps; the API must fail closed instead of hanging.
+export URAAM_API_DEVICE_TIMEOUT=1
+unset ANDROID_SERIAL
+export MOCK_ADB_STATE=device MOCK_ADB_HANG=devices
+adb_discovery_timeout="$(timeout 4s bash "$ROOT/uraam-api.sh" device-info)"
+jq -e '.status == "disconnected" and .backend == null' <<< "$adb_discovery_timeout" >/dev/null
+export MOCK_ADB_HANG=get-state
+adb_state_timeout="$(timeout 4s bash "$ROOT/uraam-api.sh" device-info)"
+jq -e '.status == "disconnected" and .backend == null' <<< "$adb_state_timeout" >/dev/null
+unset MOCK_ADB_HANG
+
+export MOCK_ADB_STATE=offline MOCK_SU_HANG=1 MOCK_SU_DENY=0 MOCK_RISH_DENY=1
+root_probe_timeout="$(timeout 4s bash "$ROOT/uraam-api.sh" device-info)"
+jq -e '.status == "disconnected" and .backend == null' <<< "$root_probe_timeout" >/dev/null
+unset MOCK_SU_HANG MOCK_RISH_DENY
+
+export MOCK_SU_DENY=1 MOCK_RISH_HANG=1
+shizuku_probe_timeout="$(timeout 4s bash "$ROOT/uraam-api.sh" device-info)"
+jq -e '.status == "disconnected" and .backend == null' <<< "$shizuku_probe_timeout" >/dev/null
+unset MOCK_RISH_HANG MOCK_SU_DENY MOCK_ADB_STATE URAAM_API_DEVICE_TIMEOUT
+printf '%s\n' "PASS: ADB, ROOT and SHIZUKU discovery timeouts fail closed"
 
 unset MOCK_ADB_STATE
 printf '%s\n' "PASS: mocked ADB, ROOT and SHIZUKU read-only backend paths"
