@@ -54,6 +54,7 @@ def _validate_json_nesting(value: Any) -> None:
         if isinstance(current, dict):
             total_entries += len(current)
             for key in current:
+                _validate_display_string(key, "JSON object key")
                 _validate_json_string(key, "JSON object key")
             children = current.values()
         elif isinstance(current, list):
@@ -94,8 +95,7 @@ def _validate_display_string(value: str, field: str) -> None:
 
 def _validate_json_string(value: str, field: str) -> None:
     """Reject unsafe or oversized strings anywhere in the JSON document."""
-    _validate_display_string(value, field)
-    if len(value.encode("utf-8")) > MAX_JSON_STRING_BYTES:
+    if len(value.encode("utf-8", errors="surrogatepass")) > MAX_JSON_STRING_BYTES:
         raise RuntimeError(
             f"The bridge JSON contains a string exceeding the "
             f"{MAX_JSON_STRING_BYTES // (1024 * 1024)} MiB safety limit."
