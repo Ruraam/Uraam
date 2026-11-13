@@ -197,6 +197,15 @@ class UraamWindow(Gtk.ApplicationWindow):
         scroller.set_child(page)
         self.stack.add_named(scroller, name)
 
+    @staticmethod
+    def _make_expander(title: str, child: Gtk.Widget) -> Gtk.Expander:
+        """Group verbose package metadata behind an accessible disclosure row."""
+        expander = Gtk.Expander.new(title)
+        expander.add_css_class("uraam-detail-expander")
+        expander.set_expanded(False)
+        expander.set_child(child)
+        return expander
+
     def _build_dashboard(self) -> None:
         page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)
         page.set_margin_top(28)
@@ -333,11 +342,21 @@ class UraamWindow(Gtk.ApplicationWindow):
             "receivers": self._make_card("Receivers", "Not loaded", "Declared component entries"),
             "providers": self._make_card("Providers", "Not loaded", "Declared component entries"),
         }
+        permissions_expander = self._make_expander(
+            "Requested permissions", self.package_detail_permissions
+        )
+        components_box = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL, spacing=10
+        )
+        for component_card in self.package_detail_components.values():
+            components_box.append(component_card)
+        components_expander = self._make_expander(
+            "Declared components", components_box
+        )
         details.append(self.package_detail_version)
         details.append(self.package_detail_path)
-        details.append(self.package_detail_permissions)
-        for component_card in self.package_detail_components.values():
-            details.append(component_card)
+        details.append(permissions_expander)
+        details.append(components_expander)
         safety_note = Gtk.Label(
             label="Information only. System/user classification is not a removal recommendation. No package changes are available in this inspector.",
             xalign=0,
