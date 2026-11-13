@@ -160,6 +160,99 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         )
         self.assertEqual(delivered, [])
 
+    def test_inventory_response_is_discarded_after_same_serial_reconnect(self):
+        class FakeLabel:
+            def __init__(self):
+                self.text = ""
+
+            def set_text(self, value):
+                self.text = value
+
+        window = type("WindowState", (), {})()
+        window._view_generation = 8
+        window._closing = False
+        window._device_generation = 12
+        window._device_identity = ("adb", "device-123")
+        window.status_label = FakeLabel()
+        shown_devices = []
+        reset_messages = []
+        published_inventories = []
+        window._show_device = lambda payload, error: shown_devices.append(
+            (payload, error)
+        )
+        window._reset_package_views = lambda message: reset_messages.append(message)
+        window._show_packages = lambda *args: published_inventories.append(args)
+
+        # The inventory request started on generation 10. The same physical
+        # device has reconnected with the same serial, but its generation is now
+        # 12. Identity equality alone must not authorize the old inventory.
+        device = {
+            "status": "connected",
+            "backend": "adb",
+            "serial": "device-123",
+        }
+        inventory = {
+            "backend": "adb",
+            "serial": "device-123",
+            "packages": ["com.example.stale"],
+        }
+        uraam_gui.UraamWindow._finish_package_inventory_validation(
+            window,
+            inventory,
+            None,
+            10,
+            ("adb", "device-123"),
+            device,
+            None,
+            8,
+        )
+
+        self.assertEqual(shown_devices, [(device, None)])
+        self.assertEqual(len(reset_messages), 1)
+        self.assertEqual(
+            window.status_label.text,
+            "Device changed; inventory discarded",
+        )
+        self.assertEqual(published_inventories, [])
+
+    def test_inventory_response_is_discarded_when_navigation_and_device_change_race(self):
+        class FakeLabel:
+            def __init__(self):
+                self.text = ""
+
+            def set_text(self, value):
+                self.text = value
+
+        window = type("WindowState", (), {})()
+        window._view_generation = 9
+        window._closing = False
+        window._device_generation = 12
+        window.status_label = FakeLabel()
+        calls = []
+        window._show_device = lambda *_args: calls.append("device")
+        window._reset_package_views = lambda *_args: calls.append("reset")
+        window._show_packages = lambda *_args: calls.append("inventory")
+
+        uraam_gui.UraamWindow._finish_package_inventory_validation(
+            window,
+            {"backend": "adb", "serial": "device-123", "packages": ["stale"]},
+            None,
+            10,
+            ("adb", "device-123"),
+            {
+                "status": "connected",
+                "backend": "adb",
+                "serial": "device-123",
+            },
+            None,
+            8,
+        )
+
+        # Navigation is checked first; a callback from the old view must not
+        # mutate the new screen, even if the device generation also changed.
+        self.assertEqual(calls, [])
+        self.assertEqual(window.status_label.text, "")
+
     def test_selecting_the_already_visible_view_does_not_invalidate_request(self):
         class FakeStack:
             def __init__(self):
