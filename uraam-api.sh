@@ -11,9 +11,9 @@ URAAM_SCRIPT="${URAAM_SCRIPT:-$API_DIR/uraam.sh}"
 api_limit_or_default() {
     local value="$1" fallback="$2" maximum="$3"
     if [[ "$value" =~ ^[1-9][0-9]*$ ]] && (( value <= maximum )); then
-        printf '%s\\n' "$value"
+        printf '%s\n' "$value"
     else
-        printf '%s\\n' "$fallback"
+        printf '%s\n' "$fallback"
     fi
 }
 API_MAX_INVENTORY_BYTES="$(api_limit_or_default "${URAAM_API_MAX_INVENTORY_BYTES:-1048576}" 1048576 8388608)"
@@ -49,15 +49,15 @@ api_device_package_list() {
         user) raw="$(api_capture_device_output "$API_MAX_INVENTORY_BYTES" pm list packages -3 --user 0)" || { status=$?; (( status == 126 )) && return 126; return "$status"; }; allow_empty=1 ;;
         *) return 2 ;;
     esac
-    if ! printf '%s\\n' "$raw" | tr -d '\\r' | awk -v allow_empty="$allow_empty" '
+    if ! printf '%s\n' "$raw" | tr -d '\r' | awk -v allow_empty="$allow_empty" '
         NF == 0 { next }
-        /^package:[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$/ { count++; next }
+        /^package:[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$/ { count++; next }
         { invalid = 1 }
         END { if (invalid || (!allow_empty && count == 0)) exit 1 }
     '; then
         return 1
     fi
-    printf '%s\\n' "$raw" | tr -d '\\r' | sed -n 's/^package://p' | sort -u
+    printf '%s\n' "$raw" | tr -d '\r' | sed -n 's/^package://p' | sort -u
 }
 
 component_section_json() {
