@@ -29,6 +29,31 @@ class BridgeDisplayStringSafetyTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "unsafe control characters.*model"):
             self._decode(payload)
 
+    def test_rejects_bidirectional_override_in_device_metadata(self):
+        payload = {
+            "status": "connected",
+            "version": "5.1.0",
+            "backend": "adb",
+            "serial": "device-123",
+            "model": "Pixel\\u202eexe",
+            "oem": "google",
+            "rom": {"name": "Android", "version": "15"},
+        }
+        with self.assertRaisesRegex(RuntimeError, "unsafe control characters.*model"):
+            self._decode(payload)
+
+    def test_accepts_rtl_text_without_directional_control_characters(self):
+        payload = {
+            "status": "connected",
+            "version": "5.1.0",
+            "backend": "adb",
+            "serial": "device-123",
+            "model": "هاتف بيكسل",
+            "oem": "google",
+            "rom": {"name": "אנדרואיד", "version": "15"},
+        }
+        self.assertEqual(self._decode(payload)["model"], "هاتف بيكسل")
+
     def test_rejects_control_characters_in_rom_metadata(self):
         payload = {
             "status": "connected",
