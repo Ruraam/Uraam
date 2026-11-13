@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from typing import Any
 
 
@@ -40,6 +41,16 @@ def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 def _reject_non_json_constant(value: str) -> None:
     """Reject NaN and Infinity, which are not valid JSON values."""
     raise ValueError(f"The bridge returned a non-standard JSON constant: {value}.")
+
+
+def _parse_finite_json_float(value: str) -> float:
+    """Reject JSON numbers that overflow the decoder's floating-point range."""
+    parsed = float(value)
+    if not math.isfinite(parsed):
+        raise ValueError(
+            "The bridge returned a JSON number outside the finite floating-point range."
+        )
+    return parsed
 
 
 def _validate_json_nesting(value: Any) -> None:
@@ -311,6 +322,7 @@ def decode_api_response(stdout: str, stderr: str, returncode: int) -> dict[str, 
             stdout,
             object_pairs_hook=_reject_duplicate_keys,
             parse_constant=_reject_non_json_constant,
+            parse_float=_parse_finite_json_float,
         )
     except json.JSONDecodeError as exc:
         fallback = (

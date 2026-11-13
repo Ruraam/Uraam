@@ -138,6 +138,24 @@ class ApiProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "non-standard JSON constant"):
             decode_api_response('{"status":"ok","value":NaN}', "", 0)
 
+    def test_rejects_overflowing_json_float_in_unknown_extension(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"upper_bound":1e999}}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "finite floating-point range"):
+            decode_api_response(payload, "", 0)
+
+    def test_accepts_finite_json_float_in_unknown_extension(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"upper_bound":1e308}}'
+        )
+        decoded = decode_api_response(payload, "", 0)
+        self.assertEqual(decoded["future_metrics"]["upper_bound"], 1e308)
+
     def test_rejects_excessively_nested_json(self):
         payload = '{"status":"ok","padding":' + ("[" * 2000) + "0" + ("]" * 2000) + "}"
         with self.assertRaisesRegex(RuntimeError, "JSON nesting.*safety limit"):
