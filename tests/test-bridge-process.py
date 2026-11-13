@@ -509,5 +509,95 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         self.assertEqual(process.returncode, 0)
 
 
+class AsyncRequestCoalescingTests(unittest.TestCase):
+    def test_latest_pending_request_replaces_intermediate_requests(self):
+        class FakeStatusLabel:
+            def __init__(self):
+                self.message = ""
+
+            def set_text(self, message):
+                self.message = message
+
+        callbacks = [lambda _payload, _error: None for _ in range(3)]
+        window = type(
+            "WindowState",
+            (),
+            {
+                "_closing": False,
+                "_loading": True,
+                "_pending_request": None,
+                "status_label": FakeStatusLabel(),
+            },
+        )()
+
+        for command, callback in zip(
+            ("device-info", "list-packages", "device-info"), callbacks
+        ):
+            uraam_gui.UraamWindow._run_async(window, command, callback)
+
+        self.assertEqual(window._pending_request, ("device-info", callbacks[-1]))
+        self.assertEqual(window.status_label.message, "Waiting to load device-info…")
+
+    def test_completion_starts_latest_pending_request_without_delivering_old_result(self):
+        old_deliveries = []
+        started = []
+        latest_callback = lambda payload, error: None
+        window = type(
+            "WindowState",
+            (),
+            {
+                "_closing": False,
+                "_loading": True,
+                "_pending_request": ("device-info", latest_callback),
+                "_start_async": lambda self, command, callback: started.append(
+                    (command, callback)
+                ),
+            },
+        )()
+
+        result = uraam_gui.UraamWindow._finish_async(
+            window,
+            lambda payload, error: old_deliveries.append((payload, error)),
+            {"status": "ok", "source": "superseded"},
+            None,
+        )
+
+        self.assertEqual(result, uraam_gui.GLib.SOURCE_REMOVE)
+        self.assertEqual(started, [("device-info", latest_callback)])
+        self.assertEqual(old_deliveries, [])
+        self.assertFalse(window._loading)
+        self.assertIsNone(window._pending_request)
+
+    def test_intermediate_response_cannot_overwrite_latest_queued_action(self):
+        deliveries = []
+        started = []
+        callbacks = {
+            command: (lambda payload, error, name=command: deliveries.append(
+                (name, payload, error)
+            ))
+            for command in ("first", "second", "latest")
+        }
+        window = type(
+            "WindowState",
+            (),
+            {
+                "_closing": False,
+                "_loading": True,
+                "_pending_request": ("latest", callbacks["latest"]),
+                "_start_async": lambda self, command, callback: started.append(
+                    (command, callback)
+                ),
+            },
+        )()
+
+        uraam_gui.UraamWindow._finish_async(
+            window, callbacks["first"], {"value": "first"}, None
+        )
+
+        self.assertEqual([command for command, _ in started], ["latest"])
+        self.assertEqual(deliveries, [])
+
+
+
 if __name__ == "__main__":
     unittest.main()
