@@ -155,6 +155,95 @@ main() {
         return $?
     }
 
+    # API-only timeout policy: keep the interactive CLI engine unchanged.
+    API_DEVICE_TIMEOUT="$(api_limit_or_default "${URAAM_API_DEVICE_TIMEOUT:-5}" 5 30)"
+    export URAAM_DEVICE_TIMEOUT="$API_DEVICE_TIMEOUT"
+
+    api_run_host_bounded() {
+        local timeout_bin candidate candidate_path
+        timeout_bin=""
+        for candidate in timeout gtimeout; do
+            candidate_path="$(command -v "$candidate" 2>/dev/null)" || continue
+            if "$candidate_path" --signal=TERM --kill-after=1 1s sh -c ":" >/dev/null 2>&1; then
+                timeout_bin="$candidate_path"
+                break
+            fi
+        done
+        [[ -n "$timeout_bin" ]] || return 125
+        "$timeout_bin" --signal=TERM --kill-after=1 "${API_DEVICE_TIMEOUT}s" "$@"
+    }
+
+    # Override only inside this API process. Every device property read now
+    # uses the engine's bounded transport wrapper.
+    device_getprop() {
+        local property="$1"
+        run_device_bounded getprop "$property" 2>/dev/null
+    }
+
+    backend_is_available() {
+        case "$EXEC_TYPE" in
+            ADB)
+                [[ -n "$BACKEND_SERIAL" ]] || return 1
+                [[ "$(api_run_host_bounded adb -s "$BACKEND_SERIAL" get-state 2>/dev/null)" == "device" ]]
+                ;;
+            ROOT)
+                if [[ "$(id -u)" -eq 0 ]]; then return 0; fi
+                command -v su >/dev/null 2>&1 && api_run_host_bounded su -c id >/dev/null 2>&1
+                ;;
+            SHIZUKU)
+                command -v rish >/dev/null 2>&1 && api_run_host_bounded rish -c id >/dev/null 2>&1
+                ;;
+            *) return 1 ;;
+        esac
+    }
+
+    # The CLI detector performs unbounded host-side probes. Reimplement its
+    # read-only selection here with a deadline, without changing uraam.sh.
+    detect_backend_status() {
+        EXEC_TYPE=""
+        BACKEND_SERIAL="${ANDROID_SERIAL:-}"
+
+        if command -v adb >/dev/null 2>&1; then
+            local devices serial
+            devices="$(api_run_host_bounded adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {print $1}')" || devices=""
+            if [[ -n "$BACKEND_SERIAL" ]]; then
+                if printf '%s\n' "$devices" | grep -Fxq "$BACKEND_SERIAL"; then
+                    EXEC_TYPE="ADB"
+                fi
+            else
+                serial="$(printf '%s\n' "$devices" | head -n1)"
+                if [[ -n "$serial" ]]; then
+                    BACKEND_SERIAL="$serial"
+                    EXEC_TYPE="ADB"
+                fi
+            fi
+        fi
+
+        if [[ -z "$EXEC_TYPE" ]] && is_termux; then
+            if [[ "$(id -u)" -eq 0 ]]; then
+                EXEC_TYPE="ROOT"
+            elif command -v su >/dev/null 2>&1 && api_run_host_bounded su -c id >/dev/null 2>&1; then
+                EXEC_TYPE="ROOT"
+            elif [[ -z "${BACKEND:-}" ]] && command -v rish >/dev/null 2>&1 &&
+                printf 'exit\n' | api_run_host_bounded rish >/dev/null 2>&1; then
+                EXEC_TYPE="SHIZUKU"
+            fi
+        fi
+
+        if [[ -n "$EXEC_TYPE" ]]; then
+            device_brand
+            msg "${PURPLE}[Target]${NC} $CURRENT_MODEL"
+            ok "Execution backend: $EXEC_TYPE"
+            return 0
+        fi
+
+        if is_installed_via_deb; then
+            CURRENT_MODEL="$(uname -s) $(uname -m)"
+        fi
+        warn "No execution backend detected."
+        return 1
+    }
+
     detect_backend_status >/dev/null 2>&1 || true
     if [[ -z "$EXEC_TYPE" ]] || ! backend_is_available; then
         if [[ "$action" == device-info ]]; then
