@@ -799,7 +799,8 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
                 window._api_call = api_call
 
                 def queue_idle(callback, *args):
-                    idle_callbacks.append((callback, args))                    queued.set()
+                    idle_callbacks.append((callback, args))
+                    queued.set()
                     return 1
 
                 with patch.object(
@@ -998,7 +999,8 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
                 self.message = message
 
         callbacks = [lambda _payload, _error: None for _ in range(3)]
-        window = type(            "WindowState",
+        window = type(
+            "WindowState",
             (),
             {
                 "_closing": False,
@@ -1197,7 +1199,8 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
         class FakeGLib:
             SOURCE_REMOVE = False
 
-            @staticmethod            def idle_add(callback, *args):
+            @staticmethod
+            def idle_add(callback, *args):
                 queued_callbacks.append((callback, args))
                 return 1
 
