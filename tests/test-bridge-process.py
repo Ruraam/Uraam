@@ -868,5 +868,42 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
         self.assertTrue(scroller.vexpand)
 
 
+    def test_package_metadata_expander_starts_collapsed_and_keeps_child(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        class FakeExpander:
+            def __init__(self, title):
+                self.title = title
+                self.classes = []
+                self.expanded = None
+                self.child = None
+
+            @classmethod
+            def new(cls, title):
+                return cls(title)
+
+            def add_css_class(self, name):
+                self.classes.append(name)
+
+            def set_expanded(self, value):
+                self.expanded = value
+
+            def set_child(self, child):
+                self.child = child
+
+        child = object()
+        fake_gtk = SimpleNamespace(Expander=FakeExpander)
+        with patch.object(uraam_gui, "Gtk", fake_gtk):
+            expander = uraam_gui.UraamWindow._make_expander(
+                "Requested permissions", child
+            )
+
+        self.assertEqual(expander.title, "Requested permissions")
+        self.assertEqual(expander.classes, ["uraam-detail-expander"])
+        self.assertFalse(expander.expanded)
+        self.assertIs(expander.child, child)
+
+
 if __name__ == "__main__":
     unittest.main()
