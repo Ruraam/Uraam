@@ -67,6 +67,21 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         self.assertIsNotNone(process.poll())
         self.assertLess(time.monotonic() - started, 3.0)
 
+    def test_timeout_kills_descendant_after_leader_exits(self):
+        code = (
+            "import subprocess, sys; "
+            "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])"
+        )
+        process = self._start(code)
+        started = time.monotonic()
+        with self.assertRaises(BridgeProcessTimeout):
+            communicate_process(
+                process, threading.Event(), timeout_seconds=0.2,
+                poll_interval=0.05, shutdown_grace_seconds=0.2
+            )
+        self.assertIsNotNone(process.poll())
+        self.assertLess(time.monotonic() - started, 3.0)
+
     def test_signal_skips_process_that_has_already_exited(self):
         process = self._start("pass")
         process.wait(timeout=2)
