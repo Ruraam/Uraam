@@ -261,6 +261,70 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         self.assertEqual(delivered, [])
 
 
+    def test_start_async_restores_ui_if_worker_start_fails(self):
+        from unittest.mock import patch
+
+        class FakeControl:
+            def __init__(self):
+                self.calls = []
+
+            def start(self):
+                self.calls.append(("start",))
+
+            def stop(self):
+                self.calls.append(("stop",))
+
+            def set_sensitive(self, value):
+                self.calls.append(("set_sensitive", value))
+
+            def set_text(self, value):
+                self.calls.append(("set_text", value))
+
+        class FailedThread:
+            def __init__(self, **kwargs):
+                self.target = kwargs["target"]
+
+            def start(self):
+                raise RuntimeError("thread creation denied")
+
+        window = type("WindowState", (), {})()
+        window._closing = False
+        window._loading = False
+        window.loading_spinner = FakeControl()
+        window.refresh_button = FakeControl()
+        window.status_label = FakeControl()
+        delivered = []
+
+        with patch.object(
+            uraam_gui.threading, "Thread", side_effect=FailedThread
+        ):
+            uraam_gui.UraamWindow._start_async(
+                window,
+                "device-info",
+                lambda payload, error: delivered.append((payload, error)),
+            )
+
+        self.assertFalse(window._loading)
+        self.assertEqual(
+            window.loading_spinner.calls,
+            [("start",), ("stop",)],
+        )
+        self.assertEqual(
+            window.refresh_button.calls,
+            [("set_sensitive", False), ("set_sensitive", True)],
+        )
+        self.assertEqual(
+            window.status_label.calls,
+            [
+                ("set_text", "Loading device-info…"),
+                ("set_text", "Unable to start bridge request"),
+            ],
+        )
+        self.assertEqual(len(delivered), 1)
+        self.assertIsNone(delivered[0][0])
+        self.assertIn("Unable to start", delivered[0][1])
+        self.assertIn("thread creation denied", delivered[0][1])
+
     def test_gtk_completion_callback_discards_result_after_window_close(self):
         pending = ("list-packages", lambda _payload, _error: None)
         window = type(
