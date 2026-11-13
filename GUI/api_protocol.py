@@ -86,6 +86,71 @@ def _validate_payload_shape(payload: dict[str, Any]) -> None:
             raise RuntimeError("The bridge returned invalid component metadata.")
 
 
+
+def _validate_status_contract(payload: dict[str, Any]) -> None:
+    """Require the fields that make each successful bridge response meaningful."""
+    status = payload["status"]
+
+    if status == "connected":
+        if not isinstance(payload.get("version"), str) or not payload["version"]:
+            raise RuntimeError("The connected-device response is missing its URAAM version.")
+        if not isinstance(payload.get("backend"), str) or not payload["backend"]:
+            raise RuntimeError("The connected-device response is missing its backend.")
+        if not isinstance(payload.get("model"), str) or not isinstance(payload.get("oem"), str):
+            raise RuntimeError("The connected-device response is missing device metadata.")
+        if "serial" not in payload or "rom" not in payload:
+            raise RuntimeError("The connected-device response is missing identity or ROM fields.")
+        if payload["rom"] is not None and not isinstance(payload["rom"], dict):
+            raise RuntimeError("The connected-device response contains invalid ROM metadata.")
+        return
+
+    if status == "disconnected":
+        if not isinstance(payload.get("version"), str) or not payload["version"]:
+            raise RuntimeError("The disconnected-device response is missing its URAAM version.")
+        if any(payload.get(field) is not None for field in ("backend", "serial", "model", "rom")):
+            raise RuntimeError("The disconnected-device response contains a connected-device identity.")
+        if not isinstance(payload.get("oem"), str):
+            raise RuntimeError("The disconnected-device response is missing its OEM state.")
+        return
+
+    if status != "ok":
+        return
+
+    if "packages" in payload:
+        required = ("backend", "serial", "user", "count", "packages", "package_types")
+        if any(field not in payload for field in required):
+            raise RuntimeError("The package-inventory response is missing required fields.")
+        packages = payload["packages"]
+        if payload["count"] != len(packages) or payload["user"] != 0:
+            raise RuntimeError("The package-inventory response has inconsistent count or user data.")
+        if set(payload["package_types"]) != set(packages):
+            raise RuntimeError("The package-inventory classifications do not match the inventory.")
+        for field in ("system_count", "user_count", "unclassified_count"):
+            if field not in payload:
+                raise RuntimeError(f"The package-inventory response is missing '{field}'.")
+        if sum(payload[field] for field in ("system_count", "user_count", "unclassified_count")) != len(packages):
+            raise RuntimeError("The package-inventory classification counts are inconsistent.")
+        if "classification_available" not in payload:
+            raise RuntimeError("The package-inventory response is missing classification availability.")
+        return
+
+    if "package" in payload:
+        required = (
+            "backend", "paths", "version_name", "version_code",
+            "requested_permissions", "components", "metadata_limited", "read_only",
+        )
+        if any(field not in payload for field in required):
+            raise RuntimeError("The package-detail response is missing required fields.")
+        if not payload["paths"]:
+            raise RuntimeError("The package-detail response contains no APK paths.")
+        if payload["read_only"] is not True:
+            raise RuntimeError("The package-detail response is not explicitly read-only.")
+        if not isinstance(payload["components"], dict):
+            raise RuntimeError("The package-detail response is missing component metadata.")
+        return
+
+    raise RuntimeError("The bridge returned an 'ok' response with no recognized payload type.")
+
 def decode_api_response(stdout: str, stderr: str, returncode: int) -> dict[str, Any]:
     """Decode one JSON object and reject malformed or inconsistent responses."""
     if len(stdout.encode("utf-8")) > MAX_API_RESPONSE_BYTES:
@@ -111,6 +176,7 @@ def decode_api_response(stdout: str, stderr: str, returncode: int) -> dict[str, 
         raise RuntimeError("The bridge returned an unexpected or missing response status.")
 
     _validate_payload_shape(payload)
+    _validate_status_contract(payload)
     return payload
 
 def device_identity(payload: Any) -> tuple[str, str] | None:
