@@ -11,7 +11,12 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from api_protocol import decode_api_response, device_identity, inventory_matches_device
+from api_protocol import (
+    decode_api_response,
+    device_identity,
+    inventory_matches_device,
+    request_is_current,
+)
 
 import gi
 
@@ -469,11 +474,23 @@ class UraamWindow(Gtk.ApplicationWindow):
 
     def _on_packages(self, _button: Gtk.Button) -> None:
         self._show_view("packages")
+        expected_view_generation = self._view_generation
         # Establish the current device identity immediately before inventory.
         # A prior dashboard connection state may already be stale.
-        self._run_async("device-info", self._begin_package_inventory)
+        self._run_async(
+            "device-info",
+            lambda payload, error, view=expected_view_generation: self._begin_package_inventory(
+                payload, error, view
+            ),
+        )
 
-    def _begin_package_inventory(self, payload: Any, error: str | None) -> None:
+    def _begin_package_inventory(
+        self, payload: Any, error: str | None, expected_view_generation: int
+    ) -> None:
+        if not request_is_current(
+            expected_view_generation, self._view_generation, self._closing
+        ):
+            return
         self._show_device(payload, error)
         if error or not isinstance(payload, dict) or payload.get("status") != "connected":
             self.status_label.set_text("Connect an Android device before loading inventory")
@@ -482,8 +499,8 @@ class UraamWindow(Gtk.ApplicationWindow):
         expected_identity = self._device_identity
         self._run_async(
             "list-packages",
-            lambda inventory, inventory_error, generation=expected_generation, identity=expected_identity: self._validate_package_inventory(
-                inventory, inventory_error, generation, identity
+            lambda inventory, inventory_error, generation=expected_generation, identity=expected_identity, view=expected_view_generation: self._validate_package_inventory(
+                inventory, inventory_error, generation, identity, view
             ),
         )
 
@@ -493,13 +510,18 @@ class UraamWindow(Gtk.ApplicationWindow):
         inventory_error: str | None,
         expected_generation: int,
         expected_identity: tuple[str, str] | None,
+        expected_view_generation: int,
     ) -> None:
+        if not request_is_current(
+            expected_view_generation, self._view_generation, self._closing
+        ):
+            return
         # Re-check the device after the potentially long package enumeration.
         # Only publish inventory if the same connected identity is still present.
         self._run_async(
             "device-info",
-            lambda device, device_error, result=inventory, result_error=inventory_error, generation=expected_generation, identity=expected_identity: self._finish_package_inventory_validation(
-                result, result_error, generation, identity, device, device_error
+            lambda device, device_error, result=inventory, result_error=inventory_error, generation=expected_generation, identity=expected_identity, view=expected_view_generation: self._finish_package_inventory_validation(
+                result, result_error, generation, identity, device, device_error, view
             ),
         )
 
@@ -511,7 +533,12 @@ class UraamWindow(Gtk.ApplicationWindow):
         expected_identity: tuple[str, str] | None,
         device: Any,
         device_error: str | None,
+        expected_view_generation: int,
     ) -> None:
+        if not request_is_current(
+            expected_view_generation, self._view_generation, self._closing
+        ):
+            return
         if device_error or not isinstance(device, dict) or device.get("status") != "connected":
             self._show_device(device, device_error or "Device disconnected during inventory")
             self._reset_package_views("Device connection was lost during inventory; reload after reconnecting.")
