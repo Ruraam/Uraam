@@ -46,6 +46,8 @@ def _validate_json_nesting(value: Any) -> None:
     while pending:
         current, depth = pending.pop()
         if isinstance(current, dict):
+            for key in current:
+                _validate_display_string(key, "JSON object key")
             children = current.values()
         elif isinstance(current, list):
             children = current
