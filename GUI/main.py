@@ -11,7 +11,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from api_protocol import decode_api_response
+from api_protocol import decode_api_response, device_identity, inventory_matches_device
 
 import gi
 
@@ -518,34 +518,23 @@ class UraamWindow(Gtk.ApplicationWindow):
             self.status_label.set_text("Device disconnected; inventory discarded")
             return
 
-        current_identity = (
-            str(device.get("backend") or "unknown"),
-            str(device.get("serial") or "local"),
-        )
-        if (
-            expected_generation != self._device_generation
-            or expected_identity is None
-            or current_identity != expected_identity
+        if not inventory_matches_device(
+            inventory,
+            device,
+            expected_generation,
+            self._device_generation,
+            expected_identity,
         ):
-            self._show_device(device, None)
-            self._reset_package_views("Device changed during inventory; reload the application inventory.")
+            if device_identity(device) is not None:
+                self._show_device(device, None)
+            self._reset_package_views(
+                "Device or inventory identity changed during loading; reload the inventory."
+            )
             self.status_label.set_text("Device changed; inventory discarded")
             return
 
         if inventory_error:
             self._show_packages(None, inventory_error, expected_generation)
-            return
-        if not isinstance(inventory, dict):
-            self._reset_package_views("Invalid inventory response; reload the application inventory.")
-            self.status_label.set_text("Invalid inventory response")
-            return
-        inventory_identity = (
-            str(inventory.get("backend") or "unknown"),
-            str(inventory.get("serial") or "local"),
-        )
-        if inventory_identity != expected_identity:
-            self._reset_package_views("Inventory belongs to a different device; response discarded.")
-            self.status_label.set_text("Device mismatch; inventory discarded")
             return
         self._show_packages(inventory, None, expected_generation)
 
