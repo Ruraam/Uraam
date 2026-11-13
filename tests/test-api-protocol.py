@@ -144,6 +144,25 @@ class ApiProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "duplicate JSON key.*café"):
             decode_api_response(payload, "", 0)
 
+    def test_rejects_canonically_equivalent_unicode_json_keys(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"café":1,"cafe\\u0301":2}}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "duplicate JSON key.*café"):
+            decode_api_response(payload, "", 0)
+
+    def test_preserves_decomposed_unicode_json_key_without_collision(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"cafe\\u0301":"ok"}}'
+        )
+        decoded = decode_api_response(payload, "", 0)
+        self.assertIn("cafe\\u0301", decoded["future_metrics"])
+        self.assertEqual(decoded["future_metrics"]["cafe\\u0301"], "ok")
+
     def test_accepts_valid_unicode_keys_in_unknown_extensions(self):
         payload = (
             '{"status":"connected","version":"4.4.3","backend":"adb",'
