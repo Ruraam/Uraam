@@ -198,7 +198,6 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         def observe_communication(_process, shutdown_event, **_kwargs):
             communicate_events.append(shutdown_event.is_set())
             raise BridgeProcessCancelled("The read-only bridge is shutting down.")
-
         def run_api_call():
             try:
                 uraam_gui.UraamWindow._api_call(window, "device-info")
@@ -397,8 +396,7 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
                 "refresh_button": ForbiddenWidget(),
                 "status_label": ForbiddenWidget(),
             },
-        )()
-        delivered = []
+        )()        delivered = []
         callbacks = [
             lambda payload, error, index=index: delivered.append(
                 (index, payload, error)
@@ -597,8 +595,7 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         window = type("WindowState", (), {})()
         window._package_request_generation = 0
         window._device_generation = 3
-        window._device_identity = ("adb", "device-123")
-        window._view_generation = 0
+        window._device_identity = ("adb", "device-123")        window._view_generation = 0
         window._closing = False
         window._inventory_loaded = True
         window._selected_package = None
@@ -770,6 +767,9 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
             def set_sensitive(self, value):
                 self.calls.append(("set_sensitive", value))
 
+            def set_text(self, value):
+                self.calls.append(("set_text", value))
+
         # Exercise both a successful bridge response and a worker-side failure.
         # In each case the worker queues its GTK callback, then close wins before
         # the GTK main loop is allowed to dispatch that callback.
@@ -797,8 +797,7 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
                 window._api_call = api_call
 
                 def queue_idle(callback, *args):
-                    idle_callbacks.append((callback, args))
-                    queued.set()
+                    idle_callbacks.append((callback, args))                    queued.set()
                     return 1
 
                 with patch.object(
@@ -997,8 +996,7 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
                 self.message = message
 
         callbacks = [lambda _payload, _error: None for _ in range(3)]
-        window = type(
-            "WindowState",
+        window = type(            "WindowState",
             (),
             {
                 "_closing": False,
@@ -1197,8 +1195,7 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
         class FakeGLib:
             SOURCE_REMOVE = False
 
-            @staticmethod
-            def idle_add(callback, *args):
+            @staticmethod            def idle_add(callback, *args):
                 queued_callbacks.append((callback, args))
                 return 1
 
@@ -1397,8 +1394,7 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
         uraam_gui.UraamWindow._show_view(window, "dashboard")
         self.assertIn("active", window.dashboard_button.classes)
         self.assertNotIn("active", window.packages_button.classes)
-        self.assertEqual(
-            window.dashboard_button.accessible_description[1],
+        self.assertEqual(            window.dashboard_button.accessible_description[1],
             ["Current page. Keyboard shortcut: Ctrl+1."],
         )
         self.assertEqual(
@@ -1597,8 +1593,7 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
                 ALT_MASK=8,
             ),
             KEY_1=49,
-            KEY_2=50,
-            KEY_Escape=65307,
+            KEY_2=50,            KEY_Escape=65307,
         )
         with patch.object(uraam_gui, "Gdk", fake_gdk):
             self.assertFalse(
@@ -1797,8 +1792,7 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
             with self.assertRaises(BridgeProcessCancelled):
                 communicate_process(
                     process,
-                    shutdown,
-                    poll_interval=0.02,
+                    shutdown,                    poll_interval=0.02,
                     shutdown_grace_seconds=0.2,
                 )
             self.assertIsNotNone(process.poll())
