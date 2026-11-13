@@ -126,6 +126,47 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         self.assertFalse(window._loading)
         self.assertIsNone(window._pending_request)
 
+    def test_queued_completion_after_close_request_does_not_touch_gtk_widgets(self):
+        class ForbiddenWidget:
+            def __getattr__(self, name):
+                raise AssertionError(f"closed window widget accessed: {name}")
+
+        pending = ("list-packages", lambda _payload, _error: None)
+        shutdown = threading.Event()
+        window = type(
+            "WindowState",
+            (),
+            {
+                "_closing": False,
+                "_loading": True,
+                "_pending_request": pending,
+                "_process_lock": threading.Lock(),
+                "_shutdown_event": shutdown,
+                "_active_process": None,
+                "loading_spinner": ForbiddenWidget(),
+                "refresh_button": ForbiddenWidget(),
+                "status_label": ForbiddenWidget(),
+            },
+        )()
+        delivered = []
+
+        close_result = uraam_gui.UraamWindow._on_close_request(window, window)
+        completion_result = uraam_gui.UraamWindow._finish_async(
+            window,
+            lambda payload, error: delivered.append((payload, error)),
+            {"status": "ok"},
+            None,
+        )
+
+        self.assertFalse(close_result)
+        self.assertTrue(window._closing)
+        self.assertTrue(shutdown.is_set())
+        self.assertIsNone(window._pending_request)
+        self.assertFalse(window._loading)
+        self.assertEqual(completion_result, uraam_gui.GLib.SOURCE_REMOVE)
+        self.assertEqual(delivered, [])
+
+
     def test_rapid_navigation_invalidates_an_older_inventory_callback(self):
         class FakeStack:
             def __init__(self):
