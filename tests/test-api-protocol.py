@@ -153,6 +153,18 @@ class ApiProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "too many container entries"):
             decode_api_response(payload, "", 0)
 
+    def test_accepts_exact_json_container_entry_limit(self):
+        top_level_entries = 8
+        value_count = MAX_JSON_CONTAINER_ENTRIES - top_level_entries
+        values = ("0," * (value_count - 1)) + "0"
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_values":[' + values + "]}"
+        )
+        decoded = decode_api_response(payload, "", 0)
+        self.assertEqual(len(decoded["future_values"]), value_count)
+
     def test_rejects_oversized_string_in_unknown_extension_fields(self):
         payload = __import__("json").dumps({
             "status": "connected",
