@@ -14,6 +14,7 @@ on:
       - "tests/test-api-protocol.py"
       - "tests/test-api-output-limits.sh"
       - "tests/test-bridge-process.py"
+      - "tests/test-gui-smoke.py"
       - ".github/workflows/gui-foundation.yml"
   push:
     branches:
@@ -26,6 +27,7 @@ on:
       - "tests/test-api-protocol.py"
       - "tests/test-api-output-limits.sh"
       - "tests/test-bridge-process.py"
+      - "tests/test-gui-smoke.py"
       - ".github/workflows/gui-foundation.yml"
   workflow_dispatch:
 
@@ -43,7 +45,7 @@ jobs:
       - name: Install validation dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes jq shellcheck python3-gi gir1.2-gtk-4.0
+          sudo apt-get install --yes jq shellcheck python3-gi gir1.2-gtk-4.0 xvfb
 
       - name: Validate Bash syntax
         run: |
@@ -59,10 +61,16 @@ jobs:
 
       - name: Validate Python syntax and GTK4 bindings
         run: |
-          python3 -m py_compile GUI/main.py GUI/api_protocol.py GUI/bridge_process.py tests/test-api-protocol.py tests/test-bridge-process.py
+          python3 -m py_compile GUI/main.py GUI/api_protocol.py GUI/bridge_process.py tests/test-api-protocol.py tests/test-bridge-process.py tests/test-gui-smoke.py
           python3 tests/test-api-protocol.py
           python3 tests/test-bridge-process.py
           python3 -c "import gi; gi.require_version('Gtk', '4.0'); from gi.repository import Gtk; print(Gtk.get_major_version(), Gtk.get_minor_version())"
+
+      - name: Smoke-test GTK4 window without an Android device
+        env:
+          GTK_A11Y: none
+          GSK_RENDERER: cairo
+        run: xvfb-run --auto-servernum python3 tests/test-gui-smoke.py
 
       - name: Validate Debian desktop package layout
         run: |
