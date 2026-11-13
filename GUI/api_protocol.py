@@ -104,3 +104,33 @@ def decode_api_response(stdout: str, stderr: str, returncode: int) -> dict[str, 
 
     _validate_payload_shape(payload)
     return payload
+
+def device_identity(payload: Any) -> tuple[str, str] | None:
+    """Return the stable bridge identity only for a confirmed connected device."""
+    if not isinstance(payload, dict) or payload.get("status") != "connected":
+        return None
+    return (
+        str(payload.get("backend") or "unknown"),
+        str(payload.get("serial") or "local"),
+    )
+
+
+def inventory_matches_device(
+    inventory: Any,
+    device: Any,
+    expected_generation: int,
+    current_generation: int,
+    expected_identity: tuple[str, str] | None,
+) -> bool:
+    """Accept inventory only when generation and both reported identities agree."""
+    if expected_generation != current_generation or expected_identity is None:
+        return False
+    current_identity = device_identity(device)
+    if current_identity != expected_identity or not isinstance(inventory, dict):
+        return False
+    inventory_identity = (
+        str(inventory.get("backend") or "unknown"),
+        str(inventory.get("serial") or "local"),
+    )
+    return inventory_identity == expected_identity
+
