@@ -157,3 +157,27 @@ def take_pending_request(
     """Drop queued work on shutdown; otherwise return the latest queued action."""
     return None if closing else pending
 
+def package_detail_request_is_current(
+    inventory_loaded: bool,
+    expected_request_generation: int,
+    current_request_generation: int,
+    expected_device_generation: int,
+    current_device_generation: int,
+    expected_package: str,
+    selected_package: str | None,
+    expected_view_generation: int,
+    current_view_generation: int,
+    visible_view: str | None,
+    closing: bool,
+) -> bool:
+    """Reject package metadata callbacks after selection, device, view, or shutdown changes."""
+    return (
+        not closing
+        and inventory_loaded
+        and expected_request_generation == current_request_generation
+        and expected_device_generation == current_device_generation
+        and expected_package == selected_package
+        and expected_view_generation == current_view_generation
+        and visible_view == "package-detail"
+    )
+
