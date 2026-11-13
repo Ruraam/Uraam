@@ -60,7 +60,7 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
     def test_valid_json_from_nonzero_process_is_never_accepted(self):
         code = (
             "import sys; "
-            "sys.stdout.write('{\\"status\\":\\"connected\\"}'); "
+            "sys.stdout.write(chr(123) + chr(34) + 'status' + chr(34) + ':' + chr(34) + 'connected' + chr(34) + chr(125)); "
             "sys.stdout.flush(); "
             "sys.stderr.write('bridge exited unsuccessfully'); "
             "sys.stderr.flush(); "
