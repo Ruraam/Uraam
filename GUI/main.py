@@ -16,6 +16,7 @@ from api_protocol import (
     decode_api_response,
     device_identity,
     inventory_matches_device,
+    package_detail_request_is_current,
     request_is_current,
     take_pending_request,
 )
@@ -653,13 +654,18 @@ class UraamWindow(Gtk.ApplicationWindow):
         expected_view_generation: int,
     ) -> None:
         # A delayed response must never replace details after a reset or device change.
-        if (
-            not self._inventory_loaded
-            or self._package_request_generation != expected_generation
-            or self._device_generation != expected_device_generation
-            or self._selected_package != expected_package
-            or self._view_generation != expected_view_generation
-            or self.stack.get_visible_child_name() != "package-detail"
+        if not package_detail_request_is_current(
+            self._inventory_loaded,
+            expected_generation,
+            self._package_request_generation,
+            expected_device_generation,
+            self._device_generation,
+            expected_package,
+            self._selected_package,
+            expected_view_generation,
+            self._view_generation,
+            self.stack.get_visible_child_name(),
+            self._closing,
         ):
             return
         if error:
