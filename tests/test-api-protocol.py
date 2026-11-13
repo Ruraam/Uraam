@@ -8,10 +8,12 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "GUI"))
 from api_protocol import (
+    coalesce_pending_request,
     decode_api_response,
     device_identity,
     inventory_matches_device,
     request_is_current,
+    take_pending_request,
 )
 
 
@@ -191,6 +193,28 @@ class ViewRequestFreshnessTests(unittest.TestCase):
     def test_rejects_request_after_navigation_away_and_back(self):
         # Returning to the same named view must not revive an older callback.
         self.assertFalse(request_is_current(7, 9, False))
+
+
+class PendingRequestPolicyTests(unittest.TestCase):
+    def test_new_action_replaces_existing_pending_action(self):
+        first = ("device-info", object())
+        latest = ("list-packages", object())
+        self.assertIs(coalesce_pending_request(first, latest), latest)
+
+    def test_first_pending_action_is_retained_when_slot_is_empty(self):
+        latest = ("device-info", object())
+        self.assertIs(coalesce_pending_request(None, latest), latest)
+
+    def test_completion_takes_latest_pending_action(self):
+        latest = ("device-info", object())
+        self.assertIs(take_pending_request(latest, False), latest)
+
+    def test_shutdown_discards_pending_action(self):
+        pending = ("list-packages", object())
+        self.assertIsNone(take_pending_request(pending, True))
+
+    def test_empty_pending_slot_stays_empty(self):
+        self.assertIsNone(take_pending_request(None, False))
 
 
 if __name__ == "__main__":
