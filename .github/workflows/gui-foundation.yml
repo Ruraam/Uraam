@@ -49,7 +49,8 @@ jobs:
           bash -n uraam-api.sh
           bash -n uraam-gui
           bash -n installer.sh
-          bash -n tests/test-json-api.sh\n          bash -n tests/test-api-output-limits.sh
+          bash -n tests/test-json-api.sh
+          bash -n tests/test-api-output-limits.sh
 
       - name: Run ShellCheck
         run: shellcheck --severity=error uraam.sh uraam-api.sh uraam-gui installer.sh tests/test-json-api.sh tests/test-api-output-limits.sh
