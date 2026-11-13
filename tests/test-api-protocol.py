@@ -438,7 +438,7 @@ class ApiProtocolTests(unittest.TestCase):
             "oem": "google",
             "rom": None,
         }
-        for key in ("hidden\\u202eoverride", "bad\\x00key"):
+        for key in ("hidden\u202eoverride", "bad\x00key"):
             with self.subTest(key=key):
                 payload = dict(base)
                 payload["future_capability"] = {key: "value"}
