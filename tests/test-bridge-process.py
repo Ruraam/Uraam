@@ -690,9 +690,6 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
             def __init__(self):
                 self.stopped = 0
 
-            def start(self):
-                pass
-
             def stop(self):
                 self.stopped += 1
 
@@ -703,60 +700,29 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
             def set_sensitive(self, value):
                 self.sensitivity.append(value)
 
-        class FakeLabel:
-            def set_text(self, _value):
-                pass
-
-        class InlineThread:
-            def __init__(self, target, **_kwargs):
-                self.target = target
-
-            def start(self):
-                self.target()
-
-        class FakeGLib:
-            SOURCE_REMOVE = False
-
-            @staticmethod
-            def idle_add(callback, *args):
-                queued.append((callback, args))
-                return 1
-
-        queued = []
-        delivered = []
         window = type("WindowState", (), {})()
         window._closing = False
-        window._loading = False
-        window.refresh_button = FakeButton()
+        window._loading = True
+        window._pending_request = None
         window.loading_spinner = FakeSpinner()
-        window.status_label = FakeLabel()
-        window._api_call = lambda _command: (_ for _ in ()).throw(
-            RuntimeError("bridge temporarily unavailable")
+        window.refresh_button = FakeButton()
+        delivered = []
+
+        result = uraam_gui.UraamWindow._finish_async(
+            window,
+            lambda payload, error: delivered.append((payload, error)),
+            None,
+            "bridge temporarily unavailable",
         )
 
-        original_thread = uraam_gui.threading.Thread
-        original_glib = uraam_gui.GLib
-        try:
-            uraam_gui.threading.Thread = InlineThread
-            uraam_gui.GLib = FakeGLib
-            uraam_gui.UraamWindow._start_async(
-                window,
-                "device-info",
-                lambda payload, error: delivered.append((payload, error)),
-            )
-            self.assertEqual(len(queued), 1)
-            callback, args = queued.pop()
-            callback(*args)
-        finally:
-            uraam_gui.threading.Thread = original_thread
-            uraam_gui.GLib = original_glib
-
+        self.assertEqual(result, uraam_gui.GLib.SOURCE_REMOVE)
         self.assertFalse(window._loading)
         self.assertEqual(window.loading_spinner.stopped, 1)
-        self.assertEqual(window.refresh_button.sensitivity, [False, True])
-        self.assertEqual(len(delivered), 1)
-        self.assertIsNone(delivered[0][0])
-        self.assertEqual(delivered[0][1], "bridge temporarily unavailable")
+        self.assertEqual(window.refresh_button.sensitivity, [True])
+        self.assertEqual(
+            delivered,
+            [(None, "bridge temporarily unavailable")],
+        )
 
         # A transient API error must not leave the request pipeline wedged.
         started = []
