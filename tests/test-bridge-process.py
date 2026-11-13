@@ -745,7 +745,9 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
             uraam_gui.UraamWindow._start_async(
                 window,
                 "device-info",
-                lambda payload, error: delivered.append((payload, error)),
+                lambda _payload, _error: self.fail(
+                    "GTK callback must remain queued in this worker-isolation test"
+                ),
             )
         finally:
             uraam_gui.threading.Thread = original_thread
