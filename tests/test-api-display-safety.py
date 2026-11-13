@@ -119,6 +119,48 @@ class BridgeDisplayStringSafetyTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "unsafe control characters.*components"):
             self._decode(payload)
 
+    def test_rejects_invisible_format_characters_in_apk_paths(self):
+        for character in ("\\u200b", "\\u2060", "\\ufeff", "\\u00ad"):
+            with self.subTest(codepoint=hex(ord(character))):
+                payload = self._package_detail()
+                payload["paths"] = ["/data/app/base" + character + ".apk"]
+                with self.assertRaisesRegex(
+                    RuntimeError, "invisible Unicode format characters.*paths"
+                ):
+                    self._decode(payload)
+
+    def test_rejects_invisible_format_characters_in_requested_permissions(self):
+        for character in ("\\u200b", "\\u2060", "\\ufeff", "\\u00ad"):
+            with self.subTest(codepoint=hex(ord(character))):
+                payload = self._package_detail()
+                payload["requested_permissions"] = [
+                    "android.permission.CAMERA" + character
+                ]
+                with self.assertRaisesRegex(
+                    RuntimeError,
+                    "invisible Unicode format characters.*requested_permissions",
+                ):
+                    self._decode(payload)
+
+    def test_rejects_invisible_format_characters_in_component_names(self):
+        for character in ("\\u200b", "\\u2060", "\\ufeff", "\\u00ad"):
+            with self.subTest(codepoint=hex(ord(character))):
+                payload = self._package_detail()
+                payload["components"] = {
+                    "activities": ["com.example.Main" + character]
+                }
+                with self.assertRaisesRegex(
+                    RuntimeError, "invisible Unicode format characters.*components"
+                ):
+                    self._decode(payload)
+
+    def test_accepts_normal_unicode_apk_paths(self):
+        payload = self._package_detail()
+        payload["paths"] = ["/data/app/édition/base.apk"]
+        self.assertEqual(
+            self._decode(payload)["paths"], ["/data/app/édition/base.apk"]
+        )
+
     def test_sanitizes_bidi_override_in_bridge_error_message(self):
         payload = {"status": "error", "error": "Permission" + chr(0x202E) + "Denied"}
         with self.assertRaisesRegex(RuntimeError, "^Permission Denied$"):
