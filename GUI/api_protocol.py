@@ -17,6 +17,22 @@ COUNT_FIELDS = {"count", "user", "system_count", "user_count", "unclassified_cou
 COMPONENT_FIELDS = {"activities", "services", "receivers", "providers"}
 
 
+
+def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Prevent ambiguous JSON objects from silently overriding earlier fields."""
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"The bridge returned a duplicate JSON key: '{key}'.")
+        result[key] = value
+    return result
+
+
+def _reject_non_json_constant(value: str) -> None:
+    """Reject NaN and Infinity, which are not valid JSON values."""
+    raise ValueError(f"The bridge returned a non-standard JSON constant: {value}.")
+
+
 def _validate_payload_shape(payload: dict[str, Any]) -> None:
     """Reject malformed known fields before the GTK callbacks consume them."""
     for field in STRING_FIELDS:
@@ -46,6 +62,8 @@ def _validate_payload_shape(payload: dict[str, Any]) -> None:
         packages = payload["packages"]
         if not isinstance(packages, list) or any(not isinstance(item, str) for item in packages):
             raise RuntimeError("The bridge returned an invalid package inventory.")
+        if len(packages) != len(set(packages)):
+            raise RuntimeError("The bridge returned duplicate package entries.")
 
     if "package_types" in payload:
         package_types = payload["package_types"]
@@ -157,10 +175,16 @@ def decode_api_response(stdout: str, stderr: str, returncode: int) -> dict[str, 
         raise RuntimeError("The bridge response exceeds the 8 MiB safety limit.")
 
     try:
-        payload = json.loads(stdout)
+        payload = json.loads(
+            stdout,
+            object_pairs_hook=_reject_duplicate_keys,
+            parse_constant=_reject_non_json_constant,
+        )
     except json.JSONDecodeError as exc:
-        detail = stderr.strip() or "The bridge returned invalid JSON."
+        detail = stderr.strip() or "The bridge returned invalid or truncated JSON."
         raise RuntimeError(detail) from exc
+    except ValueError as exc:
+        raise RuntimeError(str(exc)) from exc
 
     if not isinstance(payload, dict):
         raise RuntimeError("The bridge returned a JSON value that is not an object.")
