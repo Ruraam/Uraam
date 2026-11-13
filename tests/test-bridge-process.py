@@ -652,7 +652,7 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
                 pass
 
             def start(self):
-                raise RuntimeError("thread creation denied")
+                raise RuntimeError("thread creation denied\\n" + ("x" * 3000))
 
         window = type("WindowState", (), {})()
         window._closing = False
@@ -683,7 +683,78 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
         self.assertEqual(len(delivered), 1)
         self.assertIsNone(delivered[0][0])
         self.assertIn("device-info", delivered[0][1])
-        self.assertIn("thread creation denied", delivered[0][1])
+        self.assertTrue(delivered[0][1].startswith("Unable to start the read-only bridge request"))
+        self.assertEqual(len(delivered[0][1]), 2048)
+        self.assertTrue(delivered[0][1].endswith("..."))
+        self.assertNotIn("\\n", delivered[0][1])
+
+    def test_worker_exception_is_sanitized_and_bounded(self):
+        class FakeSpinner:
+            def __init__(self):
+                self.started = 0
+                self.stopped = 0
+
+            def start(self):
+                self.started += 1
+
+            def stop(self):
+                self.stopped += 1
+
+        class FakeButton:
+            def __init__(self):
+                self.sensitivity = []
+
+            def set_sensitive(self, value):
+                self.sensitivity.append(value)
+
+        class InlineThread:
+            def __init__(self, target, **_kwargs):
+                self.target = target
+
+            def start(self):
+                self.target()
+
+        class FakeGLib:
+            SOURCE_REMOVE = False
+
+            @staticmethod
+            def idle_add(callback, *args):
+                callback(*args)
+                return 1
+
+        window = type("WindowState", (), {})()
+        window._closing = False
+        window._loading = False
+        window.refresh_button = FakeButton()
+        window.loading_spinner = FakeSpinner()
+        window.status_label = type(
+            "FakeLabel", (), {"set_text": lambda self, _message: None}
+        )()
+        window._api_call = lambda _command: (_ for _ in ()).throw(
+            RuntimeError("bridge failure\\n" + ("y" * 3000))
+        )
+        delivered = []
+        original_thread = uraam_gui.threading.Thread
+        original_glib = uraam_gui.GLib
+        try:
+            uraam_gui.threading.Thread = InlineThread
+            uraam_gui.GLib = FakeGLib
+            uraam_gui.UraamWindow._start_async(
+                window,
+                "device-info",
+                lambda payload, error: delivered.append((payload, error)),
+            )
+        finally:
+            uraam_gui.threading.Thread = original_thread
+            uraam_gui.GLib = original_glib
+
+        self.assertFalse(window._loading)
+        self.assertEqual(len(delivered), 1)
+        self.assertIsNone(delivered[0][0])
+        self.assertTrue(delivered[0][1].startswith("bridge failure"))
+        self.assertEqual(len(delivered[0][1]), 2048)
+        self.assertTrue(delivered[0][1].endswith("..."))
+        self.assertNotIn("\\n", delivered[0][1])
 
     def test_async_api_error_restores_ui_and_allows_next_request(self):
         class FakeSpinner:
