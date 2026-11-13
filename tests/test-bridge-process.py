@@ -972,6 +972,39 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
             ],
         )
 
+    def test_keyboard_shortcuts_are_ignored_while_window_is_closing(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        calls = []
+        window = type("WindowState", (), {})()
+        window._closing = True
+        window._show_view = lambda name: calls.append(("view", name))
+        window._on_packages = lambda _button: calls.append(("packages", None))
+        window.stack = SimpleNamespace(
+            get_visible_child_name=lambda: "package-detail"
+        )
+        fake_gdk = SimpleNamespace(
+            ModifierType=SimpleNamespace(
+                CONTROL_MASK=4,
+                SHIFT_MASK=1,
+                ALT_MASK=8,
+            ),
+            KEY_1=49,
+            KEY_2=50,
+            KEY_Escape=65307,
+        )
+        with patch.object(uraam_gui, "Gdk", fake_gdk):
+            for keyval, state in ((49, 4), (50, 4), (65307, 0)):
+                self.assertFalse(
+                    uraam_gui.UraamWindow._on_key_pressed(
+                        window, None, keyval, 0, state
+                    )
+                )
+
+        self.assertEqual(calls, [])
+
+
     def test_escape_is_ignored_outside_package_detail(self):
         from types import SimpleNamespace
         from unittest.mock import patch
