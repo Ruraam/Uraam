@@ -181,7 +181,11 @@ def decode_api_response(stdout: str, stderr: str, returncode: int) -> dict[str, 
             parse_constant=_reject_non_json_constant,
         )
     except json.JSONDecodeError as exc:
-        detail = stderr.strip() or "The bridge returned invalid or truncated JSON."
+        detail = stderr.strip() or (
+            "The bridge returned truncated JSON."
+            if exc.pos >= len(stdout.rstrip())
+            else "The bridge returned invalid JSON."
+        )
         raise RuntimeError(detail) from exc
     except ValueError as exc:
         raise RuntimeError(str(exc)) from exc
