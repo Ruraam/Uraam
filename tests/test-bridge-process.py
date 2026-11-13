@@ -299,6 +299,29 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
             "Backend: ADB · Read-only inspection · Requested names only",
         )
 
+        # A device switch invalidates a detail response even when the package
+        # selection and visible view have not changed.
+        window.package_detail_status.set_text("Device changed; waiting for fresh details…")
+        window._device_generation += 1
+        callbacks[2](
+            {
+                "package": "com.example.alpha",
+                "backend": "adb",
+                "paths": ["/data/app/com.example.alpha/base.apk"],
+                "version_name": "stale-device",
+                "version_code": "99",
+                "requested_permissions": [],
+                "components": {},
+                "metadata_limited": False,
+                "read_only": True,
+            },
+            None,
+        )
+        self.assertEqual(
+            window.package_detail_status.text,
+            "Device changed; waiting for fresh details…",
+        )
+
         # Leaving the detail view and returning creates a new view generation;
         # an already delivered callback must not overwrite the refreshed view.
         uraam_gui.UraamWindow._show_view(window, "dashboard")
