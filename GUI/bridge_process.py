@@ -101,6 +101,15 @@ def communicate_process(
                         "The read-only bridge request timed out."
                     )
 
+                if not selector.get_map():
+                    # Both pipes may close before the process exits. Avoid a
+                    # busy loop while still polling shutdown and the deadline.
+                    try:
+                        process.wait(timeout=min(poll_interval, remaining))
+                    except subprocess.TimeoutExpired:
+                        pass
+                    continue
+
                 events = selector.select(timeout=min(poll_interval, remaining))
                 for key, _mask in events:
                     name = key.data
