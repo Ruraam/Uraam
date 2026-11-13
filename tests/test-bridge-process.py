@@ -2,6 +2,7 @@
 """Real-process regression tests for the GUI bridge lifecycle helpers."""
 
 import os
+import signal
 import subprocess
 import sys
 import threading
@@ -16,6 +17,7 @@ from bridge_process import (
     communicate_process,
     signal_process_group,
 )
+from api_protocol import request_is_current, take_pending_request
 
 
 class BridgeProcessLifecycleTests(unittest.TestCase):
@@ -85,6 +87,31 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
             time.sleep(0.02)
         else:
             self.fail("descendant survived shutdown as a running process")
+
+    def test_repeated_shutdown_signals_are_safe_for_active_process_group(self):
+        process = self._start("import time; time.sleep(30)")
+        signal_process_group(process, signal.SIGTERM)
+        signal_process_group(process, signal.SIGTERM)
+
+        shutdown = threading.Event()
+        shutdown.set()
+        with self.assertRaises(BridgeProcessCancelled):
+            communicate_process(process, shutdown, shutdown_grace_seconds=0.3)
+        self.assertIsNotNone(process.poll())
+
+    def test_completed_response_is_discarded_when_close_precedes_ui_dispatch(self):
+        process = self._start("print('response-ready', flush=True)")
+        stdout, stderr = communicate_process(process, threading.Event())
+        self.assertEqual(stdout.strip(), "response-ready")
+        self.assertEqual(stderr, "")
+
+        # The worker has completed, but its queued GTK idle callback has not run.
+        # Closing in this gap must invalidate delivery and discard newer queued work.
+        shutdown = threading.Event()
+        shutdown.set()
+        self.assertFalse(request_is_current(12, 12, shutdown.is_set()))
+        pending = ("list-packages", lambda _payload, _error: None)
+        self.assertIsNone(take_pending_request(pending, shutdown.is_set()))
 
     def test_shutdown_already_requested_before_communicate(self):
         process = self._start("import time; time.sleep(30)")
