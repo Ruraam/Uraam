@@ -667,7 +667,9 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
             uraam_gui.UraamWindow._start_async(
                 window,
                 "device-info",
-                lambda payload, error: delivered.append((payload, error)),
+                lambda _payload, _error: self.fail(
+                    "GTK callback must remain queued in this worker-isolation test"
+                ),
             )
         finally:
             uraam_gui.threading.Thread = original_thread
@@ -714,12 +716,14 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
             def start(self):
                 self.target()
 
+        queued_callbacks = []
+
         class FakeGLib:
             SOURCE_REMOVE = False
 
             @staticmethod
             def idle_add(callback, *args):
-                callback(*args)
+                queued_callbacks.append((callback, args))
                 return 1
 
         window = type("WindowState", (), {})()
@@ -733,7 +737,6 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
         window._api_call = lambda _command: (_ for _ in ()).throw(
             RuntimeError("bridge failure\\n" + ("y" * 3000))
         )
-        delivered = []
         original_thread = uraam_gui.threading.Thread
         original_glib = uraam_gui.GLib
         try:
@@ -748,13 +751,16 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
             uraam_gui.threading.Thread = original_thread
             uraam_gui.GLib = original_glib
 
-        self.assertFalse(window._loading)
-        self.assertEqual(len(delivered), 1)
-        self.assertIsNone(delivered[0][0])
-        self.assertTrue(delivered[0][1].startswith("bridge failure"))
-        self.assertEqual(len(delivered[0][1]), 2048)
-        self.assertTrue(delivered[0][1].endswith("..."))
-        self.assertNotIn("\\n", delivered[0][1])
+        self.assertTrue(window._loading)
+        self.assertEqual(len(queued_callbacks), 1)
+        callback, args = queued_callbacks[0]
+        self.assertEqual(callback, uraam_gui.UraamWindow._finish_async)
+        self.assertIsNone(args[1])
+        error = args[2]
+        self.assertTrue(error.startswith("bridge failure"))
+        self.assertEqual(len(error), 2048)
+        self.assertTrue(error.endswith("..."))
+        self.assertNotIn("\\n", error)
 
     def test_async_api_error_restores_ui_and_allows_next_request(self):
         class FakeSpinner:
