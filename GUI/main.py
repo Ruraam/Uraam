@@ -295,6 +295,7 @@ class UraamWindow(Gtk.ApplicationWindow):
             cwd=str(ROOT_DIR),
             capture_output=True,
             text=True,
+            errors="replace",
             timeout=45,
             check=False,
         )
@@ -303,8 +304,16 @@ class UraamWindow(Gtk.ApplicationWindow):
         except json.JSONDecodeError as exc:
             detail = result.stderr.strip() or "The bridge returned invalid JSON."
             raise RuntimeError(detail) from exc
-        if result.returncode != 0 or payload.get("status") == "error":
-            raise RuntimeError(payload.get("error", "URAAM request failed."))
+        if not isinstance(payload, dict):
+            raise RuntimeError("The bridge returned a JSON value that is not an object.")
+        status = payload.get("status")
+        if result.returncode != 0 or status == "error":
+            message = payload.get("error")
+            if not isinstance(message, str) or not message.strip():
+                message = result.stderr.strip() or "URAAM request failed."
+            raise RuntimeError(message)
+        if status not in {"ok", "connected", "disconnected"}:
+            raise RuntimeError("The bridge returned an unexpected or missing response status.")
         return payload
 
     def _run_async(self, command: str, callback: Any) -> None:
@@ -317,7 +326,7 @@ class UraamWindow(Gtk.ApplicationWindow):
             try:
                 payload = self._api_call(command)
                 error = None
-            except (OSError, subprocess.SubprocessError, RuntimeError) as exc:
+            except Exception as exc:
                 payload = None
                 error = str(exc)
             GLib.idle_add(self._finish_async, callback, payload, error)
