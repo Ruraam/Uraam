@@ -12,6 +12,8 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from api_protocol import decode_api_response
+
 import gi
 
 gi.require_version("Gtk", "4.0")
@@ -299,22 +301,7 @@ class UraamWindow(Gtk.ApplicationWindow):
             timeout=45,
             check=False,
         )
-        try:
-            payload = json.loads(result.stdout)
-        except json.JSONDecodeError as exc:
-            detail = result.stderr.strip() or "The bridge returned invalid JSON."
-            raise RuntimeError(detail) from exc
-        if not isinstance(payload, dict):
-            raise RuntimeError("The bridge returned a JSON value that is not an object.")
-        status = payload.get("status")
-        if result.returncode != 0 or status == "error":
-            message = payload.get("error")
-            if not isinstance(message, str) or not message.strip():
-                message = result.stderr.strip() or "URAAM request failed."
-            raise RuntimeError(message)
-        if status not in {"ok", "connected", "disconnected"}:
-            raise RuntimeError("The bridge returned an unexpected or missing response status.")
-        return payload
+        return decode_api_response(result.stdout, result.stderr, result.returncode)
 
     def _run_async(self, command: str, callback: Any) -> None:
         if self._loading:
