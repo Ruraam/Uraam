@@ -31,7 +31,9 @@ class UraamWindow(Gtk.ApplicationWindow):
         self.set_default_size(1000, 680)
         self.set_size_request(760, 520)
         self._loading = False
+        self._closing = False
         self._pending_request: tuple[str, Any] | None = None
+        self._device_identity: tuple[str, str] | None = None
         self._packages: list[str] = []
         self._package_types: dict[str, str] = {}
 
@@ -85,6 +87,8 @@ class UraamWindow(Gtk.ApplicationWindow):
         self.status_label.set_wrap(True)
         self.status_label.add_css_class("dim-label")
         sidebar.append(self.status_label)
+
+        self.connect("close-request", self._on_close_request)
 
         self._build_dashboard()
         self._build_packages()
@@ -329,6 +333,11 @@ class UraamWindow(Gtk.ApplicationWindow):
         threading.Thread(target=worker, daemon=True, name="uraam-api-request").start()
 
     def _finish_async(self, callback: Any, payload: Any, error: str | None) -> bool:
+        if self._closing:
+            self._loading = False
+            self._pending_request = None
+            return GLib.SOURCE_REMOVE
+
         pending = self._pending_request
         self._pending_request = None
         if pending is not None:
@@ -341,6 +350,12 @@ class UraamWindow(Gtk.ApplicationWindow):
         self._loading = False
         callback(payload, error)
         return GLib.SOURCE_REMOVE
+
+    def _on_close_request(self, _window: Gtk.ApplicationWindow) -> bool:
+        """Prevent queued worker completions from touching a closing window."""
+        self._closing = True
+        self._pending_request = None
+        return False
 
     def _reset_package_views(self, message: str) -> None:
         """Remove device-specific data when the bridge cannot confirm a device."""
@@ -365,6 +380,7 @@ class UraamWindow(Gtk.ApplicationWindow):
 
     def _show_device(self, payload: Any, error: str | None) -> None:
         if error:
+            self._device_identity = None
             self.status_label.set_text("Bridge unavailable")
             self._replace_card(self.device_card, "Device", "Bridge unavailable", error)
             self._replace_card(self.backend_card, "Connection", "Unavailable", "Check ADB / Root / Shizuku")
@@ -373,6 +389,7 @@ class UraamWindow(Gtk.ApplicationWindow):
             self._reset_package_views("Device information is unavailable; cached package data was cleared.")
             return
         if payload.get("status") != "connected":
+            self._device_identity = None
             self.status_label.set_text("No Android device connected")
             self._replace_card(self.device_card, "Device", "No device connected", "Connect via ADB, Root or Shizuku")
             self._replace_card(self.backend_card, "Connection", "Not detected", "ADB · Root · Shizuku")
@@ -380,6 +397,10 @@ class UraamWindow(Gtk.ApplicationWindow):
             self._replace_card(self.version_card, "URAAM engine", "5.1.0", "Bash engine · GTK4 frontend")
             self._reset_package_views("No connected device; package data is not available.")
             return
+        identity = (str(payload.get("backend") or "unknown"), str(payload.get("serial") or "local"))
+        if identity != self._device_identity:
+            self._reset_package_views("Device identity changed; reload the application inventory.")
+            self._device_identity = identity
         self.status_label.set_text("Android device connected")
         self._replace_card(
             self.device_card, "Device", payload.get("model") or "Unknown device",
