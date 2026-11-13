@@ -142,3 +142,18 @@ def request_is_current(
     """Allow a view-bound callback only while its originating view is active."""
     return not closing and expected_view_generation == current_view_generation
 
+def coalesce_pending_request(
+    _current: tuple[str, Any] | None,
+    incoming: tuple[str, Any],
+) -> tuple[str, Any]:
+    """Keep only the newest queued action while a bridge request is running."""
+    return incoming
+
+
+def take_pending_request(
+    pending: tuple[str, Any] | None,
+    closing: bool,
+) -> tuple[str, Any] | None:
+    """Drop queued work on shutdown; otherwise return the latest queued action."""
+    return None if closing else pending
+
