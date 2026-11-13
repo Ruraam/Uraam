@@ -10,7 +10,7 @@ MAX_API_RESPONSE_BYTES = 8 * 1024 * 1024
 VALID_STATUSES = {"ok", "connected", "disconnected"}
 STRING_FIELDS = {
     "backend", "serial", "model", "oem", "version", "package",
-    "version_name", "version_code", "package", "permissions_semantics",
+    "version_name", "version_code", "permissions_semantics",
     "components_semantics", "metadata_source",
 }
 COUNT_FIELDS = {"count", "user", "system_count", "user_count", "unclassified_count"}
@@ -33,11 +33,27 @@ def _reject_non_json_constant(value: str) -> None:
     raise ValueError(f"The bridge returned a non-standard JSON constant: {value}.")
 
 
+def _validate_display_string(value: str, field: str) -> None:
+    """Reject control characters that can break or spoof GTK text presentation."""
+    if any(ord(character) < 32 or 0x7F <= ord(character) <= 0x9F for character in value):
+        raise RuntimeError(
+            f"The bridge returned unsafe control characters in '{field}'."
+        )
+
+
+def _validate_display_strings(values: list[str], field: str) -> None:
+    for value in values:
+        _validate_display_string(value, field)
+
+
 def _validate_payload_shape(payload: dict[str, Any]) -> None:
     """Reject malformed known fields before the GTK callbacks consume them."""
     for field in STRING_FIELDS:
-        if field in payload and payload[field] is not None and not isinstance(payload[field], str):
-            raise RuntimeError(f"The bridge returned an invalid '{field}' field.")
+        value = payload.get(field)
+        if field in payload and value is not None:
+            if not isinstance(value, str):
+                raise RuntimeError(f"The bridge returned an invalid '{field}' field.")
+            _validate_display_string(value, field)
 
     for field in COUNT_FIELDS:
         value = payload.get(field)
@@ -57,11 +73,15 @@ def _validate_payload_shape(payload: dict[str, Any]) -> None:
             for key in ("name", "version")
         ):
             raise RuntimeError("The bridge returned invalid ROM metadata.")
+        for field in ("name", "version"):
+            if isinstance(rom.get(field), str):
+                _validate_display_string(rom[field], f"rom.{field}")
 
     if "packages" in payload:
         packages = payload["packages"]
         if not isinstance(packages, list) or any(not isinstance(item, str) for item in packages):
             raise RuntimeError("The bridge returned an invalid package inventory.")
+        _validate_display_strings(packages, "packages")
         if len(packages) != len(set(packages)):
             raise RuntimeError("The bridge returned duplicate package entries.")
 
@@ -74,11 +94,13 @@ def _validate_payload_shape(payload: dict[str, Any]) -> None:
             for name, kind in package_types.items()
         ):
             raise RuntimeError("The bridge returned invalid package classifications.")
+        _validate_display_strings(list(package_types), "package_types")
 
     if "paths" in payload:
         paths = payload["paths"]
         if not isinstance(paths, list) or any(not isinstance(item, str) for item in paths):
             raise RuntimeError("The bridge returned invalid APK path metadata.")
+        _validate_display_strings(paths, "paths")
 
     if "requested_permissions" in payload:
         permissions = payload["requested_permissions"]
@@ -87,6 +109,8 @@ def _validate_payload_shape(payload: dict[str, Any]) -> None:
             or any(not isinstance(item, str) for item in permissions)
         ):
             raise RuntimeError("The bridge returned invalid requested-permission metadata.")
+        if permissions is not None:
+            _validate_display_strings(permissions, "requested_permissions")
 
     if "components" in payload:
         components = payload["components"]
@@ -102,6 +126,9 @@ def _validate_payload_shape(payload: dict[str, Any]) -> None:
             for key, value in components.items()
         ):
             raise RuntimeError("The bridge returned invalid component metadata.")
+        for entries in components.values():
+            if entries is not None:
+                _validate_display_strings(entries, "components")
 
 
 
