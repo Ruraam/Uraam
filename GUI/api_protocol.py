@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import unicodedata
 from typing import Any
 
@@ -144,6 +145,14 @@ def _validate_display_string(value: str, field: str) -> None:
         )
 
 
+def _validate_package_identifier(value: str, field: str) -> None:
+    """Reject non-ASCII or malformed Android package identifiers."""
+    if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*(?:\\.[A-Za-z][A-Za-z0-9_]*)*", value):
+        raise RuntimeError(
+            f"The bridge returned an invalid Android package identifier in '{field}'."
+        )
+
+
 def _validate_json_string(value: str, field: str) -> None:
     """Bound the UTF-8 size of every string in the JSON document."""
     if len(value.encode("utf-8", errors="surrogatepass")) > MAX_JSON_STRING_BYTES:
@@ -166,6 +175,8 @@ def _validate_payload_shape(payload: dict[str, Any]) -> None:
             if not isinstance(value, str):
                 raise RuntimeError(f"The bridge returned an invalid '{field}' field.")
             _validate_display_string(value, field)
+            if field == "package":
+                _validate_package_identifier(value, field)
 
     for field in COUNT_FIELDS:
         value = payload.get(field)
@@ -194,6 +205,8 @@ def _validate_payload_shape(payload: dict[str, Any]) -> None:
         if not isinstance(packages, list) or any(not isinstance(item, str) for item in packages):
             raise RuntimeError("The bridge returned an invalid package inventory.")
         _validate_display_strings(packages, "packages")
+        for package_name in packages:
+            _validate_package_identifier(package_name, "packages")
         if len(packages) != len(set(packages)):
             raise RuntimeError("The bridge returned duplicate package entries.")
 
@@ -207,6 +220,8 @@ def _validate_payload_shape(payload: dict[str, Any]) -> None:
         ):
             raise RuntimeError("The bridge returned invalid package classifications.")
         _validate_display_strings(list(package_types), "package_types")
+        for package_name in package_types:
+            _validate_package_identifier(package_name, "package_types")
 
     if "paths" in payload:
         paths = payload["paths"]
