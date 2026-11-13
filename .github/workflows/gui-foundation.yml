@@ -29,6 +29,7 @@ on:
       - "tests/test-api-output-limits.sh"
       - "tests/test-bridge-process.py"
       - "tests/test-gui-smoke.py"
+      - "tests/test-api-display-safety.py"
       - ".github/workflows/gui-foundation.yml"
   workflow_dispatch:
 
