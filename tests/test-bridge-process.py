@@ -1659,5 +1659,74 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
         self.assertIs(expander.child, child)
 
 
+    def test_window_close_cancels_and_reaps_real_bridge_process_group(self):
+        child = (
+            "import os, signal, time; "
+            "signal.signal(signal.SIGTERM, signal.SIG_IGN); "
+            "os.close(1); os.close(2); time.sleep(30)"
+        )
+        code = (
+            "import subprocess, sys, time; "
+            f"child = subprocess.Popen([sys.executable, '-c', {child!r}]); "
+            "print(child.pid, flush=True); time.sleep(30)"
+        )
+        process = self._start(code)
+        child_pid = None
+        try:
+            child_pid = int(process.stdout.readline().strip())
+            shutdown = threading.Event()
+            window = type(
+                "WindowState",
+                (),
+                {
+                    "_closing": False,
+                    "_process_lock": threading.Lock(),
+                    "_shutdown_event": shutdown,
+                    "_active_process": process,
+                    "_pending_request": ("list-packages", lambda *_args: None),
+                },
+            )()
+
+            # Exercise the actual GTK close handler against a live process group,
+            # then let the worker's normal communication path finish the cleanup.
+            self.assertFalse(
+                uraam_gui.UraamWindow._on_close_request(window, window)
+            )
+            self.assertTrue(shutdown.is_set())
+            self.assertTrue(window._closing)
+            self.assertIsNone(window._pending_request)
+
+            with self.assertRaises(BridgeProcessCancelled):
+                communicate_process(
+                    process,
+                    shutdown,
+                    poll_interval=0.02,
+                    shutdown_grace_seconds=0.2,
+                )
+            self.assertIsNotNone(process.poll())
+
+            # The child ignores SIGTERM and closed its pipes, so only process-group
+            # SIGKILL can guarantee it is no longer running after window shutdown.
+            deadline = time.monotonic() + 2.0
+            while time.monotonic() < deadline:
+                stat_path = Path(f"/proc/{child_pid}/stat")
+                try:
+                    state = stat_path.read_text().split(") ", 1)[1].split()[0]
+                except OSError:
+                    break
+                if state == "Z":
+                    break
+                time.sleep(0.02)
+            else:
+                self.fail("window shutdown left a runnable bridge descendant")
+        finally:
+            if process.poll() is None:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.communicate(timeout=2)
+
+
 if __name__ == "__main__":
     unittest.main()
