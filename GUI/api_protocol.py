@@ -145,6 +145,16 @@ def _validate_display_string(value: str, field: str) -> None:
         )
 
 
+def _validate_technical_metadata_strings(values: list[str], field: str) -> None:
+    """Reject invisible Unicode format controls in machine-readable metadata."""
+    for value in values:
+        _validate_display_string(value, field)
+        if any(unicodedata.category(character) == "Cf" for character in value):
+            raise RuntimeError(
+                f"The bridge returned invisible Unicode format characters in '{field}'."
+            )
+
+
 def _validate_package_identifier(value: str, field: str) -> None:
     """Reject non-ASCII or malformed Android package identifiers."""
     # Preserve the dedicated missing/empty identity contract and its error.
@@ -230,7 +240,7 @@ def _validate_payload_shape(payload: dict[str, Any]) -> None:
         paths = payload["paths"]
         if not isinstance(paths, list) or any(not isinstance(item, str) for item in paths):
             raise RuntimeError("The bridge returned invalid APK path metadata.")
-        _validate_display_strings(paths, "paths")
+        _validate_technical_metadata_strings(paths, "paths")
 
     if "requested_permissions" in payload:
         permissions = payload["requested_permissions"]
@@ -240,7 +250,7 @@ def _validate_payload_shape(payload: dict[str, Any]) -> None:
         ):
             raise RuntimeError("The bridge returned invalid requested-permission metadata.")
         if permissions is not None:
-            _validate_display_strings(permissions, "requested_permissions")
+            _validate_technical_metadata_strings(permissions, "requested_permissions")
 
     if "components" in payload:
         components = payload["components"]
@@ -258,7 +268,7 @@ def _validate_payload_shape(payload: dict[str, Any]) -> None:
             raise RuntimeError("The bridge returned invalid component metadata.")
         for entries in components.values():
             if entries is not None:
-                _validate_display_strings(entries, "components")
+                _validate_technical_metadata_strings(entries, "components")
 
 
 
