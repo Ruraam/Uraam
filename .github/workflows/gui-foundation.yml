@@ -14,7 +14,6 @@ on:
       - "tests/test-api-protocol.py"
       - "tests/test-api-output-limits.sh"
       - "tests/test-bridge-process.py"
-      - "tests/test-bridge-process.py"
       - ".github/workflows/gui-foundation.yml"
   push:
     branches:
