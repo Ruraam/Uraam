@@ -34,6 +34,7 @@ class UraamWindow(Gtk.ApplicationWindow):
         self._closing = False
         self._pending_request: tuple[str, Any] | None = None
         self._device_identity: tuple[str, str] | None = None
+        self._selected_package: str | None = None
         self._packages: list[str] = []
         self._package_types: dict[str, str] = {}
 
@@ -359,6 +360,7 @@ class UraamWindow(Gtk.ApplicationWindow):
 
     def _reset_package_views(self, message: str) -> None:
         """Remove device-specific data when the bridge cannot confirm a device."""
+        self._selected_package = None
         self._packages = []
         self._package_types = {}
         while child := self.package_list.get_first_child():
@@ -433,6 +435,17 @@ class UraamWindow(Gtk.ApplicationWindow):
             self._reset_package_views(f"Inventory unavailable: {error}")
             self.inventory_label.set_text("The installed-package inventory could not be loaded.")
             return
+        identity = (
+            str(payload.get("backend") or "unknown"),
+            str(payload.get("serial") or "local"),
+        )
+        if self._device_identity is not None and identity != self._device_identity:
+            self._reset_package_views("Device changed while inventory was loading; refresh before continuing.")
+            self.status_label.set_text("Device changed; inventory discarded")
+            return
+        if self._device_identity is None:
+            self._device_identity = identity
+        self._selected_package = None
         self._packages = sorted(set(payload.get("packages", [])), key=str.casefold)
         raw_types = payload.get("package_types", {})
         self._package_types = {
@@ -459,6 +472,7 @@ class UraamWindow(Gtk.ApplicationWindow):
         if not isinstance(package_label, Gtk.Label):
             return
         package = package_label.get_text()
+        self._selected_package = package
         self.package_detail_name.set_text(package)
         self.package_detail_status.set_text("Querying Android using read-only commands…")
         self._replace_card(self.package_detail_version, "Version", "Loading…", "Reported by Android Package Manager")
@@ -473,9 +487,19 @@ class UraamWindow(Gtk.ApplicationWindow):
                 "Declared component entries from Android Package Manager"
             )
         self.stack.set_visible_child_name("package-detail")
-        self._run_async(f"package-info:{package}", self._show_package_info)
+        self._run_async(
+            f"package-info:{package}",
+            lambda payload, error, expected=package: self._show_package_info(
+                payload, error, expected
+            ),
+        )
 
-    def _show_package_info(self, payload: Any, error: str | None) -> None:
+    def _show_package_info(
+        self, payload: Any, error: str | None, expected_package: str
+    ) -> None:
+        # A delayed response must never replace the details for a newer selection.
+        if self._selected_package != expected_package:
+            return
         if error:
             self.package_detail_status.set_text(f"Details unavailable: {error}")
             self._replace_card(self.package_detail_version, "Version", "Unavailable", "Android did not provide version metadata")
@@ -489,6 +513,15 @@ class UraamWindow(Gtk.ApplicationWindow):
                     component_card, component_name.title(), "Unavailable",
                     "No component metadata returned"
                 )
+            return
+        if payload.get("package") != expected_package:
+            self.package_detail_status.set_text(
+                "Details discarded: Android returned metadata for a different package."
+            )
+            self._replace_card(
+                self.package_detail_version, "Version", "Unavailable",
+                "The bridge response did not match the selected package"
+            )
             return
         version_name = payload.get("version_name") or "Not reported"
         version_code = payload.get("version_code") or "Not reported"
