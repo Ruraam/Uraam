@@ -148,8 +148,21 @@ def _validate_status_contract(payload: dict[str, Any]) -> None:
                 raise RuntimeError(f"The package-inventory response is missing '{field}'.")
         if sum(payload[field] for field in ("system_count", "user_count", "unclassified_count")) != len(packages):
             raise RuntimeError("The package-inventory classification counts are inconsistent.")
+        actual_counts = {
+            kind: sum(value == kind for value in payload["package_types"].values())
+            for kind in ("system", "user", "unknown")
+        }
+        declared_counts = {
+            "system": payload["system_count"],
+            "user": payload["user_count"],
+            "unknown": payload["unclassified_count"],
+        }
+        if actual_counts != declared_counts:
+            raise RuntimeError("The package-inventory classification counts do not match package types.")
         if "classification_available" not in payload:
             raise RuntimeError("The package-inventory response is missing classification availability.")
+        if payload["classification_available"] != (actual_counts["unknown"] == 0):
+            raise RuntimeError("The package-inventory classification availability flag is inconsistent.")
         return
 
     if "package" in payload:
