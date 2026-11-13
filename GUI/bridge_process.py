@@ -7,7 +7,6 @@ import signal
 import subprocess
 import time
 from threading import Event
-from typing import TextIO
 
 
 class BridgeProcessCancelled(RuntimeError):
@@ -23,6 +22,7 @@ def signal_process_group(process: subprocess.Popen[str], sig: int) -> None:
     try:
         # The group can outlive its leader when a child inherited our pipes.
         # Keep signalling the original PGID until communicate() reaps the group.
+        os.killpg(process.pid, sig)
     except ProcessLookupError:
         pass
 
