@@ -172,6 +172,28 @@ class ApiProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "permission denied"):
             decode_api_response('{"status":"ok"}', "permission denied", 5)
 
+    def test_error_payload_is_normalized_and_bounded(self):
+        message = "backend\\nfailed\\x00" + ("x" * 3000)
+        payload = __import__("json").dumps({"status": "error", "error": message})
+        with self.assertRaises(RuntimeError) as raised:
+            decode_api_response(payload, "", 1)
+        self.assertEqual(len(str(raised.exception)), 2048)
+        self.assertTrue(str(raised.exception).startswith("backend failed"))
+        self.assertTrue(str(raised.exception).endswith("..."))
+        self.assertNotIn("\\x00", str(raised.exception))
+
+    def test_invalid_error_payload_uses_bounded_stderr_fallback(self):
+        payload = '{"status":"error","error":null}'
+        with self.assertRaises(RuntimeError) as raised:
+            decode_api_response(payload, " transport\\nfailed " + ("y" * 3000), 1)
+        self.assertEqual(len(str(raised.exception)), 2048)
+        self.assertTrue(str(raised.exception).startswith("transport failed"))
+        self.assertTrue(str(raised.exception).endswith("..."))
+
+    def test_error_payload_without_message_uses_safe_fallback(self):
+        with self.assertRaisesRegex(RuntimeError, "^URAAM request failed\\.$"):
+            decode_api_response('{"status":"error"}', "", 1)
+
     def test_response_limit_counts_utf8_bytes(self):
         oversized = '{"status":"ok","padding":"' + ("é" * (4 * 1024 * 1024)) + '"}'
         with self.assertRaisesRegex(RuntimeError, "8 MiB"):
