@@ -7,6 +7,59 @@ umask 077
 API_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd -P)"
 URAAM_SCRIPT="${URAAM_SCRIPT:-$API_DIR/uraam.sh}"
 
+# API-only output ceilings. These do not alter the interactive CLI engine.
+api_limit_or_default() {
+    local value="$1" fallback="$2" maximum="$3"
+    if [[ "$value" =~ ^[1-9][0-9]*$ ]] && (( value <= maximum )); then
+        printf '%s\\n' "$value"
+    else
+        printf '%s\\n' "$fallback"
+    fi
+}
+API_MAX_INVENTORY_BYTES="$(api_limit_or_default "${URAAM_API_MAX_INVENTORY_BYTES:-1048576}" 1048576 8388608)"
+API_MAX_DUMPSYS_BYTES="$(api_limit_or_default "${URAAM_API_MAX_DUMPSYS_BYTES:-2097152}" 2097152 8388608)"
+API_MAX_PATHS_BYTES="$(api_limit_or_default "${URAAM_API_MAX_PATHS_BYTES:-65536}" 65536 1048576)"
+API_OUTPUT_LIMIT_EXCEEDED=0
+
+# Stream through head so noisy device output cannot fill an unbounded shell
+# variable. Read one byte beyond the ceiling to detect overflow; never return
+# truncated bytes as valid data.
+api_capture_device_output() {
+    local limit="$1" output status
+    shift
+    output="$(run_device_bounded "$@" 2>/dev/null | head -c "$((limit + 1))")"
+    status=$?
+    local LC_ALL=C
+    if (( ${#output} > limit )); then
+        API_OUTPUT_LIMIT_EXCEEDED=1
+        return 125
+    fi
+    (( status == 0 )) || return "$status"
+    printf '%s' "$output"
+}
+
+# API inventory reader: preserve the engine transport and timeout layer while
+# enforcing a byte ceiling before parsing or retaining package names.
+api_device_package_list() {
+    local mode="${1:-active}" raw allow_empty=0
+    case "$mode" in
+        all) raw="$(api_capture_device_output "$API_MAX_INVENTORY_BYTES" pm list packages -u --user 0)" || return $? ;;
+        active) raw="$(api_capture_device_output "$API_MAX_INVENTORY_BYTES" pm list packages --user 0)" || return $? ;;
+        system) raw="$(api_capture_device_output "$API_MAX_INVENTORY_BYTES" pm list packages -s --user 0)" || return $?; allow_empty=1 ;;
+        user) raw="$(api_capture_device_output "$API_MAX_INVENTORY_BYTES" pm list packages -3 --user 0)" || return $?; allow_empty=1 ;;
+        *) return 2 ;;
+    esac
+    if ! printf '%s\\n' "$raw" | tr -d '\\r' | awk -v allow_empty="$allow_empty" '
+        NF == 0 { next }
+        /^package:[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$/ { count++; next }
+        { invalid = 1 }
+        END { if (invalid || (!allow_empty && count == 0)) exit 1 }
+    '; then
+        return 1
+    fi
+    printf '%s\\n' "$raw" | tr -d '\\r' | sed -n 's/^package://p' | sort -u
+}
+
 component_section_json() {
     local dump_raw="$1" package_id="$2" wanted="$3" component_lines
     if component_lines="$(awk -v wanted="$wanted" -v package="$package_id" '
@@ -141,7 +194,7 @@ main() {
             local activities_json services_json receivers_json providers_json
             local -a apk_paths=()
             package_id="${action#package-info:}"
-            paths_raw="$(run_device_bounded pm path --user 0 "$package_id" 2>/dev/null)" || {
+            paths_raw="$(api_capture_device_output "$API_MAX_PATHS_BYTES" pm path --user 0 "$package_id")" || {
                 json_error "Android could not resolve this package." 5
                 return $?
             }
@@ -159,7 +212,12 @@ main() {
                 json_error "Package is not installed for Android user 0, or Android returned an invalid APK path." 5
                 return $?
             }
-            dump_raw="$(run_device_bounded dumpsys package "$package_id" 2>/dev/null || true)"
+            local dump_status=0 metadata_limited=false
+            dump_raw="$(api_capture_device_output "$API_MAX_DUMPSYS_BYTES" dumpsys package "$package_id")" || dump_status=$?
+            if (( dump_status != 0 )); then
+                dump_raw=""
+                [[ "$API_OUTPUT_LIMIT_EXCEEDED" == 1 ]] && metadata_limited=true
+            fi
             version_name="$(sed -n 's/.*versionName=\([^[:space:]]*\).*/\1/p' <<< "$dump_raw" | head -n 1)"
             version_code="$(sed -n 's/.*versionCode=\([0-9][0-9]*\).*/\1/p' <<< "$dump_raw" | head -n 1)"
             # Android's requested-permissions block is separate from the
@@ -186,6 +244,7 @@ main() {
             providers_json="$(component_section_json "$dump_raw" "$package_id" Providers:)"
             jq -n --arg package "$package_id" --arg backend "$EXEC_TYPE" \
                 --arg version_name "$version_name" --arg version_code "$version_code" \
+                --argjson metadata_limited "$metadata_limited" \
                 --argjson requested_permissions "$permissions_json" \
                 --argjson activities "$activities_json" --argjson services "$services_json" \
                 --argjson receivers "$receivers_json" --argjson providers "$providers_json" \
@@ -197,7 +256,7 @@ main() {
                   permissions_semantics:"requested_only_not_grant_status",
                   components:{activities:$activities,services:$services,receivers:$receivers,providers:$providers},
                   components_semantics:"entries_from_matching_dumpsys_sections_only",
-                  metadata_source:"dumpsys package",read_only:true}' \
+                  metadata_source:"dumpsys package",metadata_limited:$metadata_limited,read_only:true}' \
                 "${apk_paths[@]}"
             ;;
         list-packages)
@@ -208,8 +267,8 @@ main() {
             }
             # Classification is best-effort and read-only. Keep the inventory
             # available when an Android build does not support these filters.
-            system_packages="$(device_package_list system 2>/dev/null || true)"
-            user_packages="$(device_package_list user 2>/dev/null || true)"
+            system_packages="$(api_device_package_list system 2>/dev/null || true)"
+            user_packages="$(api_device_package_list user 2>/dev/null || true)"
             jq -n --arg backend "$EXEC_TYPE" --arg serial "$BACKEND_SERIAL" \
                 --argjson packages "$(printf '%s\n' "$packages" | jq -Rsc 'split("\n") | map(select(length > 0))')" \
                 --argjson system_packages "$(printf '%s\n' "$system_packages" | jq -Rsc 'split("\n") | map(select(length > 0))')" \
