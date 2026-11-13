@@ -119,6 +119,16 @@ class BridgeDisplayStringSafetyTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "unsafe control characters.*components"):
             self._decode(payload)
 
+    def test_sanitizes_bidi_override_in_bridge_error_message(self):
+        payload = {"status": "error", "error": "Permission" + chr(0x202E) + "Denied"}
+        with self.assertRaisesRegex(RuntimeError, "^Permission Denied$"):
+            self._decode(payload)
+
+    def test_sanitizes_bidi_controls_in_stderr_fallback(self):
+        stderr = "Device" + chr(0x202E) + " unavailable"
+        with self.assertRaisesRegex(RuntimeError, "^Device unavailable$"):
+            decode_api_response("not-json", stderr, 1)
+
     def test_accepts_normal_unicode_device_and_package_metadata(self):
         payload = {
             "status": "connected",
