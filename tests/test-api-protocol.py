@@ -203,6 +203,26 @@ class ApiProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "adb: device offline"):
             decode_api_response('{"status":', "adb: device offline", 1)
 
+    def test_invalid_json_stderr_is_normalized_and_bounded(self):
+        stderr = "adb: device offline\\n" + ("x" * 3000)
+        with self.assertRaises(RuntimeError) as raised:
+            decode_api_response('{"status":', stderr, 1)
+        message = str(raised.exception)
+        self.assertEqual(len(message), 2048)
+        self.assertTrue(message.startswith("adb: device offline"))
+        self.assertTrue(message.endswith("..."))
+        self.assertNotIn("\\n", message)
+
+    def test_duplicate_json_key_diagnostic_is_bounded(self):
+        key = "k" * 3000
+        payload = '{"' + key + '":1,"' + key + '":2}'
+        with self.assertRaises(RuntimeError) as raised:
+            decode_api_response(payload, "", 0)
+        message = str(raised.exception)
+        self.assertEqual(len(message), 2048)
+        self.assertTrue(message.startswith("The bridge returned a duplicate JSON key"))
+        self.assertTrue(message.endswith("..."))
+
     def test_nonzero_exit_rejects_success_shaped_payload(self):
         payload = (
             '{"status":"connected","version":"4.4.3","backend":"adb",'
