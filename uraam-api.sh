@@ -260,9 +260,14 @@ main() {
                 "${apk_paths[@]}"
             ;;
         list-packages)
-            local packages system_packages user_packages
-            packages="$(device_package_list active 2>/dev/null)" || {
-                json_error "Android returned no reliable installed-package inventory." 5
+            local packages system_packages user_packages inventory_status
+            packages="$(api_device_package_list active 2>/dev/null)" || {
+                inventory_status=$?
+                if (( inventory_status == 126 )); then
+                    json_error "Android package inventory exceeds the API size limit; no partial inventory was returned." 6
+                else
+                    json_error "Android returned no reliable installed-package inventory." 5
+                fi
                 return $?
             }
             # Classification is best-effort and read-only. Keep the inventory
