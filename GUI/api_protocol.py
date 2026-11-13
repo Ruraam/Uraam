@@ -21,6 +21,16 @@ STRING_FIELDS = {
 }
 COUNT_FIELDS = {"count", "user", "system_count", "user_count", "unclassified_count"}
 COMPONENT_FIELDS = {"activities", "services", "receivers", "providers"}
+KNOWN_JSON_KEYS = (
+    STRING_FIELDS
+    | COUNT_FIELDS
+    | COMPONENT_FIELDS
+    | {
+        "status", "rom", "name", "metadata_limited", "read_only",
+        "classification_available", "packages", "package_types", "paths",
+        "requested_permissions", "components", "error",
+    }
+)
 BIDI_CONTROL_CODEPOINTS = frozenset({
     0x061C,  # Arabic Letter Mark
     0x200E, 0x200F,  # Left-to-Right / Right-to-Left Mark
@@ -39,6 +49,12 @@ def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
         if normalized_key in normalized_keys:
             raise ValueError(
                 f"The bridge returned a duplicate JSON key: '{normalized_key}'."
+            )
+        compatibility_key = unicodedata.normalize("NFKC", key)
+        if key != compatibility_key and compatibility_key in KNOWN_JSON_KEYS:
+            raise ValueError(
+                "The bridge returned a Unicode compatibility alias for "
+                f"the protocol field '{compatibility_key}'."
             )
         normalized_keys.add(normalized_key)
         result[key] = value
