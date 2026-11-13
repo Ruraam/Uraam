@@ -145,9 +145,7 @@ class UraamWindow(Gtk.ApplicationWindow):
         )
         sidebar.append(self.loading_spinner)
 
-        key_controller = Gtk.EventControllerKey()
-        key_controller.connect("key-pressed", self._on_key_pressed)
-        self.add_controller(key_controller)
+        self._install_keyboard_controller()
 
         self.connect("close-request", self._on_close_request)
 
@@ -155,6 +153,12 @@ class UraamWindow(Gtk.ApplicationWindow):
         self._build_packages()
         self._show_view("dashboard")
         self._refresh_device()
+
+    def _install_keyboard_controller(self) -> None:
+        """Attach the keyboard controller to the window's GTK-managed lifecycle."""
+        controller = Gtk.EventControllerKey()
+        controller.connect("key-pressed", self._on_key_pressed)
+        self.add_controller(controller)
 
     def _load_theme(self) -> None:
         """Load the BubbleOS-derived GTK stylesheet when it is available."""
