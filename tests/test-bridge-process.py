@@ -972,6 +972,35 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
             ],
         )
 
+    def test_keyboard_controller_is_connected_and_attached_to_window(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        class FakeController:
+            def __init__(self):
+                self.connections = []
+
+            def connect(self, signal_name, callback):
+                self.connections.append((signal_name, callback))
+
+        controller = FakeController()
+        added = []
+        handler = lambda *_args: False
+        window = type("WindowState", (), {})()
+        window._on_key_pressed = handler
+        window.add_controller = added.append
+
+        with patch.object(
+            uraam_gui,
+            "Gtk",
+            SimpleNamespace(EventControllerKey=lambda: controller),
+        ):
+            uraam_gui.UraamWindow._install_keyboard_controller(window)
+
+        self.assertEqual(added, [controller])
+        self.assertEqual(controller.connections, [("key-pressed", handler)])
+
+
     def test_keyboard_shortcuts_are_ignored_while_window_is_closing(self):
         from types import SimpleNamespace
         from unittest.mock import patch
