@@ -42,9 +42,11 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         )
         process = self._start(code)
         self.assertEqual(process.stdout.readline().strip(), "ready")
+        shutdown = threading.Event()
+        threading.Timer(0.1, shutdown.set).start()
         started = time.monotonic()
         with self.assertRaises(BridgeProcessCancelled):
-            communicate_process(process, threading.Event(), shutdown_grace_seconds=0.3)
+            communicate_process(process, shutdown, shutdown_grace_seconds=0.3)
         self.assertIsNotNone(process.poll())
         self.assertLess(time.monotonic() - started, 3.0)
 
