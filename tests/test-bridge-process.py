@@ -1670,7 +1670,13 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
             f"child = subprocess.Popen([sys.executable, '-c', {child!r}]); "
             "print(child.pid, flush=True); time.sleep(30)"
         )
-        process = self._start(code)
+        process = subprocess.Popen(
+            [sys.executable, "-c", code],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            start_new_session=True,
+        )
         child_pid = None
         try:
             child_pid = int(process.stdout.readline().strip())
