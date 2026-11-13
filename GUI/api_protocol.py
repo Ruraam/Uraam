@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import unicodedata
 from typing import Any
 
 
@@ -30,11 +31,16 @@ BIDI_CONTROL_CODEPOINTS = frozenset({
 
 
 def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
-    """Prevent ambiguous JSON objects from silently overriding earlier fields."""
+    """Reject exact and canonically equivalent keys in each JSON object."""
     result: dict[str, Any] = {}
+    normalized_keys: set[str] = set()
     for key, value in pairs:
-        if key in result:
-            raise ValueError(f"The bridge returned a duplicate JSON key: '{key}'.")
+        normalized_key = unicodedata.normalize("NFC", key)
+        if normalized_key in normalized_keys:
+            raise ValueError(
+                f"The bridge returned a duplicate JSON key: '{normalized_key}'."
+            )
+        normalized_keys.add(normalized_key)
         result[key] = value
     return result
 
