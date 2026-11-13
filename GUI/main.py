@@ -504,10 +504,13 @@ class UraamWindow(Gtk.ApplicationWindow):
             self._view_generation += 1
         self.stack.set_visible_child_name(name)
         active_page = "packages" if name == "package-detail" else name
-        for button, page in (
-            (self.dashboard_button, "dashboard"),
-            (self.packages_button, "packages"),
+        for button_name, page in (
+            ("dashboard_button", "dashboard"),
+            ("packages_button", "packages"),
         ):
+            button = getattr(self, button_name, None)
+            if button is None:
+                continue
             if page == active_page:
                 button.add_css_class("active")
             else:
