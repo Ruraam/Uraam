@@ -894,6 +894,9 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
         window.dashboard_button = FakeButton()
         window.packages_button = FakeButton()
         window._view_generation = 0
+        window._set_accessible_description = (
+            uraam_gui.UraamWindow._set_accessible_description
+        )
 
         uraam_gui.UraamWindow._show_view(window, "package-detail")
 
