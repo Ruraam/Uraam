@@ -39,6 +39,48 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         self.assertEqual(stderr.strip(), "note")
         self.assertEqual(process.returncode, 0)
 
+    def test_closed_stdout_does_not_interrupt_stderr_collection(self):
+        code = (
+            "import os, sys, time; "
+            "os.close(1); time.sleep(0.05); "
+            "print('stderr-still-readable', file=sys.stderr)"
+        )
+        process = self._start(code)
+        stdout, stderr = communicate_process(process, threading.Event())
+
+        self.assertEqual(stdout, "")
+        self.assertEqual(stderr.strip(), "stderr-still-readable")
+        self.assertEqual(process.returncode, 0)
+
+    def test_closed_stderr_does_not_interrupt_stdout_collection(self):
+        code = (
+            "import os, sys, time; "
+            "os.close(2); time.sleep(0.05); "
+            "print('stdout-still-readable', flush=True)"
+        )
+        process = self._start(code)
+        stdout, stderr = communicate_process(process, threading.Event())
+
+        self.assertEqual(stdout.strip(), "stdout-still-readable")
+        self.assertEqual(stderr, "")
+        self.assertEqual(process.returncode, 0)
+
+    def test_closed_output_pipes_still_enforce_process_deadline(self):
+        process = self._start(
+            "import os, time; os.close(1); os.close(2); time.sleep(30)"
+        )
+        started = time.monotonic()
+        with self.assertRaises(BridgeProcessTimeout):
+            communicate_process(
+                process,
+                threading.Event(),
+                timeout_seconds=0.2,
+                poll_interval=0.01,
+            )
+
+        self.assertIsNotNone(process.poll())
+        self.assertLess(time.monotonic() - started, 2.0)
+
     def test_completed_leader_does_not_leave_pipe_closing_descendant(self):
         child = (
             "import os, signal, time; "
