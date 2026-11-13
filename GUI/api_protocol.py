@@ -94,7 +94,7 @@ def _validate_display_string(value: str, field: str) -> None:
 
 
 def _validate_json_string(value: str, field: str) -> None:
-    """Reject unsafe or oversized strings anywhere in the JSON document."""
+    """Bound the UTF-8 size of every string in the JSON document."""
     if len(value.encode("utf-8", errors="surrogatepass")) > MAX_JSON_STRING_BYTES:
         raise RuntimeError(
             f"The bridge JSON contains a string exceeding the "
