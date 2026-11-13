@@ -106,14 +106,30 @@ class UraamWindow(Gtk.ApplicationWindow):
         self.dashboard_button = dashboard_button
         dashboard_button.add_css_class("uraam-nav-button")
         self._set_accessible_label(dashboard_button, "Open dashboard")
+        dashboard_button.set_tooltip_text("Open dashboard · Ctrl+1")
+        self._set_accessible_description(
+            dashboard_button, "Keyboard shortcut: Ctrl+1. Current page is indicated visually."
+        )
         dashboard_button.connect("clicked", lambda _button: self._show_view("dashboard"))
         sidebar.append(dashboard_button)
         packages_button = Gtk.Button(label="▦  Applications")
         self.packages_button = packages_button
         packages_button.add_css_class("uraam-nav-button")
         self._set_accessible_label(packages_button, "Open installed applications")
+        packages_button.set_tooltip_text("Open installed applications · Ctrl+2")
+        self._set_accessible_description(
+            packages_button, "Keyboard shortcut: Ctrl+2. Current page is indicated visually."
+        )
         packages_button.connect("clicked", self._on_packages)
         sidebar.append(packages_button)
+
+        shortcut_hint = Gtk.Label(
+            label="SHORTCUTS\nCtrl+1  Dashboard\nCtrl+2  Applications\nEsc  Back from details",
+            xalign=0,
+        )
+        shortcut_hint.set_wrap(True)
+        shortcut_hint.add_css_class("uraam-shortcut-hint")
+        sidebar.append(shortcut_hint)
 
         self.status_label = Gtk.Label(label="Checking device connection…", xalign=0)
         self.status_label.set_wrap(True)
@@ -163,6 +179,14 @@ class UraamWindow(Gtk.ApplicationWindow):
         widget.update_property(
             [Gtk.AccessibleProperty.LABEL],
             [label],
+        )
+
+    @staticmethod
+    def _set_accessible_description(widget: Gtk.Widget, description: str) -> None:
+        """Expose shortcut guidance and navigation state to assistive technology."""
+        widget.update_property(
+            [Gtk.AccessibleProperty.DESCRIPTION],
+            [description],
         )
 
     @staticmethod
@@ -513,8 +537,14 @@ class UraamWindow(Gtk.ApplicationWindow):
                 continue
             if page == active_page:
                 button.add_css_class("active")
+                state = "Current page"
             else:
                 button.remove_css_class("active")
+                state = "Open page"
+            shortcut = "Ctrl+1" if page == "dashboard" else "Ctrl+2"
+            self._set_accessible_description(
+                button, f"{state}. Keyboard shortcut: {shortcut}."
+            )
 
     def _on_key_pressed(
         self,
