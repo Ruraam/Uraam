@@ -889,6 +889,9 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
             def remove_css_class(self, name):
                 self.classes.discard(name)
 
+            def update_property(self, properties, values):
+                self.accessible_description = (properties, values)
+
         window = type("WindowState", (), {})()
         window.stack = FakeStack()
         window.dashboard_button = FakeButton()
