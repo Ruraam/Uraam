@@ -120,7 +120,7 @@ class BridgeDisplayStringSafetyTests(unittest.TestCase):
             self._decode(payload)
 
     def test_rejects_invisible_format_characters_in_apk_paths(self):
-        for character in ("\\u200b", "\\u2060", "\\ufeff", "\\u00ad"):
+        for character in ("\u200b", "\u2060", "\ufeff", "\u00ad"):
             with self.subTest(codepoint=hex(ord(character))):
                 payload = self._package_detail()
                 payload["paths"] = ["/data/app/base" + character + ".apk"]
@@ -130,7 +130,7 @@ class BridgeDisplayStringSafetyTests(unittest.TestCase):
                     self._decode(payload)
 
     def test_rejects_invisible_format_characters_in_requested_permissions(self):
-        for character in ("\\u200b", "\\u2060", "\\ufeff", "\\u00ad"):
+        for character in ("\u200b", "\u2060", "\ufeff", "\u00ad"):
             with self.subTest(codepoint=hex(ord(character))):
                 payload = self._package_detail()
                 payload["requested_permissions"] = [
@@ -143,7 +143,7 @@ class BridgeDisplayStringSafetyTests(unittest.TestCase):
                     self._decode(payload)
 
     def test_rejects_invisible_format_characters_in_component_names(self):
-        for character in ("\\u200b", "\\u2060", "\\ufeff", "\\u00ad"):
+        for character in ("\u200b", "\u2060", "\ufeff", "\u00ad"):
             with self.subTest(codepoint=hex(ord(character))):
                 payload = self._package_detail()
                 payload["components"] = {
