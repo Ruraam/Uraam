@@ -8,7 +8,11 @@ from typing import Any
 
 MAX_API_RESPONSE_BYTES = 8 * 1024 * 1024
 VALID_STATUSES = {"ok", "connected", "disconnected"}
-STRING_FIELDS = {"backend", "serial", "model", "oem", "version", "package"}
+STRING_FIELDS = {
+    "backend", "serial", "model", "oem", "version", "package",
+    "version_name", "version_code", "permissions_semantics",
+    "components_semantics", "metadata_source",
+}
 COUNT_FIELDS = {"count", "user", "system_count", "user_count", "unclassified_count"}
 COMPONENT_FIELDS = {"activities", "services", "receivers", "providers"}
 
@@ -25,6 +29,10 @@ def _validate_payload_shape(payload: dict[str, Any]) -> None:
             isinstance(value, bool) or not isinstance(value, int) or value < 0
         ):
             raise RuntimeError(f"The bridge returned an invalid '{field}' count.")
+
+    for field in ("metadata_limited", "read_only", "classification_available"):
+        if field in payload and not isinstance(payload[field], bool):
+            raise RuntimeError(f"The bridge returned an invalid '{field}' flag.")
 
     if "rom" in payload and payload["rom"] is not None:
         rom = payload["rom"]
