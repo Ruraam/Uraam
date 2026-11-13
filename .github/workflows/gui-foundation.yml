@@ -15,6 +15,7 @@ on:
       - "tests/test-api-output-limits.sh"
       - "tests/test-bridge-process.py"
       - "tests/test-gui-smoke.py"
+      - "tests/test-api-display-safety.py"
       - ".github/workflows/gui-foundation.yml"
   push:
     branches:
@@ -61,8 +62,9 @@ jobs:
 
       - name: Validate Python syntax and GTK4 bindings
         run: |
-          python3 -m py_compile GUI/main.py GUI/api_protocol.py GUI/bridge_process.py tests/test-api-protocol.py tests/test-bridge-process.py tests/test-gui-smoke.py
+          python3 -m py_compile GUI/main.py GUI/api_protocol.py GUI/bridge_process.py tests/test-api-protocol.py tests/test-bridge-process.py tests/test-gui-smoke.py tests/test-api-display-safety.py
           python3 tests/test-api-protocol.py
+          python3 tests/test-api-display-safety.py
           python3 tests/test-bridge-process.py
           python3 -c "import gi; gi.require_version('Gtk', '4.0'); from gi.repository import Gtk; print(Gtk.get_major_version(), Gtk.get_minor_version())"
 
