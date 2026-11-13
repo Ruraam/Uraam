@@ -18,6 +18,7 @@ from bridge_process import (
     signal_process_group,
 )
 from api_protocol import request_is_current, take_pending_request
+import main as uraam_gui
 
 
 class BridgeProcessLifecycleTests(unittest.TestCase):
@@ -98,6 +99,32 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         with self.assertRaises(BridgeProcessCancelled):
             communicate_process(process, shutdown, shutdown_grace_seconds=0.3)
         self.assertIsNotNone(process.poll())
+
+    def test_gtk_completion_callback_discards_result_after_window_close(self):
+        pending = ("list-packages", lambda _payload, _error: None)
+        window = type(
+            "WindowState",
+            (),
+            {
+                "_closing": True,
+                "_loading": True,
+                "_pending_request": pending,
+            },
+        )()
+        delivered = []
+
+        for _ in range(2):
+            result = uraam_gui.UraamWindow._finish_async(
+                window,
+                lambda payload, error: delivered.append((payload, error)),
+                {"status": "ok"},
+                None,
+            )
+            self.assertEqual(result, uraam_gui.GLib.SOURCE_REMOVE)
+
+        self.assertEqual(delivered, [])
+        self.assertFalse(window._loading)
+        self.assertIsNone(window._pending_request)
 
     def test_completed_response_is_discarded_when_close_precedes_ui_dispatch(self):
         process = self._start("print('response-ready', flush=True)")
