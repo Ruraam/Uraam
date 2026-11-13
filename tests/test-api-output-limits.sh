@@ -6,6 +6,27 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf -- "$TMP_DIR"' EXIT
 
+# The API now performs its own bounded host-side ADB discovery. Provide a
+# deterministic mock transport so this test remains independent of host ADB.
+mkdir -p "$TMP_DIR/bin"
+cat > "$TMP_DIR/bin/adb" <<'ADB'
+#!/usr/bin/env bash
+case "$*" in
+    devices)
+        printf 'List of devices attached\nMOCK-SERIAL\tdevice\n'
+        ;;
+    '-s MOCK-SERIAL get-state')
+        printf 'device\n'
+        ;;
+    *)
+        printf 'Unexpected mock ADB command: %s\n' "$*" >&2
+        exit 1
+        ;;
+esac
+ADB
+chmod 0755 "$TMP_DIR/bin/adb"
+export PATH="$TMP_DIR/bin:$PATH"
+
 cat > "$TMP_DIR/mock-engine.sh" <<'MOCK'
 URAAM_VERSION="5.1.0"
 EXEC_TYPE="ADB"
