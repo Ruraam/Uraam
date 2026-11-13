@@ -43,6 +43,10 @@ run_device_bounded() {
         "pm path --user 0 com.example.demo")
             printf 'package:/data/app/com.example.demo/base.apk\n'
             ;;
+        "pm path --user 0 com.example.partialfailure")
+            printf 'package:/data/app/partial/base.apk\\n'
+            return 23
+            ;;
         "pm path --user 0 com.example.pathboundary")
             # 8-byte "package:" + 119-byte absolute path + newline = 128 bytes.
             printf 'package:/'
@@ -92,6 +96,17 @@ jq -e '
     .metadata_limited == true and
     .read_only == true
 ' <<< "$package_json" >/dev/null
+
+# A failed device command must not turn its partial stdout into valid API data.
+if partial_failure_json="$(bash "$ROOT/uraam-api.sh" package-info:com.example.partialfailure 2>/dev/null)"; then
+    printf '%s\\n' "FAIL: partial output from a failed device command was accepted" >&2
+    exit 1
+fi
+jq -e '
+    .status == "error" and
+    (.error | contains("could not resolve")) and
+    (.paths == null)
+' <<< "$partial_failure_json" >/dev/null
 
 if inventory_json="$(bash "$ROOT/uraam-api.sh" list-packages 2>/dev/null)"; then
     printf '%s\n' "FAIL: oversized inventory was accepted" >&2
