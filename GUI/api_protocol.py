@@ -42,7 +42,7 @@ def _validate_display_string(value: str, field: str) -> None:
         for character in value
     ):
         raise RuntimeError(
-            f"The bridge returned unsafe Unicode or control characters in '{field}'."
+            f"The bridge returned unsafe control characters or unsafe Unicode in '{field}'."
         )
 
 
