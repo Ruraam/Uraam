@@ -165,7 +165,7 @@ def _validate_status_contract(payload: dict[str, Any]) -> None:
             raise RuntimeError("The package-inventory classification availability flag is inconsistent.")
         return
 
-    if "package" in payload:
+    if any(field in payload for field in ("package", "paths", "components", "read_only")):
         required = (
             "backend", "paths", "version_name", "version_code",
             "requested_permissions", "components", "metadata_limited", "read_only",
