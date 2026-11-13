@@ -112,9 +112,11 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         deadline = time.monotonic() + 2.0
         while time.monotonic() < deadline:
             stat_path = Path(f"/proc/{child_pid}/stat")
-            if not stat_path.exists():
+            try:
+                state = stat_path.read_text().split(") ", 1)[1].split()[0]
+            except OSError:
+                # The child may exit between the procfs existence check and read.
                 break
-            state = stat_path.read_text().split(") ", 1)[1].split()[0]
             if state == "Z":
                 break
             time.sleep(0.02)
