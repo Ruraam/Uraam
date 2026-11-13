@@ -83,6 +83,28 @@ class ApiProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "classifications"):
             decode_api_response(payload, "", 0)
 
+    def test_rejects_inventory_counts_that_do_not_match_package_types(self):
+        payload = (
+            '{"status":"ok","backend":"adb","serial":"device-123","user":0,'
+            '"count":2,"packages":["com.example.one","com.example.two"],'
+            '"package_types":{"com.example.one":"system","com.example.two":"user"},'
+            '"system_count":0,"user_count":2,"unclassified_count":0,'
+            '"classification_available":true}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "do not match package types"):
+            decode_api_response(payload, "", 0)
+
+    def test_rejects_inconsistent_classification_available_flag(self):
+        payload = (
+            '{"status":"ok","backend":"adb","serial":"device-123","user":0,'
+            '"count":1,"packages":["com.example.one"],'
+            '"package_types":{"com.example.one":"unknown"},'
+            '"system_count":0,"user_count":0,"unclassified_count":1,'
+            '"classification_available":true}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "availability flag"):
+            decode_api_response(payload, "", 0)
+
     def test_rejects_unrecognized_ok_payload(self):
         with self.assertRaisesRegex(RuntimeError, "recognized payload"):
             decode_api_response('{"status":"ok","count":2}', "", 0)
