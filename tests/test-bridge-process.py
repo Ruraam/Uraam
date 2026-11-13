@@ -100,6 +100,41 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
             communicate_process(process, shutdown, shutdown_grace_seconds=0.3)
         self.assertIsNotNone(process.poll())
 
+    def test_repeated_close_requests_cancel_active_process_only_once(self):
+        from unittest.mock import patch
+
+        process = object()
+        pending = ("list-packages", lambda _payload, _error: None)
+        shutdown = threading.Event()
+        window = type(
+            "WindowState",
+            (),
+            {
+                "_closing": False,
+                "_process_lock": threading.Lock(),
+                "_shutdown_event": shutdown,
+                "_active_process": process,
+                "_pending_request": pending,
+            },
+        )()
+        signalled = []
+
+        with patch.object(
+            uraam_gui,
+            "signal_process_group",
+            side_effect=lambda target, sig: signalled.append((target, sig)),
+        ):
+            first_result = uraam_gui.UraamWindow._on_close_request(window, window)
+            second_result = uraam_gui.UraamWindow._on_close_request(window, window)
+
+        self.assertFalse(first_result)
+        self.assertFalse(second_result)
+        self.assertTrue(window._closing)
+        self.assertTrue(shutdown.is_set())
+        self.assertIsNone(window._pending_request)
+        self.assertEqual(signalled, [(process, signal.SIGTERM)])
+
+
     def test_gtk_completion_callback_discards_result_after_window_close(self):
         pending = ("list-packages", lambda _payload, _error: None)
         window = type(
