@@ -7,6 +7,7 @@ from typing import Any
 
 
 MAX_API_RESPONSE_BYTES = 8 * 1024 * 1024
+MAX_JSON_STRING_BYTES = 1024 * 1024
 MAX_JSON_NESTING = 100
 MAX_JSON_CONTAINER_ENTRIES = 100_000
 VALID_STATUSES = {"ok", "connected", "disconnected"}
@@ -47,10 +48,13 @@ def _validate_json_nesting(value: Any) -> None:
     total_entries = 0
     while pending:
         current, depth = pending.pop()
+        if isinstance(current, str):
+            _validate_json_string(current, "JSON string")
+            continue
         if isinstance(current, dict):
             total_entries += len(current)
             for key in current:
-                _validate_display_string(key, "JSON object key")
+                _validate_json_string(key, "JSON object key")
             children = current.values()
         elif isinstance(current, list):
             total_entries += len(current)
@@ -85,6 +89,16 @@ def _validate_display_string(value: str, field: str) -> None:
     ):
         raise RuntimeError(
             f"The bridge returned unsafe control characters or unsafe Unicode in '{field}'."
+        )
+
+
+def _validate_json_string(value: str, field: str) -> None:
+    """Reject unsafe or oversized strings anywhere in the JSON document."""
+    _validate_display_string(value, field)
+    if len(value.encode("utf-8")) > MAX_JSON_STRING_BYTES:
+        raise RuntimeError(
+            f"The bridge JSON contains a string exceeding the "
+            f"{MAX_JSON_STRING_BYTES // (1024 * 1024)} MiB safety limit."
         )
 
 
