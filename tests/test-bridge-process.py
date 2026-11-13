@@ -162,11 +162,16 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
 
     def test_selecting_the_already_visible_view_does_not_invalidate_request(self):
         class FakeStack:
-            def get_visible_child_name(self):
-                return "packages"
+            def __init__(self):
+                self.visible = "packages"
+                self.set_calls = 0
 
-            def set_visible_child_name(self, _name):
-                raise AssertionError("same-view navigation must not reset the stack")
+            def get_visible_child_name(self):
+                return self.visible
+
+            def set_visible_child_name(self, name):
+                self.set_calls += 1
+                self.visible = name
 
         window = type(
             "WindowState",
@@ -175,6 +180,7 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         )()
         uraam_gui.UraamWindow._show_view(window, "packages")
         self.assertEqual(window._view_generation, 9)
+        self.assertEqual(window.stack.set_calls, 1)
 
     def test_completed_response_is_discarded_when_close_precedes_ui_dispatch(self):
         process = self._start("print('response-ready', flush=True)")
