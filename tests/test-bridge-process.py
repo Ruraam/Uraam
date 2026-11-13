@@ -797,6 +797,11 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
                     return {"status": "connected"}
 
                 window._api_call = api_call
+                window._finish_async = lambda callback, payload, error: (
+                    uraam_gui.UraamWindow._finish_async(
+                        window, callback, payload, error
+                    )
+                )
 
                 def queue_idle(callback, *args):
                     idle_callbacks.append((callback, args))
