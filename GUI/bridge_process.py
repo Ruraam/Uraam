@@ -20,10 +20,9 @@ class BridgeProcessTimeout(RuntimeError):
 
 def signal_process_group(process: subprocess.Popen[str], sig: int) -> None:
     """Signal only the isolated process group created with start_new_session=True."""
-    if process.poll() is not None:
-        return
     try:
-        os.killpg(process.pid, sig)
+        # The group can outlive its leader when a child inherited our pipes.
+        # Keep signalling the original PGID until communicate() reaps the group.
     except ProcessLookupError:
         pass
 
