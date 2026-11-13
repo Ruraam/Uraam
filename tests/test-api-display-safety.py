@@ -125,7 +125,7 @@ class BridgeDisplayStringSafetyTests(unittest.TestCase):
                 payload = self._package_detail()
                 payload["paths"] = ["/data/app/base" + character + ".apk"]
                 with self.assertRaisesRegex(
-                    RuntimeError, "invisible Unicode format characters.*paths"
+                    RuntimeError, "invisible or layout-control Unicode characters.*paths"
                 ):
                     self._decode(payload)
 
@@ -138,7 +138,7 @@ class BridgeDisplayStringSafetyTests(unittest.TestCase):
                 ]
                 with self.assertRaisesRegex(
                     RuntimeError,
-                    "invisible Unicode format characters.*requested_permissions",
+                    "invisible or layout-control Unicode characters.*requested_permissions",
                 ):
                     self._decode(payload)
 
@@ -150,7 +150,33 @@ class BridgeDisplayStringSafetyTests(unittest.TestCase):
                     "activities": ["com.example.Main" + character]
                 }
                 with self.assertRaisesRegex(
-                    RuntimeError, "invisible Unicode format characters.*components"
+                    RuntimeError, "invisible or layout-control Unicode characters.*components"
+                ):
+                    self._decode(payload)
+
+    def test_rejects_unicode_line_and_paragraph_separators_in_metadata(self):
+        for character in ("\\u2028", "\\u2029"):
+            with self.subTest(codepoint=hex(ord(character))):
+                payload = self._package_detail()
+                payload["requested_permissions"] = [
+                    "android.permission.CAMERA" + character + "spoofed"
+                ]
+                with self.assertRaisesRegex(
+                    RuntimeError,
+                    "invisible or layout-control Unicode characters.*requested_permissions",
+                ):
+                    self._decode(payload)
+
+    def test_rejects_unicode_noncharacters_in_metadata(self):
+        for character in ("\\ufdd0", "\\ufffe", "\\uffff"):
+            with self.subTest(codepoint=hex(ord(character))):
+                payload = self._package_detail()
+                payload["components"] = {
+                    "activities": ["com.example.Main" + character]
+                }
+                with self.assertRaisesRegex(
+                    RuntimeError,
+                    "invisible or layout-control Unicode characters.*components",
                 ):
                     self._decode(payload)
 
