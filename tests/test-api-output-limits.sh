@@ -82,6 +82,7 @@ jq -e '
 ' <<< "$inventory_json" >/dev/null
 
 # The APK-path ceiling is independent and accepts an exact-boundary response.
+set -x
 export URAAM_API_MAX_PATHS_BYTES=128
 boundary_json="$(bash "$ROOT/uraam-api.sh" package-info:com.example.path-boundary)"
 jq -e '
@@ -89,6 +90,7 @@ jq -e '
     (.paths | length == 1) and
     (.paths[0] | length == 119)
 ' <<< "$boundary_json" >/dev/null
+set +x
 
 if path_overflow_json="$(bash "$ROOT/uraam-api.sh" package-info:com.example.path-overflow 2>/dev/null)"; then
     printf '%s\n' "FAIL: oversized APK path output was accepted" >&2
