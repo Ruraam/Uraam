@@ -684,6 +684,9 @@ class UraamWindow(Gtk.ApplicationWindow):
         if not isinstance(package_label, Gtk.Label):
             return
         package = package_label.get_text()
+        # Each activation is a distinct request, even when the user returns to
+        # the same package (A → B → A) before an earlier response is delivered.
+        self._package_request_generation += 1
         self._selected_package = package
         self.package_detail_name.set_text(package)
         self.package_detail_status.set_text("Querying Android using read-only commands…")
