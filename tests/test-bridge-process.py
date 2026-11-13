@@ -202,6 +202,55 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         self.assertEqual(delivered, [])
 
 
+    def test_multiple_queued_completions_after_close_are_all_discarded(self):
+        class ForbiddenWidget:
+            def __getattr__(self, name):
+                raise AssertionError(f"closed window widget accessed: {name}")
+
+        shutdown = threading.Event()
+        window = type(
+            "WindowState",
+            (),
+            {
+                "_closing": False,
+                "_loading": True,
+                "_pending_request": ("list-packages", lambda *_args: None),
+                "_process_lock": threading.Lock(),
+                "_shutdown_event": shutdown,
+                "_active_process": None,
+                "loading_spinner": ForbiddenWidget(),
+                "refresh_button": ForbiddenWidget(),
+                "status_label": ForbiddenWidget(),
+            },
+        )()
+        delivered = []
+        callbacks = [
+            lambda payload, error, index=index: delivered.append(
+                (index, payload, error)
+            )
+            for index in range(3)
+        ]
+
+        close_result = uraam_gui.UraamWindow._on_close_request(window, window)
+        completion_results = [
+            uraam_gui.UraamWindow._finish_async(
+                window, callback, {"sequence": index}, None
+            )
+            for index, callback in enumerate(callbacks)
+        ]
+
+        self.assertFalse(close_result)
+        self.assertTrue(shutdown.is_set())
+        self.assertTrue(window._closing)
+        self.assertIsNone(window._pending_request)
+        self.assertFalse(window._loading)
+        self.assertEqual(
+            completion_results,
+            [uraam_gui.GLib.SOURCE_REMOVE] * len(callbacks),
+        )
+        self.assertEqual(delivered, [])
+
+
     def test_rapid_navigation_invalidates_an_older_inventory_callback(self):
         class FakeStack:
             def __init__(self):
