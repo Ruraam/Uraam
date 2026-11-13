@@ -37,6 +37,7 @@ class UraamWindow(Gtk.ApplicationWindow):
         self._selected_package: str | None = None
         self._packages: list[str] = []
         self._package_types: dict[str, str] = {}
+        self._package_classification = "Inventory not loaded"
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.set_child(outer)
@@ -245,6 +246,14 @@ class UraamWindow(Gtk.ApplicationWindow):
         self.package_list.set_activate_on_single_click(True)
         self.package_list.connect("row-activated", self._on_package_activated)
         self.package_list.add_css_class("boxed-list")
+        self._package_empty_label = Gtk.Label(
+            label="No packages to display.", xalign=0.5
+        )
+        self._package_empty_label.set_wrap(True)
+        self._package_empty_label.add_css_class("dim-label")
+        self._package_empty_label.set_margin_top(24)
+        self._package_empty_label.set_margin_bottom(24)
+        self.package_list.set_placeholder(self._package_empty_label)
         scroller.set_child(self.package_list)
         page.append(scroller)
         self.stack.add_named(page, "packages")
@@ -363,6 +372,7 @@ class UraamWindow(Gtk.ApplicationWindow):
         self._selected_package = None
         self._packages = []
         self._package_types = {}
+        self._package_classification = message
         while child := self.package_list.get_first_child():
             self.package_list.remove(child)
         self.package_summary.set_text(message)
@@ -458,8 +468,8 @@ class UraamWindow(Gtk.ApplicationWindow):
             f"{payload.get('user_count', 0)} user · "
             f"{payload.get('unclassified_count', len(self._packages))} unclassified"
         )
-        self.package_summary.set_text(
-            f"{len(self._packages)} installed package(s) · {classification} · Android user {payload.get('user', 0)} · read-only"
+        self._package_classification = (
+            f"{classification} · Android user {payload.get('user', 0)} · read-only"
         )
         self.inventory_label.set_text(
             f"{len(self._packages)} package(s) detected on the connected Android device."
@@ -603,9 +613,21 @@ class UraamWindow(Gtk.ApplicationWindow):
             line.append(kind_label)
             row.set_child(line)
             self.package_list.append(row)
-        filter_name = ["all", "system", "user", "unclassified"][selected]
+        filter_names = ["all", "system", "user", "unclassified"]
+        filter_name = (
+            filter_names[selected] if 0 <= selected < len(filter_names) else "all"
+        )
+        if visible:
+            self._package_empty_label.set_text("")
+        elif not self._packages:
+            self._package_empty_label.set_text("No inventory loaded. Connect a device and refresh.")
+        else:
+            self._package_empty_label.set_text(
+                "No packages match this search and filter. Try a different query."
+            )
         self.package_summary.set_text(
-            f"{len(visible)} / {len(self._packages)} package(s) · {filter_name} · read-only"
+            f"{len(visible)} / {len(self._packages)} package(s) · {filter_name} · "
+            f"{self._package_classification}"
         )
 
 
