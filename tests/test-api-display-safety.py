@@ -35,7 +35,7 @@ class BridgeDisplayStringSafetyTests(unittest.TestCase):
             "version": "5.1.0",
             "backend": "adb",
             "serial": "device-123",
-            "model": "Pixel\\u202eexe",
+            "model": "Pixel\u202eexe",
             "oem": "google",
             "rom": {"name": "Android", "version": "15"},
         }
