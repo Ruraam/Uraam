@@ -164,6 +164,33 @@ class ApiProtocolTests(unittest.TestCase):
         self.assertIn(decomposed_key, decoded["future_metrics"])
         self.assertEqual(decoded["future_metrics"][decomposed_key], "ok")
 
+    def test_rejects_compatibility_unicode_alias_of_known_top_level_field(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"ｓｔａｔｕｓ":"spoofed"}}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "compatibility alias.*status"):
+            decode_api_response(payload, "", 0)
+
+    def test_rejects_compatibility_unicode_alias_of_nested_known_field(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google",'
+            '"rom":{"ｎａｍｅ":"spoofed"}}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "compatibility alias.*name"):
+            decode_api_response(payload, "", 0)
+
+    def test_accepts_unrelated_compatibility_unicode_extension_key(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"Ｆｕｔｕｒｅ":"ok"}}'
+        )
+        decoded = decode_api_response(payload, "", 0)
+        self.assertEqual(decoded["future_metrics"], {"Ｆｕｔｕｒｅ": "ok"})
+
     def test_accepts_valid_unicode_keys_in_unknown_extensions(self):
         payload = (
             '{"status":"connected","version":"4.4.3","backend":"adb",'
