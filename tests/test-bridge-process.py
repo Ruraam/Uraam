@@ -43,7 +43,7 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
     def test_invalid_utf8_stdout_is_rejected_instead_of_replaced(self):
         process = self._start(
             "import sys; "
-            "sys.stdout.buffer.write(b'{\\\"status\\\":\\\"ok\\\",\\\"bad\\\":\\\"\\\\xff\\\"}'); "
+            "sys.stdout.buffer.write(b'{\\\"status\\\":\\\"ok\\\",\\\"bad\\\":\\\"\\xff\\\"}'); "
             "sys.stdout.flush()"
         )
 
