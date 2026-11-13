@@ -38,6 +38,36 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         self.assertEqual(stderr.strip(), "note")
         self.assertEqual(process.returncode, 0)
 
+    def test_completed_leader_does_not_leave_pipe_closing_descendant(self):
+        child = (
+            "import os, signal, time; "
+            "signal.signal(signal.SIGTERM, signal.SIG_IGN); "
+            "os.close(1); os.close(2); time.sleep(30)"
+        )
+        code = (
+            "import subprocess, sys, time; "
+            f"child = subprocess.Popen([sys.executable, '-c', {child!r}]); "
+            "print(child.pid, flush=True); time.sleep(0.1)"
+        )
+        process = self._start(code)
+        stdout, _stderr = communicate_process(process, threading.Event())
+        child_pid = int(stdout.strip())
+        self.assertIsNotNone(process.poll())
+
+        # The bridge leader has exited and its child closed both inherited
+        # pipes, but the child must not remain runnable in the isolated group.
+        deadline = time.monotonic() + 2.0
+        while time.monotonic() < deadline:
+            stat_path = Path(f"/proc/{child_pid}/stat")
+            if not stat_path.exists():
+                break
+            state = stat_path.read_text().split(") ", 1)[1].split()[0]
+            if state == "Z":
+                break
+            time.sleep(0.02)
+        else:
+            self.fail("descendant survived successful bridge completion")
+
     def test_shutdown_cancels_process_group(self):
         code = (
             "import subprocess, sys, time; "
