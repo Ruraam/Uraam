@@ -135,6 +135,36 @@ class ApiProtocolTests(unittest.TestCase):
                 "", 0
             )
 
+    def test_rejects_duplicate_unicode_json_keys_after_escape_decoding(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"caf\\u00e9":1,"café":2}}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "duplicate JSON key.*café"):
+            decode_api_response(payload, "", 0)
+
+    def test_accepts_valid_unicode_keys_in_unknown_extensions(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"résumé":"ok","東京":"ok","emoji_🚀":"ok"}}'
+        )
+        decoded = decode_api_response(payload, "", 0)
+        self.assertEqual(
+            decoded["future_metrics"],
+            {"résumé": "ok", "東京": "ok", "emoji_🚀": "ok"},
+        )
+
+    def test_rejects_bidi_control_in_unknown_extension_object_key(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"safe\\u202ehidden":1}}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "unsafe control characters or unsafe Unicode"):
+            decode_api_response(payload, "", 0)
+
     def test_rejects_non_standard_json_constants(self):
         with self.assertRaisesRegex(RuntimeError, "non-standard JSON constant"):
             decode_api_response('{"status":"ok","value":NaN}', "", 0)
