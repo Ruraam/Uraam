@@ -131,6 +131,12 @@ window.uraam-window button.uraam-nav-button {
   background: rgba(15, 23, 42, 0.55);
   border-color: rgba(125, 211, 252, 0.12);
 }
+window.uraam-window button.uraam-nav-button.active {
+  background: linear-gradient(100deg, rgba(34, 211, 238, 0.30), rgba(99, 102, 241, 0.24));
+  border-color: rgba(103, 232, 249, 0.82);
+  box-shadow: inset 3px 0 0 #67e8f9, 0 0 14px rgba(34, 211, 238, 0.12);
+}
+
 window.uraam-window button.uraam-nav-button:focus,
 window.uraam-window button.uraam-nav-button:hover {
   background: linear-gradient(100deg, rgba(34, 211, 238, 0.18), rgba(99, 102, 241, 0.16));
