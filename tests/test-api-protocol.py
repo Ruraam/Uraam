@@ -7,7 +7,11 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "GUI"))
-from api_protocol import decode_api_response
+from api_protocol import (
+    decode_api_response,
+    device_identity,
+    inventory_matches_device,
+)
 
 
 class ApiProtocolTests(unittest.TestCase):
@@ -88,6 +92,89 @@ class ApiProtocolTests(unittest.TestCase):
     def test_error_without_message_is_safe(self):
         with self.assertRaisesRegex(RuntimeError, "URAAM request failed"):
             decode_api_response('{"status":"error","error":null}', "", 1)
+
+
+class InventoryIdentityTests(unittest.TestCase):
+    def setUp(self):
+        self.device = {
+            "status": "connected",
+            "backend": "adb",
+            "serial": "device-123",
+        }
+        self.inventory = {
+            "status": "ok",
+            "backend": "adb",
+            "serial": "device-123",
+            "packages": ["com.example.app"],
+        }
+        self.identity = ("adb", "device-123")
+
+    def test_extracts_identity_only_for_connected_device(self):
+        self.assertEqual(device_identity(self.device), self.identity)
+        self.assertIsNone(device_identity({"status": "disconnected"}))
+        self.assertIsNone(device_identity(None))
+
+    def test_accepts_matching_inventory_for_current_generation(self):
+        self.assertTrue(
+            inventory_matches_device(
+                self.inventory, self.device, 4, 4, self.identity
+            )
+        )
+
+    def test_rejects_stale_generation_even_when_serial_is_unchanged(self):
+        # A disconnect/reconnect can reuse the same backend and serial.
+        # The generation token must still invalidate the earlier response.
+        self.assertFalse(
+            inventory_matches_device(
+                self.inventory, self.device, 3, 4, self.identity
+            )
+        )
+
+    def test_rejects_disconnected_device(self):
+        self.assertFalse(
+            inventory_matches_device(
+                self.inventory,
+                {"status": "disconnected"},
+                4,
+                4,
+                self.identity,
+            )
+        )
+
+    def test_rejects_changed_device_identity(self):
+        replacement = {
+            "status": "connected",
+            "backend": "shizuku",
+            "serial": "device-456",
+        }
+        self.assertFalse(
+            inventory_matches_device(
+                self.inventory, replacement, 4, 4, self.identity
+            )
+        )
+
+    def test_rejects_inventory_from_another_device(self):
+        wrong_inventory = {
+            **self.inventory,
+            "serial": "device-456",
+        }
+        self.assertFalse(
+            inventory_matches_device(
+                wrong_inventory, self.device, 4, 4, self.identity
+            )
+        )
+
+    def test_rejects_missing_expected_identity_or_invalid_inventory(self):
+        self.assertFalse(
+            inventory_matches_device(
+                self.inventory, self.device, 4, 4, None
+            )
+        )
+        self.assertFalse(
+            inventory_matches_device(
+                None, self.device, 4, 4, self.identity
+            )
+        )
 
 
 if __name__ == "__main__":
