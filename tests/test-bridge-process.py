@@ -754,6 +754,84 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
             "Waiting for a fresh selection…",
         )
 
+    def test_real_async_worker_completion_is_discarded_if_close_wins_ui_dispatch(self):
+        from unittest.mock import patch
+
+        class FakeControl:
+            def __init__(self):
+                self.calls = []
+
+            def stop(self):
+                self.calls.append(("stop",))
+
+            def set_sensitive(self, value):
+                self.calls.append(("set_sensitive", value))
+
+        # Exercise both a successful bridge response and a worker-side failure.
+        # In each case the worker queues its GTK callback, then close wins before
+        # the GTK main loop is allowed to dispatch that callback.
+        for api_error in (None, RuntimeError("bridge disconnected")):
+            with self.subTest(api_error=api_error):
+                queued = threading.Event()
+                idle_callbacks = []
+                delivered = []
+                window = type("WindowState", (), {})()
+                window._closing = False
+                window._loading = False
+                window._pending_request = None
+                window._process_lock = threading.Lock()
+                window._shutdown_event = threading.Event()
+                window._active_process = None
+                window.loading_spinner = FakeControl()
+                window.refresh_button = FakeControl()
+                window.status_label = FakeControl()
+
+                def api_call(_command):
+                    if api_error is not None:
+                        raise api_error
+                    return {"status": "connected"}
+
+                window._api_call = api_call
+
+                def queue_idle(callback, *args):
+                    idle_callbacks.append((callback, args))
+                    queued.set()
+                    return 1
+
+                with patch.object(
+                    uraam_gui.GLib, "idle_add", side_effect=queue_idle
+                ):
+                    uraam_gui.UraamWindow._start_async(
+                        window,
+                        "device-info",
+                        lambda payload, error: delivered.append((payload, error)),
+                    )
+                    self.assertTrue(
+                        queued.wait(timeout=3),
+                        "worker did not queue its GTK completion callback",
+                    )
+
+                self.assertEqual(len(idle_callbacks), 1)
+                callback, args = idle_callbacks[0]
+
+                # This is the critical race boundary: bridge work has completed,
+                # but the GTK main loop has not yet delivered its result.
+                self.assertFalse(
+                    uraam_gui.UraamWindow._on_close_request(window, window)
+                )
+                self.assertTrue(window._shutdown_event.is_set())
+                self.assertTrue(window._closing)
+
+                result = callback(*args)
+
+                self.assertEqual(result, uraam_gui.GLib.SOURCE_REMOVE)
+                self.assertFalse(window._loading)
+                self.assertIsNone(window._pending_request)
+                self.assertEqual(delivered, [])
+                self.assertEqual(window.loading_spinner.calls, [])
+                self.assertEqual(window.refresh_button.calls, [])
+                self.assertEqual(window.status_label.calls, [])
+
     def test_completed_response_is_discarded_when_close_precedes_ui_dispatch(self):
         process = self._start("print('response-ready', flush=True)")
         stdout, stderr = communicate_process(process, threading.Event())
