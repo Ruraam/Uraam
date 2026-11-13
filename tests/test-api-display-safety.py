@@ -76,7 +76,7 @@ class BridgeDisplayStringSafetyTests(unittest.TestCase):
             "user": 0,
             "count": 1,
             "packages": [package],
-            "package_types": {package: "user"},
+            "package_types": {"com.example.classified": "user"},
             "system_count": 0,
             "user_count": 1,
             "unclassified_count": 0,
