@@ -735,6 +735,45 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         self.assertIsNotNone(process.poll())
         self.assertLess(time.monotonic() - started, 3.0)
 
+    def test_timeout_kills_descendant_that_ignores_sigterm_and_closes_pipes(self):
+        child = (
+            "import os, signal, time; "
+            "signal.signal(signal.SIGTERM, signal.SIG_IGN); "
+            "os.close(1); os.close(2); time.sleep(30)"
+        )
+        code = (
+            "import subprocess, sys, time; "
+            f"child = subprocess.Popen([sys.executable, '-c', {child!r}]); "
+            "print(child.pid, flush=True); time.sleep(30)"
+        )
+        process = self._start(code)
+        child_pid = int(process.stdout.readline().strip())
+
+        started = time.monotonic()
+        with self.assertRaises(BridgeProcessTimeout):
+            communicate_process(
+                process,
+                threading.Event(),
+                timeout_seconds=0.2,
+                poll_interval=0.05,
+                shutdown_grace_seconds=0.2,
+            )
+        self.assertIsNotNone(process.poll())
+        self.assertLess(time.monotonic() - started, 3.0)
+
+        # SIGKILL can leave an orphaned zombie briefly, but never a runnable child.
+        deadline = time.monotonic() + 2.0
+        while time.monotonic() < deadline:
+            stat_path = Path(f"/proc/{child_pid}/stat")
+            if not stat_path.exists():
+                break
+            state = stat_path.read_text().split(") ", 1)[1].split()[0]
+            if state == "Z":
+                break
+            time.sleep(0.02)
+        else:
+            self.fail("descendant survived timeout as a running process")
+
     def test_timeout_kills_descendant_after_leader_exits(self):
         code = (
             "import subprocess, sys; "
