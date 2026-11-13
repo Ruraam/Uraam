@@ -13,7 +13,7 @@ The first foundation milestone is deliberately read-only:
 - `uraam-gui` launches the optional Python / GTK4 desktop interface.
 - The GUI can display connection information, the package inventory and per-package details.
 
-The API emits one JSON object on standard output. Diagnostic messages from the existing terminal-oriented engine are suppressed by the adapter. Errors are returned as JSON and a non-zero exit status.
+The API emits one JSON object on standard output. Diagnostic messages from the existing terminal-oriented engine are suppressed by the adapter. Errors are returned as JSON and a non-zero exit status. Device output is streamed through API-specific byte ceilings before being retained: package inventories default to 1 MiB, `dumpsys package` metadata to 2 MiB, and APK path output to 64 KiB. These limits can be lowered or raised with `URAAM_API_MAX_INVENTORY_BYTES`, `URAAM_API_MAX_DUMPSYS_BYTES`, and `URAAM_API_MAX_PATHS_BYTES`, with hard maxima of 8 MiB, 8 MiB and 1 MiB respectively. Oversized inventories fail closed and never return a truncated package list. Oversized `dumpsys` output preserves already validated APK paths but marks metadata as limited and returns version, permission and component metadata as unknown. The GTK protocol decoder independently rejects JSON responses larger than 8 MiB.
 
 ## Architecture
 
