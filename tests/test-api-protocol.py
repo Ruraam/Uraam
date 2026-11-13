@@ -256,6 +256,54 @@ class ApiProtocolTests(unittest.TestCase):
         decoded = decode_api_response(payload, "", 0)
         self.assertEqual(len(decoded["future_values"]), value_count)
 
+    def test_accepts_exact_json_container_entry_limit_in_object(self):
+        top_level_entries = 8
+        object_entry_count = MAX_JSON_CONTAINER_ENTRIES - top_level_entries
+        entries = ",".join(
+            '"key_' + str(index) + '":0'
+            for index in range(object_entry_count)
+        )
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{' + entries + '}}'
+        )
+        decoded = decode_api_response(payload, "", 0)
+        self.assertEqual(len(decoded["future_metrics"]), object_entry_count)
+
+    def test_rejects_json_object_over_global_container_entry_limit(self):
+        top_level_entries = 8
+        object_entry_count = MAX_JSON_CONTAINER_ENTRIES - top_level_entries + 1
+        entries = ",".join(
+            '"key_' + str(index) + '":0'
+            for index in range(object_entry_count)
+        )
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{' + entries + '}}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "too many container entries"):
+            decode_api_response(payload, "", 0)
+
+    def test_rejects_mixed_nested_objects_and_lists_over_entry_limit(self):
+        # Count all containers together: 8 top-level keys, 2 extension keys,
+        # 50,000 list items, and 50,001 nested object keys.
+        label_count = MAX_JSON_CONTAINER_ENTRIES // 2
+        sample_count = MAX_JSON_CONTAINER_ENTRIES - 8 - 2 - label_count + 1
+        labels = ",".join('"x"' for _ in range(label_count))
+        samples = ",".join(
+            '"sample_' + str(index) + '":0'
+            for index in range(sample_count)
+        )
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"labels":[' + labels + '],"samples":{' + samples + '}}}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "too many container entries"):
+            decode_api_response(payload, "", 0)
+
     def test_rejects_oversized_string_in_unknown_extension_fields(self):
         payload = __import__("json").dumps({
             "status": "connected",
