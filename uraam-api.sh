@@ -20,12 +20,12 @@ API_MAX_INVENTORY_BYTES="$(api_limit_or_default "${URAAM_API_MAX_INVENTORY_BYTES
 API_MAX_DUMPSYS_BYTES="$(api_limit_or_default "${URAAM_API_MAX_DUMPSYS_BYTES:-2097152}" 2097152 8388608)"
 API_MAX_PATHS_BYTES="$(api_limit_or_default "${URAAM_API_MAX_PATHS_BYTES:-65536}" 65536 1048576)"
 
-# Stream through head and append a sentinel so command substitution cannot
-# strip trailing newline bytes. Read only limit+1 data bytes before rejecting.
+# Capture only limit+1 data bytes plus a sentinel, then drain the pipe so
+# the device command can finish without SIGPIPE. The drain stores no output.
 api_capture_device_output() {
     local limit="$1" output status
     shift
-    output="$({ run_device_bounded "$@" 2>/dev/null; status=$?; printf X || :; exit "$status"; } | head -c "$((limit + 2))")"
+    output="$({ run_device_bounded "$@" 2>/dev/null; status=$?; printf X; exit "$status"; } | { head -c "$((limit + 2))"; cat >/dev/null; })"
     status=$?
     local LC_ALL=C
     if (( ${#output} > limit + 1 )); then
