@@ -325,6 +325,54 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         self.assertEqual(delivered, [])
 
 
+    def test_coalesced_request_is_discarded_if_window_closes_before_completion(self):
+        class ForbiddenWidget:
+            def __getattr__(self, name):
+                raise AssertionError(f"closed window widget accessed: {name}")
+
+        shutdown = threading.Event()
+        started = []
+        delivered = []
+        window = type(
+            "WindowState",
+            (),
+            {
+                "_closing": False,
+                "_loading": True,
+                "_pending_request": None,
+                "_process_lock": threading.Lock(),
+                "_shutdown_event": shutdown,
+                "_active_process": None,
+                "status_label": type(
+                    "FakeStatusLabel",
+                    (),
+                    {"set_text": lambda self, _message: None},
+                )(),
+                "_start_async": lambda self, *args: started.append(args),
+            },
+        )()
+        callback = lambda payload, error: delivered.append((payload, error))
+
+        # A request arriving during active work is coalesced, not started yet.
+        uraam_gui.UraamWindow._run_async(window, "list-packages", callback)
+        self.assertEqual(window._pending_request, ("list-packages", callback))
+
+        # Closing before the active completion must discard the queued action.
+        close_result = uraam_gui.UraamWindow._on_close_request(window, window)
+        completion_result = uraam_gui.UraamWindow._finish_async(
+            window, lambda *_args: delivered.append(("old", None)), {"ok": True}, None
+        )
+
+        self.assertFalse(close_result)
+        self.assertTrue(shutdown.is_set())
+        self.assertTrue(window._closing)
+        self.assertIsNone(window._pending_request)
+        self.assertFalse(window._loading)
+        self.assertEqual(completion_result, uraam_gui.GLib.SOURCE_REMOVE)
+        self.assertEqual(started, [])
+        self.assertEqual(delivered, [])
+
+
     def test_multiple_queued_completions_after_close_are_all_discarded(self):
         class ForbiddenWidget:
             def __getattr__(self, name):
