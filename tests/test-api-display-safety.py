@@ -155,7 +155,7 @@ class BridgeDisplayStringSafetyTests(unittest.TestCase):
                     self._decode(payload)
 
     def test_rejects_unicode_line_and_paragraph_separators_in_metadata(self):
-        for character in ("\\u2028", "\\u2029"):
+        for character in ("\u2028", "\u2029"):
             with self.subTest(codepoint=hex(ord(character))):
                 payload = self._package_detail()
                 payload["requested_permissions"] = [
@@ -168,7 +168,7 @@ class BridgeDisplayStringSafetyTests(unittest.TestCase):
                     self._decode(payload)
 
     def test_rejects_unicode_noncharacters_in_metadata(self):
-        for character in ("\\ufdd0", "\\ufffe", "\\uffff"):
+        for character in ("\ufdd0", "\ufffe", "\uffff"):
             with self.subTest(codepoint=hex(ord(character))):
                 payload = self._package_detail()
                 payload["components"] = {
