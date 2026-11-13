@@ -386,6 +386,33 @@ class ApiProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "backend"):
             decode_api_response(__import__("json").dumps(payload), "", 0)
 
+    def test_accepts_unknown_top_level_extension_fields(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_capability":{"read_only":true},"trace_id":"request-123"}'
+        )
+        decoded = decode_api_response(payload, "", 0)
+        self.assertEqual(decoded["trace_id"], "request-123")
+        self.assertEqual(decoded["future_capability"], {"read_only": True})
+
+    def test_rejects_ok_response_with_only_unknown_payload_fields(self):
+        payload = (
+            '{"status":"ok","future_payload":{"packages":["com.example.app"]}}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "no recognized payload type"):
+            decode_api_response(payload, "", 0)
+
+    def test_rejects_unknown_package_component_categories(self):
+        payload = (
+            '{"status":"ok","package":"com.example.app","backend":"adb",'
+            '"paths":["/data/app/base.apk"],"version_name":null,"version_code":null,'
+            '"requested_permissions":null,"components":{"activities":[],'
+            '"widgets":["ExampleWidget"]},"metadata_limited":false,"read_only":true}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "component metadata"):
+            decode_api_response(payload, "", 0)
+
     def test_error_without_message_is_safe(self):
         with self.assertRaisesRegex(RuntimeError, "URAAM request failed"):
             decode_api_response('{"status":"error","error":null}', "", 1)
