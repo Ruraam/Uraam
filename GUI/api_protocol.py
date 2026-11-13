@@ -149,9 +149,15 @@ def _validate_technical_metadata_strings(values: list[str], field: str) -> None:
     """Reject invisible Unicode format controls in machine-readable metadata."""
     for value in values:
         _validate_display_string(value, field)
-        if any(unicodedata.category(character) == "Cf" for character in value):
+        if any(
+            unicodedata.category(character) in {"Cf", "Zl", "Zp"}
+            or 0xFDD0 <= ord(character) <= 0xFDEF
+            or ord(character) & 0xFFFF in {0xFFFE, 0xFFFF}
+            for character in value
+        ):
             raise RuntimeError(
-                f"The bridge returned invisible Unicode format characters in '{field}'."
+                f"The bridge returned invisible or layout-control Unicode characters "
+                f"in '{field}'."
             )
 
 
