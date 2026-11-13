@@ -52,6 +52,26 @@ class ApiProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "8 MiB"):
             decode_api_response(oversized, "", 0)
 
+    def test_rejects_non_list_package_inventory(self):
+        with self.assertRaisesRegex(RuntimeError, "package inventory"):
+            decode_api_response('{"status":"ok","packages":"com.example.app"}', "", 0)
+
+    def test_rejects_non_string_package_entries(self):
+        with self.assertRaisesRegex(RuntimeError, "package inventory"):
+            decode_api_response('{"status":"ok","packages":["com.example.app",7]}', "", 0)
+
+    def test_rejects_invalid_rom_shape(self):
+        with self.assertRaisesRegex(RuntimeError, "ROM metadata"):
+            decode_api_response('{"status":"connected","rom":"Android 15"}', "", 0)
+
+    def test_rejects_invalid_apk_paths(self):
+        with self.assertRaisesRegex(RuntimeError, "APK path metadata"):
+            decode_api_response('{"status":"ok","paths":["/data/app/base.apk",null]}', "", 0)
+
+    def test_rejects_invalid_component_metadata(self):
+        with self.assertRaisesRegex(RuntimeError, "component metadata"):
+            decode_api_response('{"status":"ok","components":{"activities":"MainActivity"}}', "", 0)
+
     def test_error_without_message_is_safe(self):
         with self.assertRaisesRegex(RuntimeError, "URAAM request failed"):
             decode_api_response('{"status":"error","error":null}', "", 1)
