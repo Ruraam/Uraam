@@ -39,6 +39,12 @@ class ApiProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "status"):
             decode_api_response('{"status":"maybe"}', "", 0)
 
+    def test_rejects_non_string_status(self):
+        for status in ([], {}):
+            with self.subTest(status=status):
+                with self.assertRaisesRegex(RuntimeError, "status"):
+                    decode_api_response(__import__("json").dumps({"status": status}), "", 0)
+
     def test_surfaces_json_error_payload(self):
         with self.assertRaisesRegex(RuntimeError, "No backend"):
             decode_api_response('{"status":"error","error":"No backend"}', "", 4)
@@ -59,6 +65,13 @@ class ApiProtocolTests(unittest.TestCase):
     def test_rejects_non_string_package_entries(self):
         with self.assertRaisesRegex(RuntimeError, "package inventory"):
             decode_api_response('{"status":"ok","packages":["com.example.app",7]}', "", 0)
+
+    def test_rejects_unhashable_package_classification(self):
+        for kind in ([], {}):
+            with self.subTest(kind=kind):
+                payload = __import__("json").dumps({"status": "ok", "package_types": {"com.example.app": kind}})
+                with self.assertRaisesRegex(RuntimeError, "package classifications"):
+                    decode_api_response(payload, "", 0)
 
     def test_rejects_invalid_rom_shape(self):
         with self.assertRaisesRegex(RuntimeError, "ROM metadata"):
