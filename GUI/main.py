@@ -15,6 +15,7 @@ from api_protocol import (
     coalesce_pending_request,
     decode_api_response,
     device_identity,
+    device_matches_request,
     inventory_matches_device,
     package_detail_request_is_current,
     request_is_current,
@@ -551,8 +552,7 @@ class UraamWindow(Gtk.ApplicationWindow):
             self.status_label.set_text("Device disconnected; inventory discarded")
             return
 
-        if not inventory_matches_device(
-            inventory,
+        if not device_matches_request(
             device,
             expected_generation,
             self._device_generation,
@@ -561,13 +561,29 @@ class UraamWindow(Gtk.ApplicationWindow):
             if device_identity(device) is not None:
                 self._show_device(device, None)
             self._reset_package_views(
-                "Device or inventory identity changed during loading; reload the inventory."
+                "Device identity changed during loading; reload the inventory."
             )
             self.status_label.set_text("Device changed; inventory discarded")
             return
 
+        # A failed inventory is an operation error, not evidence of a device
+        # identity mismatch. Surface the original bridge error after validating
+        # that the same device is still connected.
         if inventory_error:
             self._show_packages(None, inventory_error, expected_generation)
+            return
+
+        if not inventory_matches_device(
+            inventory,
+            device,
+            expected_generation,
+            self._device_generation,
+            expected_identity,
+        ):
+            self._reset_package_views(
+                "Inventory identity did not match the connected device; reload the inventory."
+            )
+            self.status_label.set_text("Inventory discarded; device identity could not be verified")
             return
         self._show_packages(inventory, None, expected_generation)
 
