@@ -219,17 +219,47 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         window._run_async = lambda _command, callback: callbacks.append(callback)
         window._show_view = lambda name: uraam_gui.UraamWindow._show_view(window, name)
 
+        class FakeLabelWidget:
+            def __init__(self, label=""):
+                self.text = label
+
+            def get_text(self):
+                return self.text
+
+        class FakeBoxWidget:
+            def __init__(self):
+                self.child = None
+
+            def get_first_child(self):
+                return self.child
+
+        class FakeRow:
+            def __init__(self, child):
+                self.child = child
+
+            def get_child(self):
+                return self.child
+
         def activate(package):
-            row = uraam_gui.Gtk.ListBoxRow()
-            child = uraam_gui.Gtk.Box()
-            child.append(uraam_gui.Gtk.Label(label=package))
-            row.set_child(child)
+            child = FakeBoxWidget()
+            child.child = FakeLabelWidget(package)
+            row = FakeRow(child)
             uraam_gui.UraamWindow._on_package_activated(window, None, row)
 
-        activate("com.example.alpha")
-        first_generation = window._package_request_generation
-        activate("com.example.beta")
-        activate("com.example.alpha")
+        # Patch only the GTK type checks for this headless unit test. No GTK
+        # widgets are instantiated, so the test is safe without a display.
+        original_label = uraam_gui.Gtk.Label
+        original_box = uraam_gui.Gtk.Box
+        try:
+            uraam_gui.Gtk.Label = FakeLabelWidget
+            uraam_gui.Gtk.Box = FakeBoxWidget
+            activate("com.example.alpha")
+            first_generation = window._package_request_generation
+            activate("com.example.beta")
+            activate("com.example.alpha")
+        finally:
+            uraam_gui.Gtk.Label = original_label
+            uraam_gui.Gtk.Box = original_box
 
         self.assertEqual(len(callbacks), 3)
         self.assertEqual(window._package_request_generation, first_generation + 2)
