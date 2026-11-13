@@ -211,6 +211,23 @@ class ApiProtocolTests(unittest.TestCase):
         self.assertEqual(decoded["future_metrics"]["fractional_exponent"], 1e10)
         self.assertEqual(decoded["future_metrics"]["zero_with_large_exponent"], -0.0)
 
+    def test_accepts_json_at_exact_nesting_limit_in_unknown_extension(self):
+        depth = 100
+        value = "0"
+        for _ in range(depth):
+            value = '{"next":' + value + "}"
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_tree":' + value + "}"
+        )
+        decoded = decode_api_response(payload, "", 0)
+        current = decoded["future_tree"]
+        for _ in range(depth):
+            self.assertEqual(set(current), {"next"})
+            current = current["next"]
+        self.assertEqual(current, 0)
+
     def test_rejects_excessively_nested_json(self):
         payload = '{"status":"ok","padding":' + ("[" * 2000) + "0" + ("]" * 2000) + "}"
         with self.assertRaisesRegex(RuntimeError, "JSON nesting.*safety limit"):
