@@ -19,6 +19,7 @@ from bridge_process import (
     signal_process_group,
 )
 from api_protocol import (
+    _bounded_error_message,
     coalesce_pending_request,
     decode_api_response,
     device_identity,
@@ -396,7 +397,9 @@ class UraamWindow(Gtk.ApplicationWindow):
                 error = None
             except Exception as exc:
                 payload = None
-                error = str(exc)
+                error = _bounded_error_message(
+                    str(exc), "Unable to complete the read-only bridge request."
+                )
             GLib.idle_add(self._finish_async, callback, payload, error)
 
         try:
@@ -414,7 +417,13 @@ class UraamWindow(Gtk.ApplicationWindow):
             self.loading_spinner.stop()
             self.refresh_button.set_sensitive(True)
             self.status_label.set_text("Unable to start bridge request")
-            callback(None, f"Unable to start the read-only bridge request '{command}': {exc}")
+            callback(
+                None,
+                _bounded_error_message(
+                    f"Unable to start the read-only bridge request '{command}': {exc}",
+                    "Unable to start the read-only bridge request.",
+                ),
+            )
 
     def _finish_async(self, callback: Any, payload: Any, error: str | None) -> bool:
         if self._closing:
