@@ -1023,6 +1023,46 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
         )
 
 
+    def test_accessible_control_name_and_guidance_are_both_exposed(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        class FakeWidget:
+            def __init__(self):
+                self.updates = []
+
+            def update_property(self, properties, values):
+                self.updates.append((properties, values))
+
+        label_property = object()
+        description_property = object()
+        fake_gtk = SimpleNamespace(
+            AccessibleProperty=SimpleNamespace(
+                LABEL=label_property,
+                DESCRIPTION=description_property,
+            )
+        )
+        widget = FakeWidget()
+        with patch.object(uraam_gui, "Gtk", fake_gtk):
+            uraam_gui.UraamWindow._set_accessible_label(
+                widget, "Filter packages by category"
+            )
+            uraam_gui.UraamWindow._set_accessible_description(
+                widget, "Choose all, system, user, or unclassified packages."
+            )
+
+        self.assertEqual(
+            widget.updates,
+            [
+                ([label_property], ["Filter packages by category"]),
+                (
+                    [description_property],
+                    ["Choose all, system, user, or unclassified packages."],
+                ),
+            ],
+        )
+
+
     def test_package_metadata_expander_starts_collapsed_and_keeps_child(self):
         from types import SimpleNamespace
         from unittest.mock import patch
