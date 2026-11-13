@@ -137,7 +137,7 @@ class ApiProtocolTests(unittest.TestCase):
             decode_api_response('{"status":"ok","value":NaN}', "", 0)
 
     def test_rejects_excessively_nested_json(self):
-        payload = '{"status":"connected","padding":' + ("[" * 2000) + "0" + ("]" * 2000) + "}"
+        payload = '{"status":"ok","padding":' + ("[" * 2000) + "0" + ("]" * 2000) + "}"
         with self.assertRaisesRegex(RuntimeError, "JSON nesting.*safety limit"):
             decode_api_response(payload, "", 0)
 
