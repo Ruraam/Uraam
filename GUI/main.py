@@ -342,6 +342,24 @@ class UraamWindow(Gtk.ApplicationWindow):
         callback(payload, error)
         return GLib.SOURCE_REMOVE
 
+    def _reset_package_views(self, message: str) -> None:
+        """Remove device-specific data when the bridge cannot confirm a device."""
+        self._packages = []
+        self._package_types = {}
+        while child := self.package_list.get_first_child():
+            self.package_list.remove(child)
+        self.package_summary.set_text(message)
+        self.inventory_label.set_text(message)
+        self.package_detail_name.set_text("Select an application")
+        self.package_detail_status.set_text(message)
+        self._replace_card(self.package_detail_version, "Version", "Not loaded", message)
+        self._replace_card(self.package_detail_path, "APK location", "Not loaded", message)
+        self._replace_card(
+            self.package_detail_permissions, "Requested permissions", "Not loaded", message
+        )
+        for component_name, component_card in self.package_detail_components.items():
+            self._replace_card(component_card, component_name.title(), "Not loaded", message)
+
     def _refresh_device(self) -> None:
         self._run_async("device-info", self._show_device)
 
@@ -351,12 +369,16 @@ class UraamWindow(Gtk.ApplicationWindow):
             self._replace_card(self.device_card, "Device", "Bridge unavailable", error)
             self._replace_card(self.backend_card, "Connection", "Unavailable", "Check ADB / Root / Shizuku")
             self._replace_card(self.rom_card, "System", "—", "No system information")
+            self._replace_card(self.version_card, "URAAM engine", "Unavailable", "Bridge request failed")
+            self._reset_package_views("Device information is unavailable; cached package data was cleared.")
             return
         if payload.get("status") != "connected":
             self.status_label.set_text("No Android device connected")
             self._replace_card(self.device_card, "Device", "No device connected", "Connect via ADB, Root or Shizuku")
             self._replace_card(self.backend_card, "Connection", "Not detected", "ADB · Root · Shizuku")
             self._replace_card(self.rom_card, "System", "—", "Waiting for device information")
+            self._replace_card(self.version_card, "URAAM engine", "5.1.0", "Bash engine · GTK4 frontend")
+            self._reset_package_views("No connected device; package data is not available.")
             return
         self.status_label.set_text("Android device connected")
         self._replace_card(
