@@ -91,6 +91,39 @@ class ApiProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "invalid JSON"):
             decode_api_response("debug line\\n{} ", "", 0)
 
+    def test_rejects_truncated_json(self):
+        with self.assertRaisesRegex(RuntimeError, "truncated JSON"):
+            decode_api_response('{"status":"connected","version":"4.4.3"', "", 0)
+
+    def test_rejects_duplicate_top_level_json_keys(self):
+        with self.assertRaisesRegex(RuntimeError, "duplicate JSON key.*status"):
+            decode_api_response(
+                '{"status":"connected","status":"disconnected"}', "", 0
+            )
+
+    def test_rejects_duplicate_nested_json_keys(self):
+        with self.assertRaisesRegex(RuntimeError, "duplicate JSON key.*name"):
+            decode_api_response(
+                '{"status":"connected","version":"4.4.3","backend":"adb",'
+                '"serial":"device-123","model":"Pixel","oem":"google",'
+                '"rom":{"name":"Android","name":"Other","version":"15"}}',
+                "", 0
+            )
+
+    def test_rejects_non_standard_json_constants(self):
+        with self.assertRaisesRegex(RuntimeError, "non-standard JSON constant"):
+            decode_api_response('{"status":"ok","value":NaN}', "", 0)
+
+    def test_preserves_unknown_fields_for_forward_compatibility(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google",'
+            '"rom":null,"future_field":{"supported":true}}'
+        )
+        self.assertTrue(
+            decode_api_response(payload, "", 0)["future_field"]["supported"]
+        )
+
     def test_rejects_non_object_json(self):
         with self.assertRaisesRegex(RuntimeError, "not an object"):
             decode_api_response("[]", "", 0)
@@ -125,6 +158,17 @@ class ApiProtocolTests(unittest.TestCase):
     def test_rejects_non_list_package_inventory(self):
         with self.assertRaisesRegex(RuntimeError, "package inventory"):
             decode_api_response('{"status":"ok","packages":"com.example.app"}', "", 0)
+
+    def test_rejects_duplicate_package_entries(self):
+        payload = (
+            '{"status":"ok","backend":"adb","serial":"device-123","user":0,'
+            '"count":2,"packages":["com.example.app","com.example.app"],'
+            '"package_types":{"com.example.app":"user"},'
+            '"system_count":0,"user_count":1,"unclassified_count":1,'
+            '"classification_available":true}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "duplicate package"):
+            decode_api_response(payload, "", 0)
 
     def test_rejects_non_string_package_entries(self):
         with self.assertRaisesRegex(RuntimeError, "package inventory"):
