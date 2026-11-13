@@ -25,7 +25,7 @@ API_MAX_PATHS_BYTES="$(api_limit_or_default "${URAAM_API_MAX_PATHS_BYTES:-65536}
 api_capture_device_output() {
     local limit="$1" output status
     shift
-    output="$({ run_device_bounded "$@" 2>/dev/null; status=$?; printf X; exit "$status"; } | head -c "$((limit + 2))")"
+    output="$({ run_device_bounded "$@" 2>/dev/null; status=$?; printf X || :; exit "$status"; } | head -c "$((limit + 2))")"
     status=$?
     local LC_ALL=C
     if (( ${#output} > limit + 1 )); then
