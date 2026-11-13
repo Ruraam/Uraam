@@ -469,13 +469,85 @@ class UraamWindow(Gtk.ApplicationWindow):
 
     def _on_packages(self, _button: Gtk.Button) -> None:
         self._show_view("packages")
-        expected_device_generation = self._device_generation
+        # Establish the current device identity immediately before inventory.
+        # A prior dashboard connection state may already be stale.
+        self._run_async("device-info", self._begin_package_inventory)
+
+    def _begin_package_inventory(self, payload: Any, error: str | None) -> None:
+        self._show_device(payload, error)
+        if error or not isinstance(payload, dict) or payload.get("status") != "connected":
+            self.status_label.set_text("Connect an Android device before loading inventory")
+            return
+        expected_generation = self._device_generation
+        expected_identity = self._device_identity
         self._run_async(
             "list-packages",
-            lambda payload, error, expected=expected_device_generation: self._show_packages(
-                payload, error, expected
+            lambda inventory, inventory_error, generation=expected_generation, identity=expected_identity: self._validate_package_inventory(
+                inventory, inventory_error, generation, identity
             ),
         )
+
+    def _validate_package_inventory(
+        self,
+        inventory: Any,
+        inventory_error: str | None,
+        expected_generation: int,
+        expected_identity: tuple[str, str] | None,
+    ) -> None:
+        # Re-check the device after the potentially long package enumeration.
+        # Only publish inventory if the same connected identity is still present.
+        self._run_async(
+            "device-info",
+            lambda device, device_error, result=inventory, result_error=inventory_error, generation=expected_generation, identity=expected_identity: self._finish_package_inventory_validation(
+                result, result_error, generation, identity, device, device_error
+            ),
+        )
+
+    def _finish_package_inventory_validation(
+        self,
+        inventory: Any,
+        inventory_error: str | None,
+        expected_generation: int,
+        expected_identity: tuple[str, str] | None,
+        device: Any,
+        device_error: str | None,
+    ) -> None:
+        if device_error or not isinstance(device, dict) or device.get("status") != "connected":
+            self._show_device(device, device_error or "Device disconnected during inventory")
+            self._reset_package_views("Device connection was lost during inventory; reload after reconnecting.")
+            self.status_label.set_text("Device disconnected; inventory discarded")
+            return
+
+        current_identity = (
+            str(device.get("backend") or "unknown"),
+            str(device.get("serial") or "local"),
+        )
+        if (
+            expected_generation != self._device_generation
+            or expected_identity is None
+            or current_identity != expected_identity
+        ):
+            self._show_device(device, None)
+            self._reset_package_views("Device changed during inventory; reload the application inventory.")
+            self.status_label.set_text("Device changed; inventory discarded")
+            return
+
+        if inventory_error:
+            self._show_packages(None, inventory_error, expected_generation)
+            return
+        if not isinstance(inventory, dict):
+            self._reset_package_views("Invalid inventory response; reload the application inventory.")
+            self.status_label.set_text("Invalid inventory response")
+            return
+        inventory_identity = (
+            str(inventory.get("backend") or "unknown"),
+            str(inventory.get("serial") or "local"),
+        )
+        if inventory_identity != expected_identity:
+            self._reset_package_views("Inventory belongs to a different device; response discarded.")
+            self.status_label.set_text("Device mismatch; inventory discarded")
+            return
+        self._show_packages(inventory, None, expected_generation)
 
     def _show_packages(
         self, payload: Any, error: str | None, expected_device_generation: int
