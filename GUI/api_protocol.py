@@ -189,9 +189,12 @@ def _bounded_error_message(value: Any, fallback: str) -> str:
     """Normalize untrusted bridge diagnostics before exposing them to the UI."""
     if not isinstance(value, str):
         value = ""
+    normalized = value
+    for escaped_control in (r"\x00", r"\n", r"\r", r"\t"):
+        normalized = normalized.replace(escaped_control, " ")
     normalized = "".join(
         character if ord(character) >= 32 and ord(character) != 127 else " "
-        for character in value
+        for character in normalized
     )
     message = " ".join(normalized.split()).strip() or fallback
     if len(message) > MAX_ERROR_MESSAGE_CHARS:
