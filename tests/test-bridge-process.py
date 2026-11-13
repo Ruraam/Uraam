@@ -1090,9 +1090,12 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
 
     def test_concurrent_stdout_and_stderr_below_limits(self):
         code = (
-            "import os; "
-            "out = b'o' * 4096; err = b'e' * 2048; "
-            "for _ in range(32): os.write(1, out); os.write(2, err)"
+            "import os\n"
+            "out = b'o' * 4096\n"
+            "err = b'e' * 2048\n"
+            "for _ in range(32):\n"
+            "    os.write(1, out)\n"
+            "    os.write(2, err)\n"
         )
         process = self._start(code)
         stdout, stderr = communicate_process(process, threading.Event())
@@ -1102,8 +1105,12 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
 
     def test_stderr_limit_enforced_while_stdout_continues(self):
         code = (
-            "import os; out = b'o' * 16384; err = b'e' * 1024; "
-            "while True: os.write(1, out); os.write(2, err)"
+            "import os\n"
+            "out = b'o' * 16384\n"
+            "err = b'e' * 1024\n"
+            "while True:\n"
+            "    os.write(1, out)\n"
+            "    os.write(2, err)\n"
         )
         process = self._start(code)
         with self.assertRaisesRegex(BridgeProcessOutputLimit, "stderr"):
@@ -1112,8 +1119,12 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
 
     def test_stdout_limit_enforced_while_stderr_continues(self):
         code = (
-            "import os; out = b'o' * 65536; err = b'e' * 1024; "
-            "while True: os.write(1, out); os.write(2, err)"
+            "import os\n"
+            "out = b'o' * 65536\n"
+            "err = b'e' * 1024\n"
+            "while True:\n"
+            "    os.write(1, out)\n"
+            "    os.write(2, err)\n"
         )
         process = self._start(code)
         with self.assertRaisesRegex(BridgeProcessOutputLimit, "stdout"):
