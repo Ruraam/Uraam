@@ -57,6 +57,24 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "bridge failed after partial output"):
             decode_api_response(stdout, stderr, process.returncode)
 
+    def test_valid_json_from_nonzero_process_is_never_accepted(self):
+        code = (
+            "import sys; "
+            "sys.stdout.write('{\\"status\\":\\"connected\\"}'); "
+            "sys.stdout.flush(); "
+            "sys.stderr.write('bridge exited unsuccessfully'); "
+            "sys.stderr.flush(); "
+            "raise SystemExit(7)"
+        )
+        process = self._start(code)
+        stdout, stderr = communicate_process(process, threading.Event())
+
+        self.assertEqual(process.returncode, 7)
+        self.assertEqual(stdout, '{"status":"connected"}')
+        self.assertIn("bridge exited unsuccessfully", stderr)
+        with self.assertRaisesRegex(RuntimeError, "bridge exited unsuccessfully"):
+            decode_api_response(stdout, stderr, process.returncode)
+
     def test_closed_stdout_does_not_interrupt_stderr_collection(self):
         code = (
             "import os, sys, time; "
