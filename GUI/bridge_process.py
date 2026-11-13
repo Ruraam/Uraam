@@ -60,6 +60,11 @@ def communicate_process(
             raise BridgeProcessTimeout("The read-only bridge request timed out.")
 
         try:
-            return process.communicate(timeout=min(poll_interval, remaining))
+            output = process.communicate(timeout=min(poll_interval, remaining))
         except subprocess.TimeoutExpired:
             continue
+        # A child may close inherited pipes and outlive the bridge leader.
+        # Once the leader has completed, no process in its isolated group is
+        # needed; terminate any remaining descendants before returning.
+        signal_process_group(process, signal.SIGKILL)
+        return output
