@@ -19,7 +19,7 @@ from bridge_process import (
     communicate_process,
     signal_process_group,
 )
-from api_protocol import request_is_current, take_pending_request
+from api_protocol import decode_api_response, request_is_current, take_pending_request
 import main as uraam_gui
 
 
@@ -38,6 +38,24 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         self.assertEqual(stdout.strip(), "bridge-ok")
         self.assertEqual(stderr.strip(), "note")
         self.assertEqual(process.returncode, 0)
+
+    def test_partial_json_from_nonzero_process_is_never_accepted(self):
+        code = (
+            "import sys; "
+            "sys.stdout.write('{\\"status\\":\\"connected\\",\\"version\\":'); "
+            "sys.stdout.flush(); "
+            "sys.stderr.write('bridge failed after partial output'); "
+            "sys.stderr.flush(); "
+            "raise SystemExit(7)"
+        )
+        process = self._start(code)
+        stdout, stderr = communicate_process(process, threading.Event())
+
+        self.assertEqual(process.returncode, 7)
+        self.assertIn('"status":"connected"', stdout)
+        self.assertIn("bridge failed after partial output", stderr)
+        with self.assertRaisesRegex(RuntimeError, "bridge failed after partial output"):
+            decode_api_response(stdout, stderr, process.returncode)
 
     def test_closed_stdout_does_not_interrupt_stderr_collection(self):
         code = (
