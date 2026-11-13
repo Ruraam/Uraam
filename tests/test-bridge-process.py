@@ -135,6 +135,38 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         self.assertEqual(signalled, [(process, signal.SIGTERM)])
 
 
+    def test_start_async_does_not_create_worker_after_shutdown(self):
+        from unittest.mock import patch
+
+        class ForbiddenWidget:
+            def __getattr__(self, name):
+                raise AssertionError(f"closed window widget accessed: {name}")
+
+        delivered = []
+        window = type(
+            "WindowState",
+            (),
+            {
+                "_closing": True,
+                "_loading": False,
+                "loading_spinner": ForbiddenWidget(),
+                "refresh_button": ForbiddenWidget(),
+                "status_label": ForbiddenWidget(),
+            },
+        )()
+
+        with patch.object(uraam_gui.threading, "Thread") as thread_factory:
+            uraam_gui.UraamWindow._start_async(
+                window,
+                "list-packages",
+                lambda payload, error: delivered.append((payload, error)),
+            )
+
+        thread_factory.assert_not_called()
+        self.assertFalse(window._loading)
+        self.assertEqual(delivered, [])
+
+
     def test_gtk_completion_callback_discards_result_after_window_close(self):
         pending = ("list-packages", lambda _payload, _error: None)
         window = type(
