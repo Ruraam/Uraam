@@ -45,11 +45,17 @@ def _reject_non_json_constant(value: str) -> None:
 
 
 def _parse_finite_json_float(value: str) -> float:
-    """Reject JSON numbers that overflow the decoder's floating-point range."""
+    """Reject JSON floats that overflow or underflow the decoder's range."""
     parsed = float(value)
     if not math.isfinite(parsed):
         raise ValueError(
             "The bridge returned a JSON number outside the finite floating-point range."
+        )
+    significand = value.lstrip("-").split("e", 1)[0].split("E", 1)[0]
+    if parsed == 0.0 and any(digit in "123456789" for digit in significand):
+        raise ValueError(
+            "The bridge returned a non-zero JSON number below the finite "
+            "floating-point range."
         )
     return parsed
 

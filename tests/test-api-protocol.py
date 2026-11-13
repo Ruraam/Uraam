@@ -168,6 +168,27 @@ class ApiProtocolTests(unittest.TestCase):
         decoded = decode_api_response(payload, "", 0)
         self.assertEqual(decoded["future_metrics"]["counter"], int(digits))
 
+    def test_rejects_underflowing_nonzero_json_float_in_unknown_extension(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"lower_bound":1e-9999}}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "below the finite floating-point range"):
+            decode_api_response(payload, "", 0)
+
+    def test_accepts_zero_and_representable_subnormal_json_floats(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"explicit_zero":0e-9999,"negative_zero":-0.0,'
+            '"smallest_subnormal":5e-324}}'
+        )
+        decoded = decode_api_response(payload, "", 0)
+        self.assertEqual(decoded["future_metrics"]["explicit_zero"], 0.0)
+        self.assertEqual(decoded["future_metrics"]["negative_zero"], -0.0)
+        self.assertEqual(decoded["future_metrics"]["smallest_subnormal"], 5e-324)
+
     def test_accepts_finite_json_float_in_unknown_extension(self):
         payload = (
             '{"status":"connected","version":"4.4.3","backend":"adb",'
