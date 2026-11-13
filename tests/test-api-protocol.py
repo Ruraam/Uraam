@@ -9,6 +9,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "GUI"))
 from api_protocol import (
     MAX_JSON_CONTAINER_ENTRIES,
+    MAX_JSON_STRING_BYTES,
     coalesce_pending_request,
     decode_api_response,
     device_identity,
@@ -151,6 +152,34 @@ class ApiProtocolTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(RuntimeError, "too many container entries"):
             decode_api_response(payload, "", 0)
+
+    def test_rejects_oversized_string_in_unknown_extension_fields(self):
+        payload = __import__("json").dumps({
+            "status": "connected",
+            "version": "4.4.3",
+            "backend": "adb",
+            "serial": "device-123",
+            "model": "Pixel",
+            "oem": "google",
+            "rom": None,
+            "future_note": "x" * (MAX_JSON_STRING_BYTES + 1),
+        })
+        with self.assertRaisesRegex(RuntimeError, "string exceeding the 1 MiB safety limit"):
+            decode_api_response(payload, "", 0)
+
+    def test_accepts_string_at_per_string_limit_in_unknown_extensions(self):
+        expected = "x" * MAX_JSON_STRING_BYTES
+        payload = __import__("json").dumps({
+            "status": "connected",
+            "version": "4.4.3",
+            "backend": "adb",
+            "serial": "device-123",
+            "model": "Pixel",
+            "oem": "google",
+            "rom": None,
+            "future_note": expected,
+        })
+        self.assertEqual(decode_api_response(payload, "", 0)["future_note"], expected)
 
     def test_preserves_unknown_fields_for_forward_compatibility(self):
         payload = (
