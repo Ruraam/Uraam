@@ -30,10 +30,13 @@ def signal_process_group(process: subprocess.Popen[str], sig: int) -> None:
 def _stop_and_reap(process: subprocess.Popen[str], grace_seconds: float) -> tuple[str, str]:
     signal_process_group(process, signal.SIGTERM)
     try:
-        return process.communicate(timeout=grace_seconds)
+        output = process.communicate(timeout=grace_seconds)
     except subprocess.TimeoutExpired:
         signal_process_group(process, signal.SIGKILL)
         return process.communicate()
+    # The leader may exit while a child that closed its pipes remains alive.
+    signal_process_group(process, signal.SIGKILL)
+    return output
 
 
 def communicate_process(
