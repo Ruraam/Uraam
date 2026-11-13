@@ -190,6 +190,15 @@ class ApiProtocolTests(unittest.TestCase):
         self.assertTrue(str(raised.exception).startswith("transport failed"))
         self.assertTrue(str(raised.exception).endswith("..."))
 
+    def test_error_payload_removes_unicode_c1_control_characters(self):
+        payload = __import__("json").dumps(
+            {"status": "error", "error": "backend\u0085failed\u009b"}
+        )
+        with self.assertRaises(RuntimeError) as raised:
+            decode_api_response(payload, "", 1)
+        self.assertEqual(str(raised.exception), "backend failed")
+        self.assertFalse(any(0x7F <= ord(char) <= 0x9F for char in str(raised.exception)))
+
     def test_error_payload_without_message_uses_safe_fallback(self):
         with self.assertRaisesRegex(RuntimeError, "^URAAM request failed\\.$"):
             decode_api_response('{"status":"error"}', "", 1)
