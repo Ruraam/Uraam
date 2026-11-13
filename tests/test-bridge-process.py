@@ -868,6 +868,85 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
         self.assertTrue(scroller.vexpand)
 
 
+    def test_show_view_updates_active_navigation_state(self):
+        class FakeStack:
+            def __init__(self):
+                self.visible = "dashboard"
+
+            def get_visible_child_name(self):
+                return self.visible
+
+            def set_visible_child_name(self, name):
+                self.visible = name
+
+        class FakeButton:
+            def __init__(self):
+                self.classes = set()
+
+            def add_css_class(self, name):
+                self.classes.add(name)
+
+            def remove_css_class(self, name):
+                self.classes.discard(name)
+
+        window = type("WindowState", (), {})()
+        window.stack = FakeStack()
+        window.dashboard_button = FakeButton()
+        window.packages_button = FakeButton()
+        window._view_generation = 0
+
+        uraam_gui.UraamWindow._show_view(window, "package-detail")
+
+        self.assertEqual(window.stack.visible, "package-detail")
+        self.assertIn("active", window.packages_button.classes)
+        self.assertNotIn("active", window.dashboard_button.classes)
+        self.assertEqual(window._view_generation, 1)
+
+        uraam_gui.UraamWindow._show_view(window, "dashboard")
+        self.assertIn("active", window.dashboard_button.classes)
+        self.assertNotIn("active", window.packages_button.classes)
+
+    def test_keyboard_shortcuts_navigate_and_escape_detail(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        calls = []
+        window = type("WindowState", (), {})()
+        window._show_view = lambda name: calls.append(("view", name))
+        window._on_packages = lambda _button: calls.append(("packages", None))
+        window.stack = SimpleNamespace(
+            get_visible_child_name=lambda: "package-detail"
+        )
+        fake_gdk = SimpleNamespace(
+            ModifierType=SimpleNamespace(CONTROL_MASK=4),
+            KEY_1=49,
+            KEY_2=50,
+            KEY_Escape=65307,
+        )
+        with patch.object(uraam_gui, "Gdk", fake_gdk):
+            self.assertTrue(
+                uraam_gui.UraamWindow._on_key_pressed(window, None, 49, 0, 4)
+            )
+            self.assertTrue(
+                uraam_gui.UraamWindow._on_key_pressed(window, None, 50, 0, 4)
+            )
+            self.assertTrue(
+                uraam_gui.UraamWindow._on_key_pressed(window, None, 65307, 0, 0)
+            )
+            self.assertFalse(
+                uraam_gui.UraamWindow._on_key_pressed(window, None, 65, 0, 0)
+            )
+
+        self.assertEqual(
+            calls,
+            [
+                ("view", "dashboard"),
+                ("packages", None),
+                ("view", "packages"),
+            ],
+        )
+
+
     def test_accessible_label_helper_updates_widget_label_property(self):
         from types import SimpleNamespace
         from unittest.mock import patch
