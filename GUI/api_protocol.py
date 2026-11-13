@@ -8,6 +8,7 @@ from typing import Any
 
 MAX_API_RESPONSE_BYTES = 8 * 1024 * 1024
 MAX_JSON_NESTING = 100
+MAX_JSON_CONTAINER_ENTRIES = 100_000
 VALID_STATUSES = {"ok", "connected", "disconnected"}
 STRING_FIELDS = {
     "backend", "serial", "model", "oem", "version", "package",
@@ -41,18 +42,26 @@ def _reject_non_json_constant(value: str) -> None:
 
 
 def _validate_json_nesting(value: Any) -> None:
-    """Reject deeply nested JSON containers without recursive traversal."""
+    """Bound JSON nesting and total container entries without recursive traversal."""
     pending = [(value, 0)]
+    total_entries = 0
     while pending:
         current, depth = pending.pop()
         if isinstance(current, dict):
+            total_entries += len(current)
             for key in current:
                 _validate_display_string(key, "JSON object key")
             children = current.values()
         elif isinstance(current, list):
+            total_entries += len(current)
             children = current
         else:
             continue
+        if total_entries > MAX_JSON_CONTAINER_ENTRIES:
+            raise RuntimeError(
+                "The bridge JSON contains too many container entries "
+                "for the decoder safety limit."
+            )
         next_depth = depth + 1
         if next_depth > MAX_JSON_NESTING:
             raise RuntimeError(
