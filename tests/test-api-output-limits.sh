@@ -24,7 +24,7 @@ run_device_bounded() {
             ;;
         "dumpsys package com.example.demo")
             # Deliberately exceed the configured 4 KiB capture ceiling.
-            head -c 8192 /dev/zero | tr '\\0' 'X'
+            head -c 8192 /dev/zero | base64 -w0
             ;;
         "pm list packages --user 0")
             # A syntactically valid but oversized inventory.
