@@ -544,6 +544,49 @@ class ApiProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "package inventory"):
             decode_api_response('{"status":"ok","packages":"com.example.app"}', "", 0)
 
+    def test_accepts_ascii_android_package_identifiers(self):
+        payload = (
+            '{"status":"ok","backend":"adb","serial":"device-123","user":0,'
+            '"count":2,"packages":["android","com.example_app.app2"],'
+            '"package_types":{"android":"system","com.example_app.app2":"user"},'
+            '"system_count":1,"user_count":1,"unclassified_count":0,'
+            '"classification_available":true}'
+        )
+        decoded = decode_api_response(payload, "", 0)
+        self.assertEqual(decoded["count"], 2)
+
+    def test_rejects_unicode_confusable_in_package_inventory(self):
+        payload = (
+            '{"status":"ok","backend":"adb","serial":"device-123","user":0,'
+            '"count":1,"packages":["com.exаmple.app"],'
+            '"package_types":{"com.exаmple.app":"user"},'
+            '"system_count":0,"user_count":1,"unclassified_count":0,'
+            '"classification_available":true}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "invalid Android package identifier"):
+            decode_api_response(payload, "", 0)
+
+    def test_rejects_zero_width_character_in_package_classification_key(self):
+        payload = (
+            '{"status":"ok","backend":"adb","serial":"device-123","user":0,'
+            '"count":1,"packages":["com.example.app"],'
+            '"package_types":{"com.example.\\u200bapp":"user"},'
+            '"system_count":0,"user_count":1,"unclassified_count":0,'
+            '"classification_available":true}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "invalid Android package identifier"):
+            decode_api_response(payload, "", 0)
+
+    def test_rejects_fullwidth_package_identifier_in_package_detail(self):
+        payload = (
+            '{"status":"ok","package":"ｃｏｍ.example.app","backend":"adb",'
+            '"paths":["/data/app/base.apk"],"version_name":null,"version_code":null,'
+            '"requested_permissions":null,"components":{},'
+            '"metadata_limited":false,"read_only":true}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "invalid Android package identifier"):
+            decode_api_response(payload, "", 0)
+
     def test_rejects_duplicate_package_entries(self):
         payload = (
             '{"status":"ok","backend":"adb","serial":"device-123","user":0,'
