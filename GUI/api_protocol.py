@@ -182,6 +182,23 @@ def _validate_status_contract(payload: dict[str, Any]) -> None:
 
     raise RuntimeError("The bridge returned an 'ok' response with no recognized payload type.")
 
+MAX_ERROR_MESSAGE_CHARS = 2048
+
+
+def _bounded_error_message(value: Any, fallback: str) -> str:
+    """Normalize untrusted bridge diagnostics before exposing them to the UI."""
+    if not isinstance(value, str):
+        value = ""
+    normalized = " ".join(
+        character for character in value
+        if ord(character) >= 32 and ord(character) != 127
+    ).split()
+    message = " ".join(normalized).strip() or fallback
+    if len(message) > MAX_ERROR_MESSAGE_CHARS:
+        message = message[:MAX_ERROR_MESSAGE_CHARS - 3].rstrip() + "..."
+    return message
+
+
 def decode_api_response(stdout: str, stderr: str, returncode: int) -> dict[str, Any]:
     """Decode one JSON object and reject malformed or inconsistent responses."""
     if len(stdout.encode("utf-8")) > MAX_API_RESPONSE_BYTES:
@@ -208,9 +225,10 @@ def decode_api_response(stdout: str, stderr: str, returncode: int) -> dict[str, 
 
     status = payload.get("status")
     if returncode != 0 or status == "error":
-        message = payload.get("error")
-        if not isinstance(message, str) or not message.strip():
-            message = stderr.strip() or "URAAM request failed."
+        message = _bounded_error_message(
+            payload.get("error"),
+            _bounded_error_message(stderr, "URAAM request failed."),
+        )
         raise RuntimeError(message)
 
     if not isinstance(status, str) or status not in VALID_STATUSES:
