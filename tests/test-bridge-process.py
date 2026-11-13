@@ -204,6 +204,7 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         window = type("WindowState", (), {})()
         window._package_request_generation = 0
         window._device_generation = 3
+        window._device_identity = ("adb", "device-123")
         window._view_generation = 0
         window._closing = False
         window._inventory_loaded = True
@@ -211,6 +212,12 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         window.stack = FakeStack()
         window.package_detail_name = FakeLabel()
         window.package_detail_status = FakeLabel()
+        window.status_label = FakeLabel()
+        window.device_card = object()
+        window.backend_card = object()
+        window.rom_card = object()
+        window.version_card = object()
+        window._reset_package_views = lambda _message: None
         window.package_detail_version = object()
         window.package_detail_path = object()
         window.package_detail_permissions = object()
@@ -299,16 +306,34 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
             "Backend: ADB · Read-only inspection · Requested names only",
         )
 
-        # A device switch invalidates a detail response even when the package
-        # selection and visible view have not changed.
-        window.package_detail_status.set_text("Device changed; waiting for fresh details…")
-        window._device_generation += 1
+        # Disconnecting and reconnecting the same serial must still invalidate
+        # the in-flight response: identity equality cannot revive its generation.
+        window.package_detail_status.set_text("Device reconnected; waiting for fresh details…")
+        previous_device_generation = window._device_generation
+        uraam_gui.UraamWindow._show_device(
+            window, {"status": "disconnected"}, None
+        )
+        uraam_gui.UraamWindow._show_device(
+            window,
+            {
+                "status": "connected",
+                "backend": "adb",
+                "serial": "device-123",
+                "model": "Pixel",
+                "oem": "google",
+                "version": "5.1.0",
+                "rom": {"name": "Android", "version": "15"},
+            },
+            None,
+        )
+        self.assertEqual(window._device_identity, ("adb", "device-123"))
+        self.assertGreater(window._device_generation, previous_device_generation)
         callbacks[2](
             {
                 "package": "com.example.alpha",
                 "backend": "adb",
                 "paths": ["/data/app/com.example.alpha/base.apk"],
-                "version_name": "stale-device",
+                "version_name": "stale-reconnected-device",
                 "version_code": "99",
                 "requested_permissions": [],
                 "components": {},
@@ -319,7 +344,7 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         )
         self.assertEqual(
             window.package_detail_status.text,
-            "Device changed; waiting for fresh details…",
+            "Device reconnected; waiting for fresh details…",
         )
 
         # Leaving the detail view and returning creates a new view generation;
