@@ -74,7 +74,7 @@ def _validate_json_nesting(value: Any) -> None:
         pending.extend(
             (child, next_depth)
             for child in children
-            if isinstance(child, (dict, list))
+            if isinstance(child, (dict, list, str))
         )
 
 
