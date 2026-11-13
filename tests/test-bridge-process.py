@@ -13,6 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "GUI"))
 from bridge_process import (
     BridgeProcessCancelled,
+    BridgeProcessOutputLimit,
     BridgeProcessTimeout,
     communicate_process,
     signal_process_group,
@@ -27,7 +28,6 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
             [sys.executable, "-c", code],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
             start_new_session=True,
         )
 
@@ -77,7 +77,7 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
             "print('ready', flush=True); time.sleep(30)"
         )
         process = self._start(code)
-        self.assertEqual(process.stdout.readline().strip(), "ready")
+        self.assertEqual(process.stdout.readline().decode().strip(), "ready")
         shutdown = threading.Event()
         threading.Timer(0.1, shutdown.set).start()
         started = time.monotonic()
@@ -2002,6 +2002,18 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
         self.assertIn("Unable to start", delivered[0][1])
         self.assertIn("thread constructor denied", delivered[0][1])
 
+
+    def test_stdout_is_bounded_during_collection(self):
+        process = self._start("import os; os.write(1, b'x' * (9 * 1024 * 1024))")
+        with self.assertRaises(BridgeProcessOutputLimit):
+            communicate_process(process, threading.Event())
+        self.assertIsNotNone(process.poll())
+
+    def test_stderr_is_bounded_during_collection(self):
+        process = self._start("import os; os.write(2, b'x' * (300 * 1024))")
+        with self.assertRaises(BridgeProcessOutputLimit):
+            communicate_process(process, threading.Event())
+        self.assertIsNotNone(process.poll())
 
 if __name__ == "__main__":
     unittest.main()
