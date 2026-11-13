@@ -47,6 +47,11 @@ class ApiProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "permission denied"):
             decode_api_response('{"status":"ok"}', "permission denied", 5)
 
+    def test_rejects_oversized_response(self):
+        oversized = '{"status":"ok","padding":"' + ("x" * (8 * 1024 * 1024)) + '"}'
+        with self.assertRaisesRegex(RuntimeError, "8 MiB"):
+            decode_api_response(oversized, "", 0)
+
     def test_error_without_message_is_safe(self):
         with self.assertRaisesRegex(RuntimeError, "URAAM request failed"):
             decode_api_response('{"status":"error","error":null}', "", 1)
