@@ -596,7 +596,8 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         window = type("WindowState", (), {})()
         window._package_request_generation = 0
         window._device_generation = 3
-        window._device_identity = ("adb", "device-123")        window._view_generation = 0
+        window._device_identity = ("adb", "device-123")
+        window._view_generation = 0
         window._closing = False
         window._inventory_loaded = True
         window._selected_package = None
@@ -1395,7 +1396,8 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
         uraam_gui.UraamWindow._show_view(window, "dashboard")
         self.assertIn("active", window.dashboard_button.classes)
         self.assertNotIn("active", window.packages_button.classes)
-        self.assertEqual(            window.dashboard_button.accessible_description[1],
+        self.assertEqual(
+            window.dashboard_button.accessible_description[1],
             ["Current page. Keyboard shortcut: Ctrl+1."],
         )
         self.assertEqual(
@@ -1594,7 +1596,8 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
                 ALT_MASK=8,
             ),
             KEY_1=49,
-            KEY_2=50,            KEY_Escape=65307,
+            KEY_2=50,
+            KEY_Escape=65307,
         )
         with patch.object(uraam_gui, "Gdk", fake_gdk):
             self.assertFalse(
@@ -1793,7 +1796,8 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
             with self.assertRaises(BridgeProcessCancelled):
                 communicate_process(
                     process,
-                    shutdown,                    poll_interval=0.02,
+                    shutdown,
+                    poll_interval=0.02,
                     shutdown_grace_seconds=0.2,
                 )
             self.assertIsNotNone(process.poll())
