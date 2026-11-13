@@ -11,6 +11,7 @@ from api_protocol import (
     coalesce_pending_request,
     decode_api_response,
     device_identity,
+    device_matches_request,
     inventory_matches_device,
     package_detail_request_is_current,
     request_is_current,
@@ -178,6 +179,48 @@ class InventoryIdentityTests(unittest.TestCase):
             inventory_matches_device(
                 None, self.device, 4, 4, self.identity
             )
+        )
+
+
+class DeviceRequestFreshnessTests(unittest.TestCase):
+    def setUp(self):
+        self.device = {
+            "status": "connected",
+            "backend": "adb",
+            "serial": "device-123",
+        }
+        self.identity = ("adb", "device-123")
+
+    def test_accepts_same_connected_device_without_inventory_payload(self):
+        self.assertTrue(
+            device_matches_request(self.device, 4, 4, self.identity)
+        )
+
+    def test_rejects_changed_generation(self):
+        self.assertFalse(
+            device_matches_request(self.device, 3, 4, self.identity)
+        )
+
+    def test_rejects_replaced_device(self):
+        replacement = {
+            "status": "connected",
+            "backend": "shizuku",
+            "serial": "device-456",
+        }
+        self.assertFalse(
+            device_matches_request(replacement, 4, 4, self.identity)
+        )
+
+    def test_rejects_disconnected_device(self):
+        self.assertFalse(
+            device_matches_request(
+                {"status": "disconnected"}, 4, 4, self.identity
+            )
+        )
+
+    def test_rejects_missing_expected_identity(self):
+        self.assertFalse(
+            device_matches_request(self.device, 4, 4, None)
         )
 
 
