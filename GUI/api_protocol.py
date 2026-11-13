@@ -7,6 +7,7 @@ from typing import Any
 
 
 MAX_API_RESPONSE_BYTES = 8 * 1024 * 1024
+MAX_JSON_NESTING = 100
 VALID_STATUSES = {"ok", "connected", "disconnected"}
 STRING_FIELDS = {
     "backend", "serial", "model", "oem", "version", "package",
@@ -31,6 +32,29 @@ def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 def _reject_non_json_constant(value: str) -> None:
     """Reject NaN and Infinity, which are not valid JSON values."""
     raise ValueError(f"The bridge returned a non-standard JSON constant: {value}.")
+
+
+def _validate_json_nesting(value: Any) -> None:
+    """Reject deeply nested JSON containers without recursive traversal."""
+    pending = [(value, 0)]
+    while pending:
+        current, depth = pending.pop()
+        if isinstance(current, dict):
+            children = current.values()
+        elif isinstance(current, list):
+            children = current
+        else:
+            continue
+        next_depth = depth + 1
+        if next_depth > MAX_JSON_NESTING:
+            raise RuntimeError(
+                "The bridge JSON nesting exceeds the decoder safety limit."
+            )
+        pending.extend(
+            (child, next_depth)
+            for child in children
+            if isinstance(child, (dict, list))
+        )
 
 
 def _validate_display_string(value: str, field: str) -> None:
@@ -273,6 +297,8 @@ def decode_api_response(stdout: str, stderr: str, returncode: int) -> dict[str, 
 
     if not isinstance(payload, dict):
         raise RuntimeError("The bridge returned a JSON value that is not an object.")
+
+    _validate_json_nesting(payload)
 
     status = payload.get("status")
     if returncode != 0 or status == "error":
