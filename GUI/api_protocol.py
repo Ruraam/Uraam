@@ -10,7 +10,7 @@ MAX_API_RESPONSE_BYTES = 8 * 1024 * 1024
 VALID_STATUSES = {"ok", "connected", "disconnected"}
 STRING_FIELDS = {
     "backend", "serial", "model", "oem", "version", "package",
-    "version_name", "version_code", "permissions_semantics",
+    "version_name", "version_code", "package", "permissions_semantics",
     "components_semantics", "metadata_source",
 }
 COUNT_FIELDS = {"count", "user", "system_count", "user_count", "unclassified_count"}
@@ -172,6 +172,10 @@ def _validate_status_contract(payload: dict[str, Any]) -> None:
         )
         if any(field not in payload for field in required):
             raise RuntimeError("The package-detail response is missing required fields.")
+        if not isinstance(payload.get("package"), str) or not payload["package"]:
+            raise RuntimeError("The package-detail response is missing a valid package identity.")
+        if not isinstance(payload.get("backend"), str) or not payload["backend"]:
+            raise RuntimeError("The package-detail response is missing its backend.")
         if not payload["paths"]:
             raise RuntimeError("The package-detail response contains no APK paths.")
         if payload["read_only"] is not True:
