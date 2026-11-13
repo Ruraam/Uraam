@@ -199,6 +199,24 @@ class ApiProtocolTests(unittest.TestCase):
         self.assertEqual(str(raised.exception), "backend failed")
         self.assertFalse(any(0x7F <= ord(char) <= 0x9F for char in str(raised.exception)))
 
+    def test_error_payload_replaces_unpaired_unicode_surrogates(self):
+        payload = __import__("json").dumps(
+            {"status": "error", "error": "backend\ud800failed"}
+        )
+        with self.assertRaises(RuntimeError) as raised:
+            decode_api_response(payload, "", 1)
+        self.assertEqual(str(raised.exception), "backend failed")
+        self.assertFalse(any(0xD800 <= ord(char) <= 0xDFFF for char in str(raised.exception)))
+
+    def test_rejects_unpaired_unicode_surrogates_in_display_fields(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel\\ud800",'
+            '"oem":"google","rom":null}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "unsafe Unicode"):
+            decode_api_response(payload, "", 0)
+
     def test_error_payload_without_message_uses_safe_fallback(self):
         with self.assertRaisesRegex(RuntimeError, "^URAAM request failed\\.$"):
             decode_api_response('{"status":"error"}', "", 1)
