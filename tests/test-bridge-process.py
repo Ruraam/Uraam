@@ -815,5 +815,58 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
         self.assertEqual(started, [("list-packages", next_callback)])
 
 
+    def test_long_gui_pages_are_wrapped_in_scrollable_containers(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        class FakeScroller:
+            def __init__(self):
+                self.policy = None
+                self.child = None
+                self.hexpand = False
+                self.vexpand = False
+
+            def set_policy(self, horizontal, vertical):
+                self.policy = (horizontal, vertical)
+
+            def set_hexpand(self, value):
+                self.hexpand = value
+
+            def set_vexpand(self, value):
+                self.vexpand = value
+
+            def set_child(self, child):
+                self.child = child
+
+        class FakeStack:
+            def __init__(self):
+                self.pages = []
+
+            def add_named(self, child, name):
+                self.pages.append((child, name))
+
+        stack = FakeStack()
+        window = SimpleNamespace(stack=stack)
+        page = object()
+        automatic = object()
+        fake_gtk = SimpleNamespace(
+            ScrolledWindow=FakeScroller,
+            PolicyType=SimpleNamespace(AUTOMATIC=automatic),
+        )
+
+        with patch.object(uraam_gui, "Gtk", fake_gtk):
+            uraam_gui.UraamWindow._add_scrollable_page(
+                window, page, "package-detail"
+            )
+
+        self.assertEqual(len(stack.pages), 1)
+        scroller, name = stack.pages[0]
+        self.assertEqual(name, "package-detail")
+        self.assertIs(scroller.child, page)
+        self.assertEqual(scroller.policy, (automatic, automatic))
+        self.assertTrue(scroller.hexpand)
+        self.assertTrue(scroller.vexpand)
+
+
 if __name__ == "__main__":
     unittest.main()
