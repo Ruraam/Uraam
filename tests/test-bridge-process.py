@@ -126,6 +126,56 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
         self.assertFalse(window._loading)
         self.assertIsNone(window._pending_request)
 
+    def test_rapid_navigation_invalidates_an_older_inventory_callback(self):
+        class FakeStack:
+            def __init__(self):
+                self.visible = "packages"
+
+            def get_visible_child_name(self):
+                return self.visible
+
+            def set_visible_child_name(self, name):
+                self.visible = name
+
+        delivered = []
+        window = type(
+            "WindowState",
+            (),
+            {
+                "_view_generation": 4,
+                "_closing": False,
+                "stack": FakeStack(),
+                "_show_device": lambda self, payload, error: delivered.append(
+                    (payload, error)
+                ),
+            },
+        )()
+
+        uraam_gui.UraamWindow._show_view(window, "dashboard")
+        uraam_gui.UraamWindow._show_view(window, "packages")
+        self.assertEqual(window._view_generation, 6)
+
+        uraam_gui.UraamWindow._begin_package_inventory(
+            window, {"status": "connected"}, None, 4
+        )
+        self.assertEqual(delivered, [])
+
+    def test_selecting_the_already_visible_view_does_not_invalidate_request(self):
+        class FakeStack:
+            def get_visible_child_name(self):
+                return "packages"
+
+            def set_visible_child_name(self, _name):
+                raise AssertionError("same-view navigation must not reset the stack")
+
+        window = type(
+            "WindowState",
+            (),
+            {"_view_generation": 9, "stack": FakeStack()},
+        )()
+        uraam_gui.UraamWindow._show_view(window, "packages")
+        self.assertEqual(window._view_generation, 9)
+
     def test_completed_response_is_discarded_when_close_precedes_ui_dispatch(self):
         process = self._start("print('response-ready', flush=True)")
         stdout, stderr = communicate_process(process, threading.Event())
