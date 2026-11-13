@@ -44,7 +44,7 @@ run_device_bounded() {
             printf 'package:/data/app/com.example.demo/base.apk\n'
             ;;
         "pm path --user 0 com.example.partialfailure")
-            printf 'package:/data/app/partial/base.apk\\n'
+            printf 'package:/data/app/partial/base.apk\n'
             return 23
             ;;
         "pm path --user 0 com.example.pathboundary")
@@ -99,7 +99,7 @@ jq -e '
 
 # A failed device command must not turn its partial stdout into valid API data.
 if partial_failure_json="$(bash "$ROOT/uraam-api.sh" package-info:com.example.partialfailure 2>/dev/null)"; then
-    printf '%s\\n' "FAIL: partial output from a failed device command was accepted" >&2
+    printf '%s\n' "FAIL: partial output from a failed device command was accepted" >&2
     exit 1
 fi
 jq -e '
@@ -125,7 +125,7 @@ jq -e '
     (.paths | length == 1) and
     (.paths[0] | length == 119)
 ' <<< "$boundary_json" >/dev/null || {
-    printf '%s\\n' "FAIL: exact-boundary APK path response was rejected:" "$boundary_json" >&2
+    printf '%s\n' "FAIL: exact-boundary APK path response was rejected:" "$boundary_json" >&2
     exit 1
 }
 
