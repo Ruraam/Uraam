@@ -11,6 +11,8 @@ on:
       - ".github/workflows/.build-releases.yml"
       - "GUI/**"
       - "tests/test-json-api.sh"
+      - "tests/test-api-protocol.py"
+      - "tests/test-api-protocol.py"
       - ".github/workflows/gui-foundation.yml"
   push:
     branches:
@@ -52,7 +54,8 @@ jobs:
 
       - name: Validate Python syntax and GTK4 bindings
         run: |
-          python3 -m py_compile GUI/main.py
+          python3 -m py_compile GUI/main.py GUI/api_protocol.py tests/test-api-protocol.py
+          python3 tests/test-api-protocol.py
           python3 -c "import gi; gi.require_version('Gtk', '4.0'); from gi.repository import Gtk; print(Gtk.get_major_version(), Gtk.get_minor_version())"
 
       - name: Validate Debian desktop package layout
@@ -63,7 +66,7 @@ jobs:
           cp uraam.sh "$PKG_DIR/usr/share/uraam/"
           cp -r Configs "$PKG_DIR/usr/share/uraam/"
           cp uraam-api.sh "$PKG_DIR/usr/share/uraam/"
-          cp GUI/main.py "$PKG_DIR/usr/share/uraam/GUI/"
+          cp GUI/main.py GUI/api_protocol.py "$PKG_DIR/usr/share/uraam/GUI/"
           cp uraam-gui "$PKG_DIR/usr/bin/uraam-gui"
           cp assets/uraam_logo.svg "$PKG_DIR/usr/share/icons/hicolor/scalable/apps/uraam.svg"
           cp packaging/debian/uraam.desktop "$PKG_DIR/usr/share/uraam/uraam.desktop"
