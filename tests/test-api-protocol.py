@@ -428,6 +428,23 @@ class ApiProtocolTests(unittest.TestCase):
         self.assertEqual(decoded["trace_id"], "request-123")
         self.assertEqual(decoded["future_capability"], {"read_only": True})
 
+    def test_rejects_unsafe_nested_json_object_keys(self):
+        base = {
+            "status": "connected",
+            "version": "4.4.3",
+            "backend": "adb",
+            "serial": "device-123",
+            "model": "Pixel",
+            "oem": "google",
+            "rom": None,
+        }
+        for key in ("hidden\\u202eoverride", "bad\\x00key"):
+            with self.subTest(key=key):
+                payload = dict(base)
+                payload["future_capability"] = {key: "value"}
+                with self.assertRaisesRegex(RuntimeError, "unsafe control characters"):
+                    decode_api_response(__import__("json").dumps(payload), "", 0)
+
     def test_rejects_ok_response_with_only_unknown_payload_fields(self):
         payload = (
             '{"status":"ok","future_payload":{"packages":["com.example.app"]}}'
