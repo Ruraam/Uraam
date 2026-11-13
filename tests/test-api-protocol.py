@@ -8,6 +8,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "GUI"))
 from api_protocol import (
+    MAX_JSON_CONTAINER_ENTRIES,
     coalesce_pending_request,
     decode_api_response,
     device_identity,
@@ -139,6 +140,16 @@ class ApiProtocolTests(unittest.TestCase):
     def test_rejects_excessively_nested_json(self):
         payload = '{"status":"ok","padding":' + ("[" * 2000) + "0" + ("]" * 2000) + "}"
         with self.assertRaisesRegex(RuntimeError, "JSON nesting.*safety limit"):
+            decode_api_response(payload, "", 0)
+
+    def test_rejects_too_many_json_container_entries_in_extensions(self):
+        values = ("0," * MAX_JSON_CONTAINER_ENTRIES) + "0"
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_values":[' + values + "]}"
+        )
+        with self.assertRaisesRegex(RuntimeError, "too many container entries"):
             decode_api_response(payload, "", 0)
 
     def test_preserves_unknown_fields_for_forward_compatibility(self):
