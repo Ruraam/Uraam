@@ -157,6 +157,38 @@ def main() -> int:
         if not window.package_detail_components["activities"].get_visible():
             raise AssertionError("Component metadata is not visible when its section is expanded")
 
+        # Repeated disclosure changes must not leave keyboard focus inside a
+        # subtree that GTK has just hidden.
+        permission_scroller = metadata_scrollers[1]
+        component_scroller = metadata_scrollers[2]
+        for _ in range(5):
+            permissions_expander.set_expanded(True)
+            components_expander.set_expanded(True)
+            drain_main_context()
+            if not permission_scroller.get_visible() or not component_scroller.get_visible():
+                raise AssertionError("Repeated expansion did not restore metadata visibility")
+
+            for expander, scroller, section_name in (
+                (permissions_expander, permission_scroller, "permissions"),
+                (components_expander, component_scroller, "components"),
+            ):
+                scroller.grab_focus()
+                if window.get_focus() is not scroller:
+                    raise AssertionError(f"{section_name} metadata cannot receive focus")
+                expander.set_expanded(False)
+                drain_main_context()
+                if expander.get_expanded() or scroller.get_visible():
+                    raise AssertionError(f"{section_name} metadata remained visible after collapse")
+                focused = window.get_focus()
+                if focused is not None and not focused.get_visible():
+                    raise AssertionError(
+                        f"Collapsing {section_name} left keyboard focus in hidden content"
+                    )
+                expander.set_expanded(True)
+                drain_main_context()
+                if not scroller.get_visible():
+                    raise AssertionError(f"Reopening {section_name} did not restore its metadata")
+
         # GTK4's container focus chain is layout/backend dependent under Xvfb.
         # Verify the actual focus contract directly instead of assuming an exact
         # traversal sequence from child_focus().
