@@ -234,6 +234,14 @@ class UraamWindow(Gtk.ApplicationWindow):
             )
             detail_scroller.set_propagate_natural_height(True)
             detail_scroller.set_max_content_height(240)
+            # Make the viewport the single Tab stop for long metadata. The
+            # label remains selectable with the pointer, but does not create
+            # a second, redundant keyboard stop inside the scrolling region.
+            detail_scroller.set_focusable(True)
+            UraamWindow._set_accessible_label(
+                detail_scroller, f"{title} details"
+            )
+            detail_label.set_focusable(False)
             detail_scroller.set_child(detail_label)
             content.append(detail_scroller)
         else:
