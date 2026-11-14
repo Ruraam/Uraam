@@ -372,6 +372,34 @@ def main() -> int:
         if window.get_focus() is not window.package_list:
             raise AssertionError("Escape did not restore keyboard focus to the package list")
 
+        # Once shutdown starts, keyboard events must be inert: no page
+        # navigation and, in particular, no new inventory preflight.
+        window._show_view("package-detail")
+        drain_main_context()
+        closing_view = window.stack.get_visible_child_name()
+        closing_navigation = []
+        closing_async = []
+        original_show_view = window._show_view
+        original_run_async = window._run_async
+        window._show_view = lambda name: closing_navigation.append(name)
+        window._run_async = lambda action, callback: closing_async.append(action)
+        window._closing = True
+        try:
+            for keyval, modifiers in (
+                (Gdk.KEY_1, Gdk.ModifierType.CONTROL_MASK),
+                (Gdk.KEY_2, Gdk.ModifierType.CONTROL_MASK),
+                (Gdk.KEY_Escape, Gdk.ModifierType(0)),
+            ):
+                if window._on_key_pressed(None, keyval, 0, modifiers):
+                    raise AssertionError("A keyboard shortcut was handled while closing")
+            if closing_navigation or closing_async:
+                raise AssertionError("Keyboard input triggered work while the window was closing")
+            if window.stack.get_visible_child_name() != closing_view:
+                raise AssertionError("Keyboard input changed the page while the window was closing")
+        finally:
+            window._show_view = original_show_view
+            window._run_async = original_run_async
+
         window.close()
         drain_main_context()
         print("PASS: GTK4 window construction, package filtering and navigation")
