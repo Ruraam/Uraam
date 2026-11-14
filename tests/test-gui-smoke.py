@@ -372,6 +372,35 @@ def main() -> int:
         if window.get_focus() is not window.package_list:
             raise AssertionError("Escape did not restore keyboard focus to the package list")
 
+        # If a newer request is queued while an older worker is running,
+        # the older result must be discarded and only the latest request started.
+        original_start_async = window._start_async
+        started_requests = []
+        stale_result_callbacks = []
+        latest_callback = lambda *_: None
+        window._closing = False
+        window._loading = True
+        window._pending_request = ("latest-device-info", latest_callback)
+        window._start_async = lambda command, callback: started_requests.append(
+            (command, callback)
+        )
+        try:
+            finish_result = window._finish_async(
+                lambda *args: stale_result_callbacks.append(args),
+                {"status": "connected", "serial": "stale-result"},
+                None,
+            )
+            if finish_result != GLib.SOURCE_REMOVE:
+                raise AssertionError("Superseded async result was not removed from the GLib queue")
+            if stale_result_callbacks:
+                raise AssertionError("A superseded async result invoked its stale callback")
+            if started_requests != [("latest-device-info", latest_callback)]:
+                raise AssertionError("The latest queued async request was not started exactly once")
+            if window._pending_request is not None or window._loading:
+                raise AssertionError("Superseded request handling left stale loading state")
+        finally:
+            window._start_async = original_start_async
+
         # Once shutdown starts, keyboard events must be inert: no page
         # navigation and, in particular, no new inventory preflight.
         window._show_view("package-detail")
