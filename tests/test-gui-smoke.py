@@ -408,6 +408,25 @@ def main() -> int:
         drain_main_context()
         if not window._closing:
             raise AssertionError("The close-request handler did not enter shutdown state")
+
+        # A worker may finish after close-request and enqueue its idle callback.
+        # _finish_async must discard that result without touching GTK widgets
+        # or invoking the page-specific callback.
+        late_callback_calls = []
+        window._loading = True
+        window._pending_request = ("device-info", lambda *_: None)
+        finish_result = window._finish_async(
+            lambda *args: late_callback_calls.append(args),
+            {"status": "connected", "serial": "late-result"},
+            None,
+        )
+        if finish_result != GLib.SOURCE_REMOVE:
+            raise AssertionError("A late async result was not removed from the GLib queue")
+        if window._loading or window._pending_request is not None:
+            raise AssertionError("Shutdown did not clear async loading and pending state")
+        if late_callback_calls:
+            raise AssertionError("A late async result invoked its UI callback after close")
+
         for keyval, modifiers in (
             (Gdk.KEY_1, Gdk.ModifierType.CONTROL_MASK),
             (Gdk.KEY_2, Gdk.ModifierType.CONTROL_MASK),
