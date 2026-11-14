@@ -407,8 +407,10 @@ class UraamWindow(Gtk.ApplicationWindow):
         details.set_margin_start(30)
         details.set_margin_end(30)
         back = Gtk.Button(label="←  Back to applications")
+        self.package_detail_back_button = back
         back.set_halign(Gtk.Align.START)
-        back.connect("clicked", lambda _button: self._show_view("packages"))
+        self._set_accessible_label(back, "Back to installed applications")
+        back.connect("clicked", lambda _button: self._return_to_packages())
         details.append(back)
         detail_title = Gtk.Label(label="Application inspector", xalign=0)
         detail_title.add_css_class("title-1")
@@ -633,9 +635,14 @@ class UraamWindow(Gtk.ApplicationWindow):
                 return True
         if navigation_modifiers == 0 and keyval == Gdk.KEY_Escape:
             if self.stack.get_visible_child_name() == "package-detail":
-                self._show_view("packages")
+                self._return_to_packages()
                 return True
         return False
+
+    def _return_to_packages(self) -> None:
+        """Return to the inventory and restore keyboard focus to its list."""
+        self._show_view("packages")
+        self.package_list.grab_focus()
 
     def _on_close_request(self, _window: Gtk.ApplicationWindow) -> bool:
         """Cancel the active read-only bridge process before the window closes."""
@@ -898,6 +905,7 @@ class UraamWindow(Gtk.ApplicationWindow):
                 "Declared component entries from Android Package Manager"
             )
         self._show_view("package-detail")
+        self.package_detail_back_button.grab_focus()
         generation = self._package_request_generation
         device_generation = self._device_generation
         view_generation = self._view_generation
