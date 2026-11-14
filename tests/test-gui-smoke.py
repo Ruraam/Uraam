@@ -229,6 +229,72 @@ def main() -> int:
         if window.stack.get_visible_child_name() != "package-detail":
             raise AssertionError("Returning from crossfade navigation failed")
 
+        # Keyboard shortcuts must remain deterministic when several
+        # navigation requests arrive during an active crossfade.
+        window.stack.set_transition_duration(250)
+        permissions_expander.grab_focus()
+        if not window._on_key_pressed(
+            None, Gdk.KEY_1, 0, Gdk.ModifierType.CONTROL_MASK
+        ):
+            raise AssertionError("Ctrl+1 was not handled during navigation")
+        if window.stack.get_visible_child_name() != "dashboard":
+            raise AssertionError("Ctrl+1 did not select the dashboard during crossfade")
+
+        original_run_async = window._run_async
+        original_begin_inventory = window._begin_package_inventory
+        captured_requests = []
+        inventory_callbacks = []
+        window._run_async = lambda action, callback: captured_requests.append(
+            (action, callback)
+        )
+        window._begin_package_inventory = lambda *args: inventory_callbacks.append(args)
+        try:
+            if not window._on_key_pressed(
+                None, Gdk.KEY_2, 0, Gdk.ModifierType.CONTROL_MASK
+            ):
+                raise AssertionError("Ctrl+2 was not handled during crossfade")
+            if window.stack.get_visible_child_name() != "packages":
+                raise AssertionError("Ctrl+2 did not select the applications page")
+            if not captured_requests or captured_requests[-1][0] != "device-info":
+                raise AssertionError("Ctrl+2 did not schedule the read-only inventory preflight")
+
+            # A later shortcut must invalidate the earlier inventory callback.
+            if not window._on_key_pressed(
+                None, Gdk.KEY_1, 0, Gdk.ModifierType.CONTROL_MASK
+            ):
+                raise AssertionError("A second Ctrl+1 was not handled during crossfade")
+            stale_callback = captured_requests[-1][1]
+            stale_callback({"status": "connected"}, None)
+            if inventory_callbacks:
+                raise AssertionError("A stale shortcut callback updated the inventory after navigation")
+            if window.stack.get_visible_child_name() != "dashboard":
+                raise AssertionError("The latest shortcut did not win during crossfade")
+
+            if window._on_key_pressed(None, Gdk.KEY_Escape, 0, Gdk.ModifierType(0)):
+                raise AssertionError("Escape should not navigate away from the dashboard")
+            if window.stack.get_visible_child_name() != "dashboard":
+                raise AssertionError("Escape changed the dashboard while no inspector was open")
+        finally:
+            window._run_async = original_run_async
+            window._begin_package_inventory = original_begin_inventory
+
+        window._show_view("package-detail")
+        permissions_expander.grab_focus()
+        if not window._on_key_pressed(None, Gdk.KEY_Escape, 0, Gdk.ModifierType(0)):
+            raise AssertionError("Escape was not handled during crossfade")
+        if window.stack.get_visible_child_name() != "packages":
+            raise AssertionError("Escape did not return to applications during crossfade")
+        if window.get_focus() is not window.package_list:
+            raise AssertionError("Escape during crossfade did not restore package-list focus")
+
+        transition_loop = GLib.MainLoop()
+        GLib.timeout_add(350, lambda: (transition_loop.quit(), GLib.SOURCE_REMOVE)[1])
+        transition_loop.run()
+        drain_main_context()
+        window.stack.set_transition_duration(0)
+        window._show_view("package-detail")
+        drain_main_context()
+
         # Rapid state changes are queued before the main context is drained.
         # The final requested state must win, and switching pages immediately
         # afterwards must not leave the hidden inspector mapped or lose its state.
