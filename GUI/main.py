@@ -247,11 +247,12 @@ class UraamWindow(Gtk.ApplicationWindow):
         heading = content.get_first_child()
         value_label = heading.get_next_sibling() if heading else None
         detail_container = value_label.get_next_sibling() if value_label else None
-        detail_label = (
-            detail_container.get_child()
-            if isinstance(detail_container, Gtk.ScrolledWindow)
-            else detail_container
-        )
+        detail_label = detail_container
+        if isinstance(detail_container, Gtk.ScrolledWindow):
+            detail_label = detail_container.get_child()
+            # GTK may insert a Gtk.Viewport around a non-scrollable child.
+            if isinstance(detail_label, Gtk.Viewport):
+                detail_label = detail_label.get_child()
         if isinstance(heading, Gtk.Label):
             heading.set_text(title.upper())
         if isinstance(value_label, Gtk.Label):
