@@ -94,6 +94,10 @@ def main() -> int:
             raise AssertionError("The GTK package filter produced no system row")
         if first_row.get_child().get_first_child().get_text() != "com.example.system":
             raise AssertionError("The GTK package filter displayed the wrong row")
+        if not first_row.get_focusable():
+            raise AssertionError("A package result is not a keyboard focus target")
+        if first_row.get_child().get_first_child().get_selectable():
+            raise AssertionError("A package result exposes a redundant child focus target")
         if window.package_count_label.get_text() != "Showing 1 of 2 package(s)":
             raise AssertionError("The GTK package count is inconsistent")
 
