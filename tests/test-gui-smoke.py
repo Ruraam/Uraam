@@ -172,9 +172,12 @@ def main() -> int:
                 (permissions_expander, permission_scroller, "permissions"),
                 (components_expander, component_scroller, "components"),
             ):
-                scroller.grab_focus()
-                if window.get_focus() is not scroller:
-                    raise AssertionError(f"{section_name} metadata cannot receive focus")
+                # The disclosure itself is the stable keyboard target. GTK
+                # backends may not focus a nested scroller directly while it
+                # belongs to an Expander, so don't assume it becomes a Tab stop.
+                expander.grab_focus()
+                if window.get_focus() is not expander:
+                    raise AssertionError(f"{section_name} disclosure cannot receive focus")
                 expander.set_expanded(False)
                 drain_main_context()
                 if expander.get_expanded() or scroller.get_visible():
@@ -184,10 +187,17 @@ def main() -> int:
                     raise AssertionError(
                         f"Collapsing {section_name} left keyboard focus in hidden content"
                     )
+                if focused is not None and focused is not expander:
+                    raise AssertionError(
+                        f"Collapsing {section_name} unexpectedly moved focus to another control"
+                    )
                 expander.set_expanded(True)
                 drain_main_context()
                 if not scroller.get_visible():
                     raise AssertionError(f"Reopening {section_name} did not restore its metadata")
+                expander.grab_focus()
+                if window.get_focus() is not expander:
+                    raise AssertionError(f"Reopened {section_name} disclosure lost keyboard focus")
 
         # GTK4's container focus chain is layout/backend dependent under Xvfb.
         # Verify the actual focus contract directly instead of assuming an exact
