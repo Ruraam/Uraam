@@ -14,6 +14,10 @@ MAX_JSON_STRING_BYTES = 1024 * 1024
 MAX_JSON_NESTING = 100
 MAX_JSON_CONTAINER_ENTRIES = 100_000
 MAX_JSON_INTEGER_DIGITS = 128
+MAX_APK_PATHS = 64
+MAX_REQUESTED_PERMISSIONS = 2_048
+MAX_COMPONENT_ENTRIES = 4_096
+MAX_TECHNICAL_METADATA_STRING_BYTES = 16 * 1024
 VALID_STATUSES = {"ok", "connected", "disconnected"}
 STRING_FIELDS = {
     "backend", "serial", "model", "oem", "version", "package",
@@ -145,9 +149,21 @@ def _validate_display_string(value: str, field: str) -> None:
         )
 
 
-def _validate_technical_metadata_strings(values: list[str], field: str) -> None:
-    """Reject invisible Unicode format controls in machine-readable metadata."""
+def _validate_technical_metadata_strings(
+    values: list[str], field: str, max_entries: int
+) -> None:
+    """Bound and validate machine-readable metadata before GTK consumes it."""
+    if len(values) > max_entries:
+        raise RuntimeError(
+            f"The bridge returned too many entries in '{field}' "
+            f"(maximum {max_entries})."
+        )
     for value in values:
+        if len(value.encode("utf-8")) > MAX_TECHNICAL_METADATA_STRING_BYTES:
+            raise RuntimeError(
+                f"The bridge returned an oversized entry in '{field}' "
+                f"(maximum {MAX_TECHNICAL_METADATA_STRING_BYTES} bytes)."
+            )
         _validate_display_string(value, field)
         if any(
             unicodedata.category(character) in {"Cf", "Zl", "Zp"}
@@ -246,7 +262,7 @@ def _validate_payload_shape(payload: dict[str, Any]) -> None:
         paths = payload["paths"]
         if not isinstance(paths, list) or any(not isinstance(item, str) for item in paths):
             raise RuntimeError("The bridge returned invalid APK path metadata.")
-        _validate_technical_metadata_strings(paths, "paths")
+        _validate_technical_metadata_strings(paths, "paths", MAX_APK_PATHS)
 
     if "requested_permissions" in payload:
         permissions = payload["requested_permissions"]
@@ -256,7 +272,9 @@ def _validate_payload_shape(payload: dict[str, Any]) -> None:
         ):
             raise RuntimeError("The bridge returned invalid requested-permission metadata.")
         if permissions is not None:
-            _validate_technical_metadata_strings(permissions, "requested_permissions")
+            _validate_technical_metadata_strings(
+                permissions, "requested_permissions", MAX_REQUESTED_PERMISSIONS
+            )
 
     if "components" in payload:
         components = payload["components"]
@@ -272,9 +290,15 @@ def _validate_payload_shape(payload: dict[str, Any]) -> None:
             for key, value in components.items()
         ):
             raise RuntimeError("The bridge returned invalid component metadata.")
-        for entries in components.values():
-            if entries is not None:
-                _validate_technical_metadata_strings(entries, "components")
+        component_entries = [
+            entry
+            for entries in components.values()
+            if entries is not None
+            for entry in entries
+        ]
+        _validate_technical_metadata_strings(
+            component_entries, "components", MAX_COMPONENT_ENTRIES
+        )
 
 
 
