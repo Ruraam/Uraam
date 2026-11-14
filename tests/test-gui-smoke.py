@@ -12,7 +12,7 @@ sys.path.insert(0, str(ROOT / "GUI"))
 import gi
 
 gi.require_version("Gtk", "4.0")
-from gi.repository import GLib, Gtk  # noqa: E402
+from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
 from main import UraamApplication, UraamWindow  # noqa: E402
 
@@ -103,6 +103,18 @@ def main() -> int:
         window._show_view("package-detail")
         if window.stack.get_visible_child_name() != "package-detail":
             raise AssertionError("Package inspector navigation failed")
+        window.package_detail_back_button.grab_focus()
+        if window.get_focus() is not window.package_detail_back_button:
+            raise AssertionError("Opening the inspector did not move keyboard focus to its back control")
+
+        if not window._on_key_pressed(
+            None, Gdk.KEY_Escape, 0, Gdk.ModifierType(0)
+        ):
+            raise AssertionError("Escape did not handle inspector navigation")
+        if window.stack.get_visible_child_name() != "packages":
+            raise AssertionError("Escape did not return to the applications page")
+        if window.get_focus() is not window.package_list:
+            raise AssertionError("Escape did not restore keyboard focus to the package list")
 
         window.close()
         drain_main_context()
