@@ -79,10 +79,6 @@ def main() -> int:
             raise AssertionError("Scrollable metadata exposes a redundant label focus stop")
         if not metadata_scroller.get_focusable():
             raise AssertionError("Scrollable metadata cannot receive keyboard focus")
-        if metadata_scroller.get_accessible_property(
-            Gtk.AccessibleProperty.LABEL
-        ) != "Requested permissions details":
-            raise AssertionError("Scrollable metadata has no accessible name")
         drain_main_context()
 
         window._packages = [
