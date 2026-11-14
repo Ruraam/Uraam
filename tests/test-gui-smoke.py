@@ -401,6 +401,41 @@ def main() -> int:
         finally:
             window._start_async = original_start_async
 
+        # Multiple requests arriving during one active operation follow
+        # latest-wins semantics: intermediate pending callbacks are discarded.
+        queued_starts = []
+        superseded_callbacks = []
+        first_pending_callback = lambda *args: superseded_callbacks.append(("first", args))
+        middle_pending_callback = lambda *args: superseded_callbacks.append(("middle", args))
+        newest_pending_callback = lambda *args: superseded_callbacks.append(("newest", args))
+        window._loading = True
+        window._pending_request = None
+        window._start_async = lambda command, callback: queued_starts.append((command, callback))
+        try:
+            window._run_async("first-pending", first_pending_callback)
+            window._run_async("middle-pending", middle_pending_callback)
+            window._run_async("newest-pending", newest_pending_callback)
+            if window._pending_request != ("newest-pending", newest_pending_callback):
+                raise AssertionError("A newer request did not replace the older pending request")
+            if window.status_label.get_text() != "Waiting to load newest-pending…":
+                raise AssertionError("The waiting status did not reflect the newest request")
+
+            finish_result = window._finish_async(
+                lambda *args: superseded_callbacks.append(("active", args)),
+                {"status": "connected", "serial": "superseded-active-result"},
+                None,
+            )
+            if finish_result != GLib.SOURCE_REMOVE:
+                raise AssertionError("The superseded active result was not removed")
+            if superseded_callbacks:
+                raise AssertionError("An obsolete active or pending callback was invoked")
+            if queued_starts != [("newest-pending", newest_pending_callback)]:
+                raise AssertionError("The newest pending request was not started exactly once")
+            if window._pending_request is not None or window._loading:
+                raise AssertionError("Latest-wins request handoff left stale async state")
+        finally:
+            window._start_async = original_start_async
+
         # Thread startup can fail before any worker runs. The UI must be
         # restored synchronously and the callback must receive a bounded error.
         import main as gui_main
