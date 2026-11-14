@@ -401,6 +401,43 @@ def main() -> int:
         finally:
             window._start_async = original_start_async
 
+        # Thread startup can fail before any worker runs. The UI must be
+        # restored synchronously and the callback must receive a bounded error.
+        import main as gui_main
+
+        original_thread = gui_main.threading.Thread
+        startup_callbacks = []
+
+        class FailingThread:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def start(self):
+                raise RuntimeError("simulated thread startup failure")
+
+        gui_main.threading.Thread = FailingThread
+        try:
+            window._loading = False
+            window.refresh_button.set_sensitive(True)
+            window._start_async(
+                "device-info",
+                lambda payload, error: startup_callbacks.append((payload, error)),
+            )
+            if window._loading:
+                raise AssertionError("Thread startup failure left the UI in loading state")
+            if window.loading_spinner.get_spinning():
+                raise AssertionError("Thread startup failure left the spinner running")
+            if not window.refresh_button.get_sensitive():
+                raise AssertionError("Thread startup failure left refresh disabled")
+            if window.status_label.get_text() != "Unable to start bridge request":
+                raise AssertionError("Thread startup failure did not publish its status")
+            if len(startup_callbacks) != 1 or startup_callbacks[0][0] is not None:
+                raise AssertionError("Thread startup failure did not invoke the callback exactly once")
+            if not startup_callbacks[0][1] or "simulated thread startup failure" not in startup_callbacks[0][1]:
+                raise AssertionError("Thread startup failure did not provide the expected bounded error")
+        finally:
+            gui_main.threading.Thread = original_thread
+
         # Once shutdown starts, keyboard events must be inert: no page
         # navigation and, in particular, no new inventory preflight.
         window._show_view("package-detail")
