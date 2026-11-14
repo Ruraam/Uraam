@@ -241,13 +241,13 @@ def main() -> int:
             raise AssertionError("Ctrl+1 did not select the dashboard during crossfade")
 
         original_run_async = window._run_async
-        original_begin_inventory = window._begin_package_inventory
+        original_show_device = window._show_device
         captured_requests = []
-        inventory_callbacks = []
+        device_updates = []
         window._run_async = lambda action, callback: captured_requests.append(
             (action, callback)
         )
-        window._begin_package_inventory = lambda *args: inventory_callbacks.append(args)
+        window._show_device = lambda *args: device_updates.append(args)
         try:
             if not window._on_key_pressed(
                 None, Gdk.KEY_2, 0, Gdk.ModifierType.CONTROL_MASK
@@ -265,8 +265,8 @@ def main() -> int:
                 raise AssertionError("A second Ctrl+1 was not handled during crossfade")
             stale_callback = captured_requests[-1][1]
             stale_callback({"status": "connected"}, None)
-            if inventory_callbacks:
-                raise AssertionError("A stale shortcut callback updated the inventory after navigation")
+            if device_updates:
+                raise AssertionError("A stale shortcut callback updated device state after navigation")
             if window.stack.get_visible_child_name() != "dashboard":
                 raise AssertionError("The latest shortcut did not win during crossfade")
 
@@ -276,7 +276,7 @@ def main() -> int:
                 raise AssertionError("Escape changed the dashboard while no inspector was open")
         finally:
             window._run_async = original_run_async
-            window._begin_package_inventory = original_begin_inventory
+            window._show_device = original_show_device
 
         window._show_view("package-detail")
         permissions_expander.grab_focus()
