@@ -198,7 +198,13 @@ class UraamWindow(Gtk.ApplicationWindow):
         )
 
     @staticmethod
-    def _make_card(title: str, value: str, detail: str) -> Gtk.Frame:
+    def _make_card(
+        title: str,
+        value: str,
+        detail: str,
+        *,
+        scrollable_detail: bool = False,
+    ) -> Gtk.Frame:
         card = Gtk.Frame()
         card.add_css_class("uraam-card")
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
@@ -217,7 +223,20 @@ class UraamWindow(Gtk.ApplicationWindow):
         detail_label = Gtk.Label(label=detail, xalign=0)
         detail_label.add_css_class("dim-label")
         detail_label.set_wrap(True)
-        content.append(detail_label)
+        detail_label.set_selectable(True)
+        if scrollable_detail:
+            detail_scroller = Gtk.ScrolledWindow()
+            detail_scroller.add_css_class("uraam-metadata-scroller")
+            detail_scroller.set_policy(
+                Gtk.PolicyType.NEVER,
+                Gtk.PolicyType.AUTOMATIC,
+            )
+            detail_scroller.set_propagate_natural_height(True)
+            detail_scroller.set_max_content_height(240)
+            detail_scroller.set_child(detail_label)
+            content.append(detail_scroller)
+        else:
+            content.append(detail_label)
         card.set_child(content)
         return card
 
@@ -227,7 +246,12 @@ class UraamWindow(Gtk.ApplicationWindow):
             return
         heading = content.get_first_child()
         value_label = heading.get_next_sibling() if heading else None
-        detail_label = value_label.get_next_sibling() if value_label else None
+        detail_container = value_label.get_next_sibling() if value_label else None
+        detail_label = (
+            detail_container.get_child()
+            if isinstance(detail_container, Gtk.ScrolledWindow)
+            else detail_container
+        )
         if isinstance(heading, Gtk.Label):
             heading.set_text(title.upper())
         if isinstance(value_label, Gtk.Label):
@@ -396,16 +420,32 @@ class UraamWindow(Gtk.ApplicationWindow):
         self.package_detail_status.add_css_class("dim-label")
         details.append(self.package_detail_status)
         self.package_detail_version = self._make_card("Version", "Not loaded", "Reported by Android Package Manager")
-        self.package_detail_path = self._make_card("APK location", "Not loaded", "Installed APK path(s)")
+        self.package_detail_path = self._make_card(
+            "APK location", "Not loaded", "Installed APK path(s)",
+            scrollable_detail=True,
+        )
         self.package_detail_permissions = self._make_card(
             "Requested permissions", "Not loaded",
-            "Names requested by the package; grant status is not inferred"
+            "Names requested by the package; grant status is not inferred",
+            scrollable_detail=True,
         )
         self.package_detail_components = {
-            "activities": self._make_card("Activities", "Not loaded", "Declared component entries"),
-            "services": self._make_card("Services", "Not loaded", "Declared component entries"),
-            "receivers": self._make_card("Receivers", "Not loaded", "Declared component entries"),
-            "providers": self._make_card("Providers", "Not loaded", "Declared component entries"),
+            "activities": self._make_card(
+                "Activities", "Not loaded", "Declared component entries",
+                scrollable_detail=True,
+            ),
+            "services": self._make_card(
+                "Services", "Not loaded", "Declared component entries",
+                scrollable_detail=True,
+            ),
+            "receivers": self._make_card(
+                "Receivers", "Not loaded", "Declared component entries",
+                scrollable_detail=True,
+            ),
+            "providers": self._make_card(
+                "Providers", "Not loaded", "Declared component entries",
+                scrollable_detail=True,
+            ),
         }
         permissions_expander = self._make_expander(
             "Requested permissions", self.package_detail_permissions
