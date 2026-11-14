@@ -286,6 +286,7 @@ class UraamWindow(Gtk.ApplicationWindow):
         """Group verbose package metadata behind an accessible disclosure row."""
         expander = Gtk.Expander.new(title)
         expander.add_css_class("uraam-detail-expander")
+        expander.set_focusable(True)
         expander.set_expanded(False)
         expander.set_child(child)
         return expander
@@ -462,6 +463,7 @@ class UraamWindow(Gtk.ApplicationWindow):
         permissions_expander = self._make_expander(
             "Requested permissions", self.package_detail_permissions
         )
+        self.package_detail_permissions_expander = permissions_expander
         components_box = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL, spacing=10
         )
@@ -470,6 +472,7 @@ class UraamWindow(Gtk.ApplicationWindow):
         components_expander = self._make_expander(
             "Declared components", components_box
         )
+        self.package_detail_components_expander = components_expander
         details.append(self.package_detail_version)
         details.append(self.package_detail_path)
         details.append(permissions_expander)
