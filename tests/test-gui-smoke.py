@@ -152,10 +152,10 @@ def main() -> int:
         drain_main_context()
         if not permissions_expander.get_expanded() or not components_expander.get_expanded():
             raise AssertionError("Inspector metadata sections cannot be expanded")
-        if not window.package_detail_permissions.get_visible():
-            raise AssertionError("Permission metadata is not visible when its section is expanded")
-        if not window.package_detail_components["activities"].get_visible():
-            raise AssertionError("Component metadata is not visible when its section is expanded")
+        if not window.package_detail_permissions.get_mapped():
+            raise AssertionError("Permission metadata is not mapped when its section is expanded")
+        if not window.package_detail_components["activities"].get_mapped():
+            raise AssertionError("Component metadata is not mapped when its section is expanded")
 
         # Repeated disclosure changes must not leave keyboard focus inside a
         # subtree that GTK has just hidden.
@@ -165,8 +165,8 @@ def main() -> int:
             permissions_expander.set_expanded(True)
             components_expander.set_expanded(True)
             drain_main_context()
-            if not permission_scroller.get_visible() or not component_scroller.get_visible():
-                raise AssertionError("Repeated expansion did not restore metadata visibility")
+            if not permission_scroller.get_mapped() or not component_scroller.get_mapped():
+                raise AssertionError("Repeated expansion did not map the metadata content")
 
             for expander, scroller, section_name in (
                 (permissions_expander, permission_scroller, "permissions"),
@@ -180,8 +180,8 @@ def main() -> int:
                     raise AssertionError(f"{section_name} disclosure cannot receive focus")
                 expander.set_expanded(False)
                 drain_main_context()
-                if expander.get_expanded() or scroller.get_visible():
-                    raise AssertionError(f"{section_name} metadata remained visible after collapse")
+                if expander.get_expanded() or scroller.get_mapped():
+                    raise AssertionError(f"{section_name} metadata remained mapped after collapse")
                 focused = window.get_focus()
                 if focused is not None and not focused.get_visible():
                     raise AssertionError(
@@ -193,8 +193,8 @@ def main() -> int:
                     )
                 expander.set_expanded(True)
                 drain_main_context()
-                if not scroller.get_visible():
-                    raise AssertionError(f"Reopening {section_name} did not restore its metadata")
+                if not scroller.get_mapped():
+                    raise AssertionError(f"Reopening {section_name} did not map its metadata")
                 expander.grab_focus()
                 if window.get_focus() is not expander:
                     raise AssertionError(f"Reopened {section_name} disclosure lost keyboard focus")
