@@ -33,6 +33,7 @@ from api_protocol import (
 
 import gi
 
+gi.require_version("Gdk", "4.0")
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
@@ -640,9 +641,11 @@ class UraamWindow(Gtk.ApplicationWindow):
         return False
 
     def _return_to_packages(self) -> None:
-        """Return to the inventory and restore keyboard focus to its list."""
+        """Return to the inventory and restore focus when the widget exists."""
         self._show_view("packages")
-        self.package_list.grab_focus()
+        package_list = getattr(self, "package_list", None)
+        if isinstance(package_list, Gtk.Widget):
+            package_list.grab_focus()
 
     def _on_close_request(self, _window: Gtk.ApplicationWindow) -> bool:
         """Cancel the active read-only bridge process before the window closes."""
@@ -905,7 +908,9 @@ class UraamWindow(Gtk.ApplicationWindow):
                 "Declared component entries from Android Package Manager"
             )
         self._show_view("package-detail")
-        self.package_detail_back_button.grab_focus()
+        back_button = getattr(self, "package_detail_back_button", None)
+        if isinstance(back_button, Gtk.Widget):
+            back_button.grab_focus()
         generation = self._package_request_generation
         device_generation = self._device_generation
         view_generation = self._view_generation
