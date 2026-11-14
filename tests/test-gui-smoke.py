@@ -75,6 +75,14 @@ def main() -> int:
             raise AssertionError("The GTK metadata card truncated a large value")
         if not detail_label.get_selectable():
             raise AssertionError("Large metadata is not selectable for copying")
+        if detail_label.get_focusable():
+            raise AssertionError("Scrollable metadata exposes a redundant label focus stop")
+        if not metadata_scroller.get_focusable():
+            raise AssertionError("Scrollable metadata cannot receive keyboard focus")
+        if metadata_scroller.get_accessible_property(
+            Gtk.AccessibleProperty.LABEL
+        ) != "Requested permissions details":
+            raise AssertionError("Scrollable metadata has no accessible name")
         drain_main_context()
 
         window._packages = [
