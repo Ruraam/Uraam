@@ -12,7 +12,7 @@ sys.path.insert(0, str(ROOT / "GUI"))
 import gi
 
 gi.require_version("Gtk", "4.0")
-from gi.repository import GLib  # noqa: E402
+from gi.repository import GLib, Gtk  # noqa: E402
 
 from main import UraamApplication, UraamWindow  # noqa: E402
 
