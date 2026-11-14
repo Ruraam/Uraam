@@ -636,7 +636,12 @@ class UraamWindow(Gtk.ApplicationWindow):
                 return True
         if navigation_modifiers == 0 and keyval == Gdk.KEY_Escape:
             if self.stack.get_visible_child_name() == "package-detail":
-                self._return_to_packages()
+                return_to_packages = getattr(self, "_return_to_packages", None)
+                if callable(return_to_packages):
+                    return_to_packages()
+                else:
+                    # Keep lightweight WindowState test doubles compatible.
+                    self._show_view("packages")
                 return True
         return False
 
