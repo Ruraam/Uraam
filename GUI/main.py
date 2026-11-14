@@ -6,6 +6,7 @@ device information and the installed Android user-0 package inventory.
 """
 from __future__ import annotations
 
+import logging
 import signal
 import subprocess
 import threading
@@ -40,6 +41,7 @@ from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 API_PATH = ROOT_DIR / "uraam-api.sh"
+LOGGER = logging.getLogger(__name__)
 
 
 class UraamWindow(Gtk.ApplicationWindow):
@@ -605,7 +607,13 @@ class UraamWindow(Gtk.ApplicationWindow):
         self._loading = False
         self.loading_spinner.stop()
         self.refresh_button.set_sensitive(True)
-        callback(payload, error)
+        try:
+            callback(payload, error)
+        except Exception:
+            # A page callback must not escape through GLib's idle dispatcher
+            # or leave the UI looking as though the request is still running.
+            LOGGER.exception("Unable to update the GTK view after an async request")
+            self.status_label.set_text("Unable to update interface")
         return GLib.SOURCE_REMOVE
 
     def _show_view(self, name: str) -> None:
