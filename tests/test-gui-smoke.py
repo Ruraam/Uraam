@@ -46,7 +46,7 @@ def main() -> int:
         # Stress the current metadata rendering path with the protocol's
         # maximum component count. This checks GTK construction/layout work
         # without connecting to Android or invoking package operations.
-        stress_metadata = "\\n".join(
+        stress_metadata = "\n".join(
             f"com.example.component.Entry{index}" for index in range(4096)
         )
         permission_card = window.package_detail_permissions
@@ -58,9 +58,16 @@ def main() -> int:
         )
         content = permission_card.get_child()
         value_label = content.get_first_child().get_next_sibling()
-        detail_label = value_label.get_next_sibling()
+        metadata_scroller = value_label.get_next_sibling()
+        if not isinstance(metadata_scroller, Gtk.ScrolledWindow):
+            raise AssertionError("Large metadata is not placed in a dedicated scroller")
+        if metadata_scroller.get_max_content_height() != 240:
+            raise AssertionError("The metadata viewport does not have its expected height cap")
+        detail_label = metadata_scroller.get_child()
         if detail_label.get_text() != stress_metadata:
             raise AssertionError("The GTK metadata card truncated a large value")
+        if not detail_label.get_selectable():
+            raise AssertionError("Large metadata is not selectable for copying")
         drain_main_context()
 
         window._packages = [
