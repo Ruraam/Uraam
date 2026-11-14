@@ -438,6 +438,36 @@ def main() -> int:
         finally:
             gui_main.threading.Thread = original_thread
 
+        # A page callback may itself fail after the worker has completed.
+        # Keep the exception out of GLib's idle dispatcher and restore a clear
+        # UI state rather than leaving a stale loading indicator.
+        callback_failures = []
+
+        def failing_page_callback(payload, error):
+            callback_failures.append((payload, error))
+            raise RuntimeError("simulated page callback failure")
+
+        window._loading = True
+        window._pending_request = None
+        window.refresh_button.set_sensitive(False)
+        window.loading_spinner.start()
+        window.status_label.set_text("Loading device-info…")
+        finish_result = window._finish_async(
+            failing_page_callback,
+            {"status": "connected"},
+            None,
+        )
+        if finish_result != GLib.SOURCE_REMOVE:
+            raise AssertionError("A completed async callback was not removed from the GLib queue")
+        if len(callback_failures) != 1:
+            raise AssertionError("A failing page callback was not invoked exactly once")
+        if window._loading or window.loading_spinner.get_spinning():
+            raise AssertionError("A failing page callback left async loading active")
+        if not window.refresh_button.get_sensitive():
+            raise AssertionError("A failing page callback left refresh disabled")
+        if window.status_label.get_text() != "Unable to update interface":
+            raise AssertionError("A failing page callback left a stale loading status")
+
         # Once shutdown starts, keyboard events must be inert: no page
         # navigation and, in particular, no new inventory preflight.
         window._show_view("package-detail")
