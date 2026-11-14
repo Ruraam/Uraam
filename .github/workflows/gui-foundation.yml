@@ -11,6 +11,11 @@ on:
       - ".github/workflows/.build-releases.yml"
       - "GUI/**"
       - "tests/test-json-api.sh"
+      - "tests/test-api-protocol.py"
+      - "tests/test-api-output-limits.sh"
+      - "tests/test-bridge-process.py"
+      - "tests/test-gui-smoke.py"
+      - "tests/test-api-display-safety.py"
       - ".github/workflows/gui-foundation.yml"
   push:
     branches:
@@ -20,6 +25,11 @@ on:
       - "uraam-gui"
       - "GUI/**"
       - "tests/test-json-api.sh"
+      - "tests/test-api-protocol.py"
+      - "tests/test-api-output-limits.sh"
+      - "tests/test-bridge-process.py"
+      - "tests/test-gui-smoke.py"
+      - "tests/test-api-display-safety.py"
       - ".github/workflows/gui-foundation.yml"
   workflow_dispatch:
 
@@ -37,7 +47,7 @@ jobs:
       - name: Install validation dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes jq shellcheck python3-gi gir1.2-gtk-4.0
+          sudo apt-get install --yes jq shellcheck python3-gi gir1.2-gtk-4.0 xvfb
 
       - name: Validate Bash syntax
         run: |
@@ -46,14 +56,24 @@ jobs:
           bash -n uraam-gui
           bash -n installer.sh
           bash -n tests/test-json-api.sh
+          bash -n tests/test-api-output-limits.sh
 
       - name: Run ShellCheck
-        run: shellcheck --severity=error uraam.sh uraam-api.sh uraam-gui installer.sh tests/test-json-api.sh
+        run: shellcheck --severity=error uraam.sh uraam-api.sh uraam-gui installer.sh tests/test-json-api.sh tests/test-api-output-limits.sh
 
       - name: Validate Python syntax and GTK4 bindings
         run: |
-          python3 -m py_compile GUI/main.py
+          python3 -m py_compile GUI/main.py GUI/api_protocol.py GUI/bridge_process.py tests/test-api-protocol.py tests/test-bridge-process.py tests/test-gui-smoke.py tests/test-api-display-safety.py
+          python3 tests/test-api-protocol.py
+          python3 tests/test-api-display-safety.py
+          python3 tests/test-bridge-process.py
           python3 -c "import gi; gi.require_version('Gtk', '4.0'); from gi.repository import Gtk; print(Gtk.get_major_version(), Gtk.get_minor_version())"
+
+      - name: Smoke-test GTK4 window without an Android device
+        env:
+          GTK_A11Y: none
+          GSK_RENDERER: cairo
+        run: xvfb-run --auto-servernum python3 tests/test-gui-smoke.py
 
       - name: Validate Debian desktop package layout
         run: |
@@ -63,7 +83,7 @@ jobs:
           cp uraam.sh "$PKG_DIR/usr/share/uraam/"
           cp -r Configs "$PKG_DIR/usr/share/uraam/"
           cp uraam-api.sh "$PKG_DIR/usr/share/uraam/"
-          cp GUI/main.py "$PKG_DIR/usr/share/uraam/GUI/"
+          cp GUI/main.py GUI/api_protocol.py GUI/bridge_process.py "$PKG_DIR/usr/share/uraam/GUI/"
           cp uraam-gui "$PKG_DIR/usr/bin/uraam-gui"
           cp assets/uraam_logo.svg "$PKG_DIR/usr/share/icons/hicolor/scalable/apps/uraam.svg"
           cp packaging/debian/uraam.desktop "$PKG_DIR/usr/share/uraam/uraam.desktop"
@@ -77,3 +97,6 @@ jobs:
           dpkg-deb --contents "${PKG_DIR}.deb" | grep -q '/usr/share/icons/hicolor/scalable/apps/uraam.svg'
       - name: Test read-only JSON API
         run: bash tests/test-json-api.sh
+
+      - name: Test API output size limits
+        run: bash tests/test-api-output-limits.sh

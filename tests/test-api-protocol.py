@@ -1,0 +1,1012 @@
+#!/usr/bin/env python3
+"""Unit tests for the GTK-to-Bash JSON response contract."""
+
+import unittest
+
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "GUI"))
+from api_protocol import (
+    MAX_JSON_CONTAINER_ENTRIES,
+    MAX_JSON_INTEGER_DIGITS,
+    MAX_JSON_STRING_BYTES,
+    coalesce_pending_request,
+    decode_api_response,
+    device_identity,
+    device_matches_request,
+    inventory_matches_device,
+    package_detail_payload_matches,
+    package_detail_request_is_current,
+    request_is_current,
+    take_pending_request,
+)
+
+
+class ApiProtocolTests(unittest.TestCase):
+    def test_accepts_success_inventory_object(self):
+        payload = (
+            '{"status":"ok","backend":"adb","serial":"device-123","user":0,'
+            '"count":2,"packages":["com.example.one","com.example.two"],'
+            '"package_types":{"com.example.one":"system","com.example.two":"user"},'
+            '"system_count":1,"user_count":1,"unclassified_count":0,'
+            '"classification_available":true}'
+        )
+        self.assertEqual(decode_api_response(payload, "", 0)["count"], 2)
+
+    def test_accepts_connected_device_contract(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google",'
+            '"rom":{"name":"Android","version":"15"}}'
+        )
+        self.assertEqual(decode_api_response(payload, "", 0)["status"], "connected")
+
+    def test_accepts_disconnected_device_contract(self):
+        payload = (
+            '{"status":"disconnected","version":"4.4.3","backend":null,'
+            '"serial":null,"model":null,"oem":"unknown","rom":null}'
+        )
+        self.assertEqual(decode_api_response(payload, "", 0)["status"], "disconnected")
+
+    def test_rejects_incomplete_connected_device_contract(self):
+        with self.assertRaisesRegex(RuntimeError, "backend"):
+            decode_api_response(
+                '{"status":"connected","version":"4.4.3","model":"Pixel",'
+                '"oem":"google","serial":"device-123","rom":null}',
+                "", 0
+            )
+
+    def test_rejects_connected_identity_in_disconnected_contract(self):
+        with self.assertRaisesRegex(RuntimeError, "identity"):
+            decode_api_response(
+                '{"status":"disconnected","version":"4.4.3","backend":"adb",'
+                '"serial":null,"model":null,"oem":"unknown","rom":null}',
+                "", 0
+            )
+
+    def test_rejects_inventory_with_inconsistent_counts(self):
+        payload = (
+            '{"status":"ok","backend":"adb","serial":"device-123","user":0,'
+            '"count":2,"packages":["com.example.one"],'
+            '"package_types":{"com.example.one":"user"},'
+            '"system_count":0,"user_count":1,"unclassified_count":0,'
+            '"classification_available":true}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "count"):
+            decode_api_response(payload, "", 0)
+
+    def test_rejects_inventory_with_incomplete_classification(self):
+        payload = (
+            '{"status":"ok","backend":"adb","serial":"device-123","user":0,'
+            '"count":1,"packages":["com.example.one"],"package_types":{},'
+            '"system_count":0,"user_count":0,"unclassified_count":1,'
+            '"classification_available":false}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "classifications"):
+            decode_api_response(payload, "", 0)
+
+    def test_rejects_inventory_counts_that_do_not_match_package_types(self):
+        payload = (
+            '{"status":"ok","backend":"adb","serial":"device-123","user":0,'
+            '"count":2,"packages":["com.example.one","com.example.two"],'
+            '"package_types":{"com.example.one":"system","com.example.two":"user"},'
+            '"system_count":0,"user_count":2,"unclassified_count":0,'
+            '"classification_available":true}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "do not match package types"):
+            decode_api_response(payload, "", 0)
+
+    def test_rejects_inconsistent_classification_available_flag(self):
+        payload = (
+            '{"status":"ok","backend":"adb","serial":"device-123","user":0,'
+            '"count":1,"packages":["com.example.one"],'
+            '"package_types":{"com.example.one":"unknown"},'
+            '"system_count":0,"user_count":0,"unclassified_count":1,'
+            '"classification_available":true}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "availability flag"):
+            decode_api_response(payload, "", 0)
+
+    def test_rejects_unrecognized_ok_payload(self):
+        with self.assertRaisesRegex(RuntimeError, "recognized payload"):
+            decode_api_response('{"status":"ok","count":2}', "", 0)
+
+    def test_rejects_stdout_noise(self):
+        with self.assertRaisesRegex(RuntimeError, "invalid JSON"):
+            decode_api_response("debug line\\n{} ", "", 0)
+
+    def test_rejects_truncated_json(self):
+        with self.assertRaisesRegex(RuntimeError, "truncated JSON"):
+            decode_api_response('{"status":"connected","version":"4.4.3"', "", 0)
+
+    def test_rejects_duplicate_top_level_json_keys(self):
+        with self.assertRaisesRegex(RuntimeError, "duplicate JSON key.*status"):
+            decode_api_response(
+                '{"status":"connected","status":"disconnected"}', "", 0
+            )
+
+    def test_rejects_duplicate_nested_json_keys(self):
+        with self.assertRaisesRegex(RuntimeError, "duplicate JSON key.*name"):
+            decode_api_response(
+                '{"status":"connected","version":"4.4.3","backend":"adb",'
+                '"serial":"device-123","model":"Pixel","oem":"google",'
+                '"rom":{"name":"Android","name":"Other","version":"15"}}',
+                "", 0
+            )
+
+    def test_rejects_duplicate_unicode_json_keys_after_escape_decoding(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"caf\\u00e9":1,"café":2}}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "duplicate JSON key.*café"):
+            decode_api_response(payload, "", 0)
+
+    def test_rejects_canonically_equivalent_unicode_json_keys(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"café":1,"cafe\\u0301":2}}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "duplicate JSON key.*café"):
+            decode_api_response(payload, "", 0)
+
+    def test_preserves_decomposed_unicode_json_key_without_collision(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"cafe\\u0301":"ok"}}'
+        )
+        decoded = decode_api_response(payload, "", 0)
+        decomposed_key = "cafe\u0301"
+        self.assertIn(decomposed_key, decoded["future_metrics"])
+        self.assertEqual(decoded["future_metrics"][decomposed_key], "ok")
+
+    def test_rejects_compatibility_unicode_alias_of_known_top_level_field(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"ｓｔａｔｕｓ":"spoofed"}}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "compatibility alias.*status"):
+            decode_api_response(payload, "", 0)
+
+    def test_rejects_compatibility_unicode_alias_of_nested_known_field(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google",'
+            '"rom":{"ｎａｍｅ":"spoofed"}}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "compatibility alias.*name"):
+            decode_api_response(payload, "", 0)
+
+    def test_accepts_unrelated_compatibility_unicode_extension_key(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"Ｆｕｔｕｒｅ":"ok"}}'
+        )
+        decoded = decode_api_response(payload, "", 0)
+        self.assertEqual(decoded["future_metrics"], {"Ｆｕｔｕｒｅ": "ok"})
+
+    def test_accepts_valid_unicode_keys_in_unknown_extensions(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"résumé":"ok","東京":"ok","emoji_🚀":"ok"}}'
+        )
+        decoded = decode_api_response(payload, "", 0)
+        self.assertEqual(
+            decoded["future_metrics"],
+            {"résumé": "ok", "東京": "ok", "emoji_🚀": "ok"},
+        )
+
+    def test_rejects_bidi_control_in_unknown_extension_object_key(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"safe\\u202ehidden":1}}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "unsafe control characters or unsafe Unicode"):
+            decode_api_response(payload, "", 0)
+
+    def test_rejects_non_standard_json_constants(self):
+        with self.assertRaisesRegex(RuntimeError, "non-standard JSON constant"):
+            decode_api_response('{"status":"ok","value":NaN}', "", 0)
+
+    def test_rejects_overflowing_json_float_in_unknown_extension(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"upper_bound":1e999}}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "finite floating-point range"):
+            decode_api_response(payload, "", 0)
+
+    def test_rejects_oversized_json_integer_in_unknown_extension(self):
+        digits = "9" * (MAX_JSON_INTEGER_DIGITS + 1)
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"counter":' + digits + '}}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "128-digit safety limit"):
+            decode_api_response(payload, "", 0)
+
+    def test_accepts_json_integer_at_digit_limit_in_unknown_extension(self):
+        digits = "9" * MAX_JSON_INTEGER_DIGITS
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"counter":' + digits + '}}'
+        )
+        decoded = decode_api_response(payload, "", 0)
+        self.assertEqual(decoded["future_metrics"]["counter"], int(digits))
+
+    def test_rejects_underflowing_nonzero_json_float_in_unknown_extension(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"lower_bound":1e-9999}}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "below the finite floating-point range"):
+            decode_api_response(payload, "", 0)
+
+    def test_accepts_zero_and_representable_subnormal_json_floats(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"explicit_zero":0e-9999,"negative_zero":-0.0,'
+            '"smallest_subnormal":5e-324}}'
+        )
+        decoded = decode_api_response(payload, "", 0)
+        self.assertEqual(decoded["future_metrics"]["explicit_zero"], 0.0)
+        self.assertEqual(decoded["future_metrics"]["negative_zero"], -0.0)
+        self.assertEqual(decoded["future_metrics"]["smallest_subnormal"], 5e-324)
+
+    def test_accepts_finite_json_float_in_unknown_extension(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"upper_bound":1e308}}'
+        )
+        decoded = decode_api_response(payload, "", 0)
+        self.assertEqual(decoded["future_metrics"]["upper_bound"], 1e308)
+
+    def test_accepts_signed_and_uppercase_json_exponent_notation(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"positive_exponent":1e+308,"uppercase_exponent":1E-308,'
+            '"fractional_exponent":1.0E+10,"zero_with_large_exponent":-0e+999}}'
+        )
+        decoded = decode_api_response(payload, "", 0)
+        self.assertEqual(decoded["future_metrics"]["positive_exponent"], 1e308)
+        self.assertEqual(decoded["future_metrics"]["uppercase_exponent"], 1e-308)
+        self.assertEqual(decoded["future_metrics"]["fractional_exponent"], 1e10)
+        self.assertEqual(decoded["future_metrics"]["zero_with_large_exponent"], -0.0)
+
+    def test_accepts_json_at_exact_nesting_limit_in_unknown_extension(self):
+        # The outer protocol object itself occupies one nesting level.
+        depth = 99
+        value = "0"
+        for _ in range(depth):
+            value = '{"next":' + value + "}"
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_tree":' + value + "}"
+        )
+        decoded = decode_api_response(payload, "", 0)
+        current = decoded["future_tree"]
+        for _ in range(depth):
+            self.assertEqual(set(current), {"next"})
+            current = current["next"]
+        self.assertEqual(current, 0)
+
+    def test_rejects_excessively_nested_json(self):
+        payload = '{"status":"ok","padding":' + ("[" * 2000) + "0" + ("]" * 2000) + "}"
+        with self.assertRaisesRegex(RuntimeError, "JSON nesting.*safety limit"):
+            decode_api_response(payload, "", 0)
+
+    def test_rejects_too_many_json_container_entries_in_extensions(self):
+        values = ("0," * MAX_JSON_CONTAINER_ENTRIES) + "0"
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_values":[' + values + "]}"
+        )
+        with self.assertRaisesRegex(RuntimeError, "too many container entries"):
+            decode_api_response(payload, "", 0)
+
+    def test_accepts_exact_json_container_entry_limit(self):
+        top_level_entries = 8
+        value_count = MAX_JSON_CONTAINER_ENTRIES - top_level_entries
+        values = ("0," * (value_count - 1)) + "0"
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_values":[' + values + "]}"
+        )
+        decoded = decode_api_response(payload, "", 0)
+        self.assertEqual(len(decoded["future_values"]), value_count)
+
+    def test_accepts_exact_json_container_entry_limit_in_object(self):
+        top_level_entries = 8
+        object_entry_count = MAX_JSON_CONTAINER_ENTRIES - top_level_entries
+        entries = ",".join(
+            '"key_' + str(index) + '":0'
+            for index in range(object_entry_count)
+        )
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{' + entries + '}}'
+        )
+        decoded = decode_api_response(payload, "", 0)
+        self.assertEqual(len(decoded["future_metrics"]), object_entry_count)
+
+    def test_rejects_json_object_over_global_container_entry_limit(self):
+        top_level_entries = 8
+        object_entry_count = MAX_JSON_CONTAINER_ENTRIES - top_level_entries + 1
+        entries = ",".join(
+            '"key_' + str(index) + '":0'
+            for index in range(object_entry_count)
+        )
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{' + entries + '}}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "too many container entries"):
+            decode_api_response(payload, "", 0)
+
+    def test_rejects_mixed_nested_objects_and_lists_over_entry_limit(self):
+        # Count all containers together: 8 top-level keys, 2 extension keys,
+        # 50,000 list items, and 49,991 nested object keys.
+        label_count = MAX_JSON_CONTAINER_ENTRIES // 2
+        sample_count = MAX_JSON_CONTAINER_ENTRIES - 8 - 2 - label_count + 1
+        labels = ",".join('"x"' for _ in range(label_count))
+        samples = ",".join(
+            '"sample_' + str(index) + '":0'
+            for index in range(sample_count)
+        )
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_metrics":{"labels":[' + labels + '],"samples":{' + samples + '}}}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "too many container entries"):
+            decode_api_response(payload, "", 0)
+
+    def test_rejects_oversized_string_in_unknown_extension_fields(self):
+        payload = __import__("json").dumps({
+            "status": "connected",
+            "version": "4.4.3",
+            "backend": "adb",
+            "serial": "device-123",
+            "model": "Pixel",
+            "oem": "google",
+            "rom": None,
+            "future_note": "x" * (MAX_JSON_STRING_BYTES + 1),
+        })
+        with self.assertRaisesRegex(RuntimeError, "string exceeding the 1 MiB safety limit"):
+            decode_api_response(payload, "", 0)
+
+    def test_accepts_string_at_per_string_limit_in_unknown_extensions(self):
+        expected = "x" * MAX_JSON_STRING_BYTES
+        payload = __import__("json").dumps({
+            "status": "connected",
+            "version": "4.4.3",
+            "backend": "adb",
+            "serial": "device-123",
+            "model": "Pixel",
+            "oem": "google",
+            "rom": None,
+            "future_note": expected,
+        })
+        self.assertEqual(decode_api_response(payload, "", 0)["future_note"], expected)
+
+    def test_preserves_unknown_fields_for_forward_compatibility(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google",'
+            '"rom":null,"future_field":{"supported":true}}'
+        )
+        self.assertTrue(
+            decode_api_response(payload, "", 0)["future_field"]["supported"]
+        )
+
+    def test_rejects_non_object_json(self):
+        with self.assertRaisesRegex(RuntimeError, "not an object"):
+            decode_api_response("[]", "", 0)
+
+    def test_rejects_missing_status(self):
+        with self.assertRaisesRegex(RuntimeError, "status"):
+            decode_api_response('{"packages":[]}', "", 0)
+
+    def test_rejects_unknown_status(self):
+        with self.assertRaisesRegex(RuntimeError, "status"):
+            decode_api_response('{"status":"maybe"}', "", 0)
+
+    def test_rejects_non_string_status(self):
+        for status in ([], {}):
+            with self.subTest(status=status):
+                with self.assertRaisesRegex(RuntimeError, "status"):
+                    decode_api_response(__import__("json").dumps({"status": status}), "", 0)
+
+    def test_surfaces_json_error_payload(self):
+        with self.assertRaisesRegex(RuntimeError, "No backend"):
+            decode_api_response('{"status":"error","error":"No backend"}', "", 4)
+
+    def test_nonzero_exit_without_error_uses_stderr(self):
+        with self.assertRaisesRegex(RuntimeError, "permission denied"):
+            decode_api_response('{"status":"ok"}', "permission denied", 5)
+
+    def test_error_payload_is_normalized_and_bounded(self):
+        message = "backend\\nfailed\\x00" + ("x" * 3000)
+        payload = __import__("json").dumps({"status": "error", "error": message})
+        with self.assertRaises(RuntimeError) as raised:
+            decode_api_response(payload, "", 1)
+        self.assertEqual(len(str(raised.exception)), 2048)
+        self.assertTrue(str(raised.exception).startswith("backend failed"))
+        self.assertTrue(str(raised.exception).endswith("..."))
+        self.assertNotIn("\\x00", str(raised.exception))
+
+    def test_invalid_error_payload_uses_bounded_stderr_fallback(self):
+        payload = '{"status":"error","error":null}'
+        with self.assertRaises(RuntimeError) as raised:
+            decode_api_response(payload, " transport\\nfailed " + ("y" * 3000), 1)
+        self.assertEqual(len(str(raised.exception)), 2048)
+        self.assertTrue(str(raised.exception).startswith("transport failed"))
+        self.assertTrue(str(raised.exception).endswith("..."))
+
+    def test_error_payload_removes_unicode_c1_control_characters(self):
+        payload = __import__("json").dumps(
+            {"status": "error", "error": "backend\u0085failed\u009b"}
+        )
+        with self.assertRaises(RuntimeError) as raised:
+            decode_api_response(payload, "", 1)
+        self.assertEqual(str(raised.exception), "backend failed")
+        self.assertFalse(any(0x7F <= ord(char) <= 0x9F for char in str(raised.exception)))
+
+    def test_error_payload_replaces_unpaired_unicode_surrogates(self):
+        payload = __import__("json").dumps(
+            {"status": "error", "error": "backend\ud800failed"}
+        )
+        with self.assertRaises(RuntimeError) as raised:
+            decode_api_response(payload, "", 1)
+        self.assertEqual(str(raised.exception), "backend failed")
+        self.assertFalse(any(0xD800 <= ord(char) <= 0xDFFF for char in str(raised.exception)))
+
+    def test_rejects_unpaired_unicode_surrogates_in_display_fields(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel\\ud800",'
+            '"oem":"google","rom":null}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "unsafe Unicode"):
+            decode_api_response(payload, "", 0)
+
+    def test_error_payload_without_message_uses_safe_fallback(self):
+        with self.assertRaisesRegex(RuntimeError, "^URAAM request failed\\.$"):
+            decode_api_response('{"status":"error"}', "", 1)
+
+    def test_response_limit_counts_utf8_bytes(self):
+        oversized = '{"status":"ok","padding":"' + ("é" * (4 * 1024 * 1024)) + '"}'
+        with self.assertRaisesRegex(RuntimeError, "8 MiB"):
+            decode_api_response(oversized, "", 0)
+
+    def test_invalid_json_surfaces_bridge_stderr(self):
+        with self.assertRaisesRegex(RuntimeError, "adb: device offline"):
+            decode_api_response('{"status":', "adb: device offline", 1)
+
+    def test_invalid_json_stderr_is_normalized_and_bounded(self):
+        stderr = "adb: device offline\\n" + ("x" * 3000)
+        with self.assertRaises(RuntimeError) as raised:
+            decode_api_response('{"status":', stderr, 1)
+        message = str(raised.exception)
+        self.assertEqual(len(message), 2048)
+        self.assertTrue(message.startswith("adb: device offline"))
+        self.assertTrue(message.endswith("..."))
+        self.assertNotIn("\\n", message)
+
+    def test_duplicate_json_key_diagnostic_is_bounded(self):
+        key = "k" * 3000
+        payload = '{"' + key + '":1,"' + key + '":2}'
+        with self.assertRaises(RuntimeError) as raised:
+            decode_api_response(payload, "", 0)
+        message = str(raised.exception)
+        self.assertEqual(len(message), 2048)
+        self.assertTrue(message.startswith("The bridge returned a duplicate JSON key"))
+        self.assertTrue(message.endswith("..."))
+
+    def test_nonzero_exit_rejects_success_shaped_payload(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "transport failed"):
+            decode_api_response(payload, "transport failed", 1)
+
+    def test_nonzero_exit_without_payload_error_uses_stderr(self):
+        with self.assertRaisesRegex(RuntimeError, "permission denied"):
+            decode_api_response('{"status":"ok"}', "permission denied", 7)
+
+    def test_rejects_oversized_response(self):
+        oversized = '{"status":"ok","padding":"' + ("x" * (8 * 1024 * 1024)) + '"}'
+        with self.assertRaisesRegex(RuntimeError, "8 MiB"):
+            decode_api_response(oversized, "", 0)
+
+    def test_rejects_non_list_package_inventory(self):
+        with self.assertRaisesRegex(RuntimeError, "package inventory"):
+            decode_api_response('{"status":"ok","packages":"com.example.app"}', "", 0)
+
+    def test_accepts_ascii_android_package_identifiers(self):
+        payload = (
+            '{"status":"ok","backend":"adb","serial":"device-123","user":0,'
+            '"count":2,"packages":["android","com.example_app.app2"],'
+            '"package_types":{"android":"system","com.example_app.app2":"user"},'
+            '"system_count":1,"user_count":1,"unclassified_count":0,'
+            '"classification_available":true}'
+        )
+        decoded = decode_api_response(payload, "", 0)
+        self.assertEqual(decoded["count"], 2)
+
+    def test_rejects_unicode_confusable_in_package_inventory(self):
+        payload = (
+            '{"status":"ok","backend":"adb","serial":"device-123","user":0,'
+            '"count":1,"packages":["com.exаmple.app"],'
+            '"package_types":{"com.exаmple.app":"user"},'
+            '"system_count":0,"user_count":1,"unclassified_count":0,'
+            '"classification_available":true}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "invalid Android package identifier"):
+            decode_api_response(payload, "", 0)
+
+    def test_rejects_zero_width_character_in_package_classification_key(self):
+        payload = (
+            '{"status":"ok","backend":"adb","serial":"device-123","user":0,'
+            '"count":1,"packages":["com.example.app"],'
+            '"package_types":{"com.example.\\u200bapp":"user"},'
+            '"system_count":0,"user_count":1,"unclassified_count":0,'
+            '"classification_available":true}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "invalid Android package identifier"):
+            decode_api_response(payload, "", 0)
+
+    def test_rejects_fullwidth_package_identifier_in_package_detail(self):
+        payload = (
+            '{"status":"ok","package":"ｃｏｍ.example.app","backend":"adb",'
+            '"paths":["/data/app/base.apk"],"version_name":null,"version_code":null,'
+            '"requested_permissions":null,"components":{},'
+            '"metadata_limited":false,"read_only":true}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "invalid Android package identifier"):
+            decode_api_response(payload, "", 0)
+
+    def test_rejects_duplicate_package_entries(self):
+        payload = (
+            '{"status":"ok","backend":"adb","serial":"device-123","user":0,'
+            '"count":2,"packages":["com.example.app","com.example.app"],'
+            '"package_types":{"com.example.app":"user"},'
+            '"system_count":0,"user_count":1,"unclassified_count":1,'
+            '"classification_available":true}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "duplicate package"):
+            decode_api_response(payload, "", 0)
+
+    def test_rejects_non_string_package_entries(self):
+        with self.assertRaisesRegex(RuntimeError, "package inventory"):
+            decode_api_response('{"status":"ok","packages":["com.example.app",7]}', "", 0)
+
+    def test_rejects_unhashable_package_classification(self):
+        for kind in ([], {}):
+            with self.subTest(kind=kind):
+                payload = __import__("json").dumps({"status": "ok", "package_types": {"com.example.app": kind}})
+                with self.assertRaisesRegex(RuntimeError, "package classifications"):
+                    decode_api_response(payload, "", 0)
+
+    def test_rejects_invalid_rom_shape(self):
+        with self.assertRaisesRegex(RuntimeError, "ROM metadata"):
+            decode_api_response('{"status":"connected","rom":"Android 15"}', "", 0)
+
+    def test_rejects_invalid_apk_paths(self):
+        with self.assertRaisesRegex(RuntimeError, "APK path metadata"):
+            decode_api_response('{"status":"ok","paths":["/data/app/base.apk",null]}', "", 0)
+
+    def test_rejects_invalid_component_metadata(self):
+        with self.assertRaisesRegex(RuntimeError, "component metadata"):
+            decode_api_response('{"status":"ok","components":{"activities":"MainActivity"}}', "", 0)
+
+    def test_rejects_non_string_package_version_metadata(self):
+        for field in ("version_name", "version_code"):
+            with self.subTest(field=field):
+                payload = __import__("json").dumps(
+                    {"status": "ok", "package": "com.example.app", field: 42}
+                )
+                with self.assertRaisesRegex(RuntimeError, field):
+                    decode_api_response(payload, "", 0)
+
+    def test_rejects_non_string_package_semantics_metadata(self):
+        for field in ("permissions_semantics", "components_semantics", "metadata_source"):
+            with self.subTest(field=field):
+                payload = __import__("json").dumps(
+                    {"status": "ok", "package": "com.example.app", field: []}
+                )
+                with self.assertRaisesRegex(RuntimeError, field):
+                    decode_api_response(payload, "", 0)
+
+    def test_rejects_non_boolean_metadata_flags(self):
+        for field in ("metadata_limited", "read_only", "classification_available"):
+            with self.subTest(field=field):
+                payload = __import__("json").dumps(
+                    {"status": "ok", "package": "com.example.app", field: "false"}
+                )
+                with self.assertRaisesRegex(RuntimeError, field):
+                    decode_api_response(payload, "", 0)
+
+    def test_accepts_nullable_package_versions_and_valid_metadata_flags(self):
+        payload = (
+            '{"status":"ok","package":"com.example.app","backend":"adb",'
+            '"paths":["/data/app/com.example.app/base.apk"],'
+            '"version_name":null,"version_code":null,'
+            '"requested_permissions":null,"components":{'
+            '"activities":null,"services":null,"receivers":null,"providers":null},'
+            '"metadata_limited":false,"read_only":true,'
+            '"permissions_semantics":"requested_only_not_grant_status"}'
+        )
+        self.assertTrue(decode_api_response(payload, "", 0)["read_only"])
+
+    def test_rejects_package_details_without_explicit_read_only_flag(self):
+        payload = (
+            '{"status":"ok","package":"com.example.app","backend":"adb",'
+            '"paths":["/data/app/base.apk"],"version_name":null,"version_code":null,'
+            '"requested_permissions":null,"components":{},"metadata_limited":false,'
+            '"read_only":false}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "not explicitly read-only"):
+            decode_api_response(payload, "", 0)
+
+    def test_rejects_ok_response_with_missing_package_detail_fields(self):
+        with self.assertRaisesRegex(RuntimeError, "missing required fields"):
+            decode_api_response(
+                '{"status":"ok","package":"com.example.app","backend":"adb"}',
+                "", 0
+            )
+
+    def test_rejects_package_detail_with_missing_or_empty_package_identity(self):
+        base = {
+            "status": "ok",
+            "backend": "adb",
+            "paths": ["/data/app/com.example.app/base.apk"],
+            "version_name": None,
+            "version_code": None,
+            "requested_permissions": None,
+            "components": {},
+            "metadata_limited": False,
+            "read_only": True,
+        }
+        for package in (None, ""):
+            with self.subTest(package=package):
+                payload = dict(base)
+                if package is not None:
+                    payload["package"] = package
+                with self.assertRaisesRegex(RuntimeError, "valid package identity"):
+                    decode_api_response(__import__("json").dumps(payload), "", 0)
+
+    def test_rejects_non_string_package_detail_identity(self):
+        payload = {
+            "status": "ok",
+            "package": 123,
+            "backend": "adb",
+            "paths": ["/data/app/com.example.app/base.apk"],
+            "version_name": None,
+            "version_code": None,
+            "requested_permissions": None,
+            "components": {},
+            "metadata_limited": False,
+            "read_only": True,
+        }
+        with self.assertRaisesRegex(RuntimeError, "package"):
+            decode_api_response(__import__("json").dumps(payload), "", 0)
+
+    def test_rejects_package_detail_without_backend_identity(self):
+        payload = {
+            "status": "ok",
+            "package": "com.example.app",
+            "backend": None,
+            "paths": ["/data/app/com.example.app/base.apk"],
+            "version_name": None,
+            "version_code": None,
+            "requested_permissions": None,
+            "components": {},
+            "metadata_limited": False,
+            "read_only": True,
+        }
+        with self.assertRaisesRegex(RuntimeError, "backend"):
+            decode_api_response(__import__("json").dumps(payload), "", 0)
+
+    def test_accepts_unknown_top_level_extension_fields(self):
+        payload = (
+            '{"status":"connected","version":"4.4.3","backend":"adb",'
+            '"serial":"device-123","model":"Pixel","oem":"google","rom":null,'
+            '"future_capability":{"read_only":true},"trace_id":"request-123"}'
+        )
+        decoded = decode_api_response(payload, "", 0)
+        self.assertEqual(decoded["trace_id"], "request-123")
+        self.assertEqual(decoded["future_capability"], {"read_only": True})
+
+    def test_rejects_unsafe_nested_json_object_keys(self):
+        base = {
+            "status": "connected",
+            "version": "4.4.3",
+            "backend": "adb",
+            "serial": "device-123",
+            "model": "Pixel",
+            "oem": "google",
+            "rom": None,
+        }
+        for key in ("hidden\u202eoverride", "bad\x00key"):
+            with self.subTest(key=key):
+                payload = dict(base)
+                payload["future_capability"] = {key: "value"}
+                with self.assertRaisesRegex(RuntimeError, "unsafe control characters"):
+                    decode_api_response(__import__("json").dumps(payload), "", 0)
+
+    def test_rejects_ok_response_with_only_unknown_payload_fields(self):
+        payload = (
+            '{"status":"ok","future_payload":{"packages":["com.example.app"]}}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "no recognized payload type"):
+            decode_api_response(payload, "", 0)
+
+    def test_rejects_unknown_package_component_categories(self):
+        payload = (
+            '{"status":"ok","package":"com.example.app","backend":"adb",'
+            '"paths":["/data/app/base.apk"],"version_name":null,"version_code":null,'
+            '"requested_permissions":null,"components":{"activities":[],'
+            '"widgets":["ExampleWidget"]},"metadata_limited":false,"read_only":true}'
+        )
+        with self.assertRaisesRegex(RuntimeError, "component metadata"):
+            decode_api_response(payload, "", 0)
+
+    def test_error_without_message_is_safe(self):
+        with self.assertRaisesRegex(RuntimeError, "URAAM request failed"):
+            decode_api_response('{"status":"error","error":null}', "", 1)
+
+
+class InventoryIdentityTests(unittest.TestCase):
+    def setUp(self):
+        self.device = {
+            "status": "connected",
+            "backend": "adb",
+            "serial": "device-123",
+        }
+        self.inventory = {
+            "status": "ok",
+            "backend": "adb",
+            "serial": "device-123",
+            "packages": ["com.example.app"],
+        }
+        self.identity = ("adb", "device-123")
+
+    def test_extracts_identity_only_for_connected_device(self):
+        self.assertEqual(device_identity(self.device), self.identity)
+        self.assertIsNone(device_identity({"status": "disconnected"}))
+        self.assertIsNone(device_identity(None))
+
+    def test_accepts_matching_inventory_for_current_generation(self):
+        self.assertTrue(
+            inventory_matches_device(
+                self.inventory, self.device, 4, 4, self.identity
+            )
+        )
+
+    def test_rejects_stale_generation_even_when_serial_is_unchanged(self):
+        # A disconnect/reconnect can reuse the same backend and serial.
+        # The generation token must still invalidate the earlier response.
+        self.assertFalse(
+            inventory_matches_device(
+                self.inventory, self.device, 3, 4, self.identity
+            )
+        )
+
+    def test_rejects_disconnected_device(self):
+        self.assertFalse(
+            inventory_matches_device(
+                self.inventory,
+                {"status": "disconnected"},
+                4,
+                4,
+                self.identity,
+            )
+        )
+
+    def test_rejects_changed_device_identity(self):
+        replacement = {
+            "status": "connected",
+            "backend": "shizuku",
+            "serial": "device-456",
+        }
+        self.assertFalse(
+            inventory_matches_device(
+                self.inventory, replacement, 4, 4, self.identity
+            )
+        )
+
+    def test_rejects_inventory_from_another_device(self):
+        wrong_inventory = {
+            **self.inventory,
+            "serial": "device-456",
+        }
+        self.assertFalse(
+            inventory_matches_device(
+                wrong_inventory, self.device, 4, 4, self.identity
+            )
+        )
+
+    def test_rejects_missing_expected_identity_or_invalid_inventory(self):
+        self.assertFalse(
+            inventory_matches_device(
+                self.inventory, self.device, 4, 4, None
+            )
+        )
+        self.assertFalse(
+            inventory_matches_device(
+                None, self.device, 4, 4, self.identity
+            )
+        )
+
+
+class DeviceRequestFreshnessTests(unittest.TestCase):
+    def setUp(self):
+        self.device = {
+            "status": "connected",
+            "backend": "adb",
+            "serial": "device-123",
+        }
+        self.identity = ("adb", "device-123")
+
+    def test_accepts_same_connected_device_without_inventory_payload(self):
+        self.assertTrue(
+            device_matches_request(self.device, 4, 4, self.identity)
+        )
+
+    def test_rejects_changed_generation(self):
+        self.assertFalse(
+            device_matches_request(self.device, 3, 4, self.identity)
+        )
+
+    def test_rejects_replaced_device(self):
+        replacement = {
+            "status": "connected",
+            "backend": "shizuku",
+            "serial": "device-456",
+        }
+        self.assertFalse(
+            device_matches_request(replacement, 4, 4, self.identity)
+        )
+
+    def test_rejects_disconnected_device(self):
+        self.assertFalse(
+            device_matches_request(
+                {"status": "disconnected"}, 4, 4, self.identity
+            )
+        )
+
+    def test_rejects_missing_expected_identity(self):
+        self.assertFalse(
+            device_matches_request(self.device, 4, 4, None)
+        )
+
+
+class ViewRequestFreshnessTests(unittest.TestCase):
+    def test_accepts_request_for_current_view(self):
+        self.assertTrue(request_is_current(7, 7, False))
+
+    def test_rejects_request_after_navigation(self):
+        self.assertFalse(request_is_current(7, 8, False))
+
+    def test_rejects_request_when_window_is_closing(self):
+        self.assertFalse(request_is_current(7, 7, True))
+
+    def test_rejects_request_after_navigation_away_and_back(self):
+        # Returning to the same named view must not revive an older callback.
+        self.assertFalse(request_is_current(7, 9, False))
+
+
+class PendingRequestPolicyTests(unittest.TestCase):
+    def test_new_action_replaces_existing_pending_action(self):
+        first = ("device-info", object())
+        latest = ("list-packages", object())
+        self.assertIs(coalesce_pending_request(first, latest), latest)
+
+    def test_first_pending_action_is_retained_when_slot_is_empty(self):
+        latest = ("device-info", object())
+        self.assertIs(coalesce_pending_request(None, latest), latest)
+
+    def test_completion_takes_latest_pending_action(self):
+        latest = ("device-info", object())
+        self.assertIs(take_pending_request(latest, False), latest)
+
+    def test_shutdown_discards_pending_action(self):
+        pending = ("list-packages", object())
+        self.assertIsNone(take_pending_request(pending, True))
+
+    def test_empty_pending_slot_stays_empty(self):
+        self.assertIsNone(take_pending_request(None, False))
+
+
+class PackageDetailPayloadIdentityTests(unittest.TestCase):
+    def test_accepts_metadata_for_requested_package(self):
+        self.assertTrue(
+            package_detail_payload_matches(
+                {"package": "com.example.app"}, "com.example.app"
+            )
+        )
+
+    def test_rejects_metadata_for_another_package(self):
+        self.assertFalse(
+            package_detail_payload_matches(
+                {"package": "com.example.other"}, "com.example.app"
+            )
+        )
+
+    def test_rejects_missing_package_identity(self):
+        self.assertFalse(package_detail_payload_matches({}, "com.example.app"))
+
+    def test_rejects_non_object_payload(self):
+        self.assertFalse(package_detail_payload_matches([], "com.example.app"))
+
+    def test_rejects_empty_expected_package(self):
+        self.assertFalse(package_detail_payload_matches({"package": ""}, ""))
+
+
+class PackageDetailFreshnessTests(unittest.TestCase):
+    def _is_current(self, **overrides):
+        values = {
+            "inventory_loaded": True,
+            "expected_request_generation": 5,
+            "current_request_generation": 5,
+            "expected_device_generation": 3,
+            "current_device_generation": 3,
+            "expected_package": "com.example.app",
+            "selected_package": "com.example.app",
+            "expected_view_generation": 8,
+            "current_view_generation": 8,
+            "visible_view": "package-detail",
+            "closing": False,
+        }
+        values.update(overrides)
+        return package_detail_request_is_current(**values)
+
+    def test_accepts_current_package_detail_response(self):
+        self.assertTrue(self._is_current())
+
+    def test_rejects_response_after_another_package_is_selected(self):
+        self.assertFalse(self._is_current(selected_package="com.example.other"))
+
+    def test_rejects_response_after_selection_generation_changes(self):
+        self.assertFalse(self._is_current(current_request_generation=6))
+
+    def test_rejects_response_after_device_generation_changes(self):
+        self.assertFalse(self._is_current(current_device_generation=4))
+
+    def test_rejects_response_after_navigation(self):
+        self.assertFalse(self._is_current(current_view_generation=9))
+
+    def test_rejects_response_when_detail_view_is_not_visible(self):
+        self.assertFalse(self._is_current(visible_view="packages"))
+
+    def test_rejects_response_after_inventory_reset(self):
+        self.assertFalse(self._is_current(inventory_loaded=False))
+
+    def test_rejects_response_during_shutdown(self):
+        self.assertFalse(self._is_current(closing=True))
+
+
+if __name__ == "__main__":
+    unittest.main()
