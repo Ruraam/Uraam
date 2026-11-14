@@ -116,6 +116,16 @@ def main() -> int:
         if window.get_focus() is not window.package_detail_back_button:
             raise AssertionError("Opening the inspector did not move keyboard focus to its back control")
 
+        for control in (
+            window.refresh_button,
+            window.dashboard_button,
+            window.packages_button,
+            window.package_detail_back_button,
+        ):
+            control.grab_focus()
+            if window.get_focus() is not control:
+                raise AssertionError("A primary GTK control cannot receive keyboard focus")
+
         permissions_expander = window.package_detail_permissions_expander
         components_expander = window.package_detail_components_expander
         if not permissions_expander.get_focusable() or not components_expander.get_focusable():
