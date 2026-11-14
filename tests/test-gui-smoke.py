@@ -34,6 +34,9 @@ def main() -> int:
             raise RuntimeError("Unable to register the GTK application")
 
         window = UraamWindow(application)
+        # Keep page visibility assertions deterministic: the production UI uses
+        # a crossfade, whose outgoing child can remain mapped during animation.
+        window.stack.set_transition_duration(0)
         window.present()
         drain_main_context()
 
