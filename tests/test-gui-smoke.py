@@ -63,7 +63,14 @@ def main() -> int:
             raise AssertionError("Large metadata is not placed in a dedicated scroller")
         if metadata_scroller.get_max_content_height() != 240:
             raise AssertionError("The metadata viewport does not have its expected height cap")
-        detail_label = metadata_scroller.get_child()
+        metadata_viewport = metadata_scroller.get_child()
+        detail_label = (
+            metadata_viewport.get_child()
+            if isinstance(metadata_viewport, Gtk.Viewport)
+            else metadata_viewport
+        )
+        if not isinstance(detail_label, Gtk.Label):
+            raise AssertionError("The metadata scroller does not contain a GTK label")
         if detail_label.get_text() != stress_metadata:
             raise AssertionError("The GTK metadata card truncated a large value")
         if not detail_label.get_selectable():
