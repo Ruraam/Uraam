@@ -1048,13 +1048,21 @@ class UraamWindow(Gtk.ApplicationWindow):
         for package in visible:
             row = Gtk.ListBoxRow()
             row.add_css_class("uraam-package-row")
+            row.set_focusable(True)
+            self._set_accessible_label(row, package)
+            self._set_accessible_description(
+                row, f"{self._package_types.get(package, 'unknown').title()} application. "
+                "Activate to inspect read-only package metadata."
+            )
             line = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
             line.set_margin_top(10)
             line.set_margin_bottom(10)
             line.set_margin_start(14)
             line.set_margin_end(14)
             label = Gtk.Label(label=package, xalign=0)
-            label.set_selectable(True)
+            # Keep the row as the single keyboard stop; selecting a child
+            # label would add a redundant focus target inside every result.
+            label.set_selectable(False)
             label.set_hexpand(True)
             line.append(label)
             kind = self._package_types.get(package, "unknown")
