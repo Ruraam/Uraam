@@ -468,6 +468,49 @@ def main() -> int:
         if window.status_label.get_text() != "Unable to update interface":
             raise AssertionError("A failing page callback left a stale loading status")
 
+        # Repeated callback failures must not poison later requests.
+        repeated_failures = []
+
+        def another_failing_callback(payload, error):
+            repeated_failures.append((payload, error))
+            raise RuntimeError("second simulated page callback failure")
+
+        for callback, payload in (
+            (failing_page_callback, {"status": "first"}),
+            (another_failing_callback, {"status": "second"}),
+        ):
+            window._loading = True
+            window._pending_request = None
+            window.refresh_button.set_sensitive(False)
+            window.loading_spinner.start()
+            finish_result = window._finish_async(callback, payload, None)
+            if finish_result != GLib.SOURCE_REMOVE:
+                raise AssertionError("A failing callback was not removed from the GLib queue")
+            if window._loading or window.loading_spinner.get_spinning():
+                raise AssertionError("Repeated callback failure left async loading active")
+            if not window.refresh_button.get_sensitive():
+                raise AssertionError("Repeated callback failure left refresh disabled")
+
+        successful_callbacks = []
+        window._loading = True
+        window._pending_request = None
+        window.refresh_button.set_sensitive(False)
+        window.loading_spinner.start()
+        window.status_label.set_text("Loading device-info…")
+        finish_result = window._finish_async(
+            lambda payload, error: successful_callbacks.append((payload, error)),
+            {"status": "recovered"},
+            None,
+        )
+        if finish_result != GLib.SOURCE_REMOVE:
+            raise AssertionError("Recovery callback was not removed from the GLib queue")
+        if successful_callbacks != [({"status": "recovered"}, None)]:
+            raise AssertionError("A successful callback did not run after earlier failures")
+        if window._loading or window.loading_spinner.get_spinning():
+            raise AssertionError("Recovery callback left async loading active")
+        if not window.refresh_button.get_sensitive():
+            raise AssertionError("Recovery callback left refresh disabled")
+
         # Once shutdown starts, keyboard events must be inert: no page
         # navigation and, in particular, no new inventory preflight.
         window._show_view("package-detail")
