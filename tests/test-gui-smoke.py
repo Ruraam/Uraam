@@ -400,8 +400,21 @@ def main() -> int:
             window._show_view = original_show_view
             window._run_async = original_run_async
 
+        # Exercise the real close-request path, then deliver late key events
+        # through the retained handler. The closing guard must return before
+        # touching the stack or any other GTK widget.
+        window._closing = False
         window.close()
         drain_main_context()
+        if not window._closing:
+            raise AssertionError("The close-request handler did not enter shutdown state")
+        for keyval, modifiers in (
+            (Gdk.KEY_1, Gdk.ModifierType.CONTROL_MASK),
+            (Gdk.KEY_2, Gdk.ModifierType.CONTROL_MASK),
+            (Gdk.KEY_Escape, Gdk.ModifierType(0)),
+        ):
+            if window._on_key_pressed(None, keyval, 0, modifiers):
+                raise AssertionError("A late keyboard event was handled after close")
         print("PASS: GTK4 window construction, package filtering and navigation")
         return 0
     finally:
