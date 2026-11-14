@@ -180,6 +180,42 @@ class BridgeDisplayStringSafetyTests(unittest.TestCase):
                 ):
                     self._decode(payload)
 
+    def test_rejects_too_many_apk_paths(self):
+        payload = self._package_detail()
+        payload["paths"] = [f"/data/app/split-{index}.apk" for index in range(65)]
+        with self.assertRaisesRegex(RuntimeError, "too many entries.*paths"):
+            self._decode(payload)
+
+    def test_accepts_maximum_number_of_apk_paths(self):
+        payload = self._package_detail()
+        payload["paths"] = [f"/data/app/split-{index}.apk" for index in range(64)]
+        self.assertEqual(len(self._decode(payload)["paths"]), 64)
+
+    def test_rejects_too_many_requested_permissions(self):
+        payload = self._package_detail()
+        payload["requested_permissions"] = [
+            f"android.permission.CUSTOM_{index}" for index in range(2049)
+        ]
+        with self.assertRaisesRegex(
+            RuntimeError, "too many entries.*requested_permissions"
+        ):
+            self._decode(payload)
+
+    def test_rejects_component_count_across_categories(self):
+        payload = self._package_detail()
+        payload["components"] = {
+            "activities": [f"com.example.Activity{index}" for index in range(2048)],
+            "services": [f"com.example.Service{index}" for index in range(2049)],
+        }
+        with self.assertRaisesRegex(RuntimeError, "too many entries.*components"):
+            self._decode(payload)
+
+    def test_rejects_oversized_technical_metadata_entry(self):
+        payload = self._package_detail()
+        payload["paths"] = ["/data/app/" + "x" * (16 * 1024)]
+        with self.assertRaisesRegex(RuntimeError, "oversized entry.*paths"):
+            self._decode(payload)
+
     def test_accepts_normal_unicode_apk_paths(self):
         payload = self._package_detail()
         payload["paths"] = ["/data/app/édition/base.apk"]
