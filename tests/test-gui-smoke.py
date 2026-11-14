@@ -202,6 +202,33 @@ def main() -> int:
                 if window.get_focus() is not expander:
                     raise AssertionError(f"Reopened {section_name} disclosure lost keyboard focus")
 
+        # Exercise the real production crossfade briefly. Keyboard focus
+        # must leave the outgoing inspector immediately, even while GTK keeps
+        # that page mapped for the animation.
+        window.stack.set_transition_duration(250)
+        permissions_expander.grab_focus()
+        if window.get_focus() is not permissions_expander:
+            raise AssertionError("Could not focus the inspector before crossfade navigation")
+        window._show_view("packages")
+        focused_during_transition = window.get_focus()
+        inspector = window.stack.get_child_by_name("package-detail")
+        while focused_during_transition is not None:
+            if focused_during_transition is inspector:
+                raise AssertionError("Crossfade navigation left keyboard focus in the outgoing inspector")
+            focused_during_transition = focused_during_transition.get_parent()
+        if window.stack.get_visible_child_name() != "packages":
+            raise AssertionError("Crossfade navigation did not select the applications page")
+        # Finish the transition before returning to deterministic mapping tests.
+        transition_loop = GLib.MainLoop()
+        GLib.timeout_add(350, lambda: (transition_loop.quit(), GLib.SOURCE_REMOVE)[1])
+        transition_loop.run()
+        drain_main_context()
+        window.stack.set_transition_duration(0)
+        window._show_view("package-detail")
+        drain_main_context()
+        if window.stack.get_visible_child_name() != "package-detail":
+            raise AssertionError("Returning from crossfade navigation failed")
+
         # Rapid state changes are queued before the main context is drained.
         # The final requested state must win, and switching pages immediately
         # afterwards must not leave the hidden inspector mapped or lose its state.
