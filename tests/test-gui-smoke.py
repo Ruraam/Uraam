@@ -115,6 +115,65 @@ def main() -> int:
         if window.get_focus() is not window.package_detail_back_button:
             raise AssertionError("Opening the inspector did not move keyboard focus to its back control")
 
+        permissions_expander = window.package_detail_permissions_expander
+        components_expander = window.package_detail_components_expander
+        if not permissions_expander.get_focusable() or not components_expander.get_focusable():
+            raise AssertionError("Inspector disclosure controls are not keyboard focus targets")
+        if permissions_expander.get_expanded() or components_expander.get_expanded():
+            raise AssertionError("Inspector metadata sections should start collapsed")
+
+        metadata_scrollers = [
+            window.package_detail_path,
+            window.package_detail_permissions,
+            *window.package_detail_components.values(),
+        ]
+        for card in metadata_scrollers:
+            content = card.get_child()
+            value_label = content.get_first_child().get_next_sibling()
+            scroller = value_label.get_next_sibling()
+            if not isinstance(scroller, Gtk.ScrolledWindow):
+                raise AssertionError("An inspector metadata card has no scrollable detail")
+            if not scroller.get_focusable():
+                raise AssertionError("An inspector metadata viewport is not keyboard focusable")
+
+        permissions_expander.set_expanded(True)
+        components_expander.set_expanded(True)
+        drain_main_context()
+        if not permissions_expander.get_expanded() or not components_expander.get_expanded():
+            raise AssertionError("Inspector metadata sections cannot be expanded")
+        if not window.package_detail_permissions.get_visible():
+            raise AssertionError("Permission metadata is not visible when its section is expanded")
+        if not window.package_detail_components["activities"].get_visible():
+            raise AssertionError("Component metadata is not visible when its section is expanded")
+
+        # Exercise GTK's actual forward and reverse focus traversal while the
+        # inspector is realized. Avoid asserting a theme-dependent exact order.
+        window.package_detail_back_button.grab_focus()
+        forward_targets = set()
+        for _ in range(32):
+            if not window.child_focus(Gtk.DirectionType.TAB_FORWARD):
+                break
+            focused = window.get_focus()
+            if focused is None or focused is window.package_detail_back_button:
+                break
+            forward_targets.add(focused)
+        if permissions_expander not in forward_targets:
+            raise AssertionError("Tab traversal skips the permissions disclosure")
+        if components_expander not in forward_targets:
+            raise AssertionError("Tab traversal skips the components disclosure")
+
+        window.package_detail_components_expander.grab_focus()
+        reverse_targets = set()
+        for _ in range(32):
+            if not window.child_focus(Gtk.DirectionType.TAB_BACKWARD):
+                break
+            focused = window.get_focus()
+            if focused is None or focused is window.package_detail_components_expander:
+                break
+            reverse_targets.add(focused)
+        if window.package_detail_back_button not in reverse_targets:
+            raise AssertionError("Shift+Tab cannot return to the inspector back control")
+
         if not window._on_key_pressed(
             None, Gdk.KEY_Escape, 0, Gdk.ModifierType(0)
         ):
