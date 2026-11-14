@@ -274,6 +274,25 @@ def main() -> int:
                 raise AssertionError("Escape should not navigate away from the dashboard")
             if window.stack.get_visible_child_name() != "dashboard":
                 raise AssertionError("Escape changed the dashboard while no inspector was open")
+
+            # Navigation shortcuts require an exact modifier combination.
+            # Extra Shift/Alt modifiers must not accidentally trigger a page
+            # change, and modified Escape must not close the inspector.
+            invalid_shortcuts = (
+                (Gdk.KEY_1, Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK),
+                (Gdk.KEY_2, Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.ALT_MASK),
+                (Gdk.KEY_1, Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.ALT_MASK),
+                (Gdk.KEY_Escape, Gdk.ModifierType.SHIFT_MASK),
+                (Gdk.KEY_Escape, Gdk.ModifierType.ALT_MASK),
+                (Gdk.KEY_3, Gdk.ModifierType.CONTROL_MASK),
+            )
+            for keyval, modifiers in invalid_shortcuts:
+                if window._on_key_pressed(None, keyval, 0, modifiers):
+                    raise AssertionError(
+                        f"Unsupported shortcut was handled: key={keyval}, modifiers={modifiers}"
+                    )
+                if window.stack.get_visible_child_name() != "dashboard":
+                    raise AssertionError("An unsupported shortcut changed the active page")
         finally:
             window._run_async = original_run_async
             window._show_device = original_show_device
