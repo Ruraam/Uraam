@@ -286,7 +286,9 @@ class UraamWindow(Gtk.ApplicationWindow):
         """Group verbose package metadata behind an accessible disclosure row."""
         expander = Gtk.Expander.new(title)
         expander.add_css_class("uraam-detail-expander")
-        expander.set_focusable(True)
+        set_focusable = getattr(expander, "set_focusable", None)
+        if callable(set_focusable):
+            set_focusable(True)
         expander.set_expanded(False)
         expander.set_child(child)
         return expander
