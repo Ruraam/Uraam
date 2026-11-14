@@ -199,6 +199,43 @@ def main() -> int:
                 if window.get_focus() is not expander:
                     raise AssertionError(f"Reopened {section_name} disclosure lost keyboard focus")
 
+        # Rapid state changes are queued before the main context is drained.
+        # The final requested state must win, and switching pages immediately
+        # afterwards must not leave the hidden inspector mapped or lose its state.
+        for index in range(20):
+            expanded = index % 2 == 0
+            permissions_expander.set_expanded(expanded)
+            components_expander.set_expanded(expanded)
+        drain_main_context()
+        if permissions_expander.get_expanded() or components_expander.get_expanded():
+            raise AssertionError("Rapid disclosure changes did not preserve the final collapsed state")
+        if permission_scroller.get_mapped() or component_scroller.get_mapped():
+            raise AssertionError("Rapid collapse left inspector metadata mapped")
+
+        permissions_expander.set_expanded(True)
+        components_expander.set_expanded(True)
+        drain_main_context()
+        if not permission_scroller.get_mapped() or not component_scroller.get_mapped():
+            raise AssertionError("Inspector metadata did not map before immediate navigation")
+        window._show_view("packages")
+        drain_main_context()
+        if window.stack.get_visible_child_name() != "packages":
+            raise AssertionError("Immediate navigation after disclosure changes failed")
+        if permission_scroller.get_mapped() or component_scroller.get_mapped():
+            raise AssertionError("Hidden inspector metadata remained mapped after navigation")
+        window._show_view("package-detail")
+        drain_main_context()
+        if not permissions_expander.get_expanded() or not components_expander.get_expanded():
+            raise AssertionError("Returning to the inspector lost disclosure state")
+        if not permission_scroller.get_mapped() or not component_scroller.get_mapped():
+            raise AssertionError("Returning to the inspector did not restore expanded metadata")
+
+        permissions_expander.set_expanded(False)
+        components_expander.set_expanded(False)
+        drain_main_context()
+        if permission_scroller.get_mapped() or component_scroller.get_mapped():
+            raise AssertionError("Final inspector cleanup left metadata mapped")
+
         # GTK4's container focus chain is layout/backend dependent under Xvfb.
         # Verify the actual focus contract directly instead of assuming an exact
         # traversal sequence from child_focus().
