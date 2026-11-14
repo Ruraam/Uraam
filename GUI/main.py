@@ -73,6 +73,10 @@ class UraamWindow(Gtk.ApplicationWindow):
         self.refresh_button = Gtk.Button(label="Refresh")
         self.refresh_button.set_tooltip_text("Refresh device information")
         self._set_accessible_label(self.refresh_button, "Refresh device information")
+        self._set_accessible_description(
+            self.refresh_button,
+            "Refreshes read-only device information without changing Android packages.",
+        )
         self.refresh_button.connect("clicked", self._on_refresh)
         header.pack_end(self.refresh_button)
         outer.append(header)
@@ -422,6 +426,10 @@ class UraamWindow(Gtk.ApplicationWindow):
         self.package_detail_back_button = back
         back.set_halign(Gtk.Align.START)
         self._set_accessible_label(back, "Back to installed applications")
+        self._set_accessible_description(
+            back,
+            "Returns to the applications list. Keyboard shortcut: Escape.",
+        )
         back.connect("clicked", lambda _button: self._return_to_packages())
         details.append(back)
         detail_title = Gtk.Label(label="Application inspector", xalign=0)
