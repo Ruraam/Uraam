@@ -128,6 +128,49 @@ jobs:
           test ! -e /usr/share/applications/uraam.desktop
           test ! -e /usr/share/icons/hicolor/scalable/apps/uraam.svg
 
+      - name: Test Debian package upgrade and user-data preservation
+        run: |
+          VERSION_OLD="0.0.0"
+          VERSION_NEW="0.0.1"
+          OLD_DIR="uraam-debian_${VERSION_OLD}_all"
+          NEW_DIR="uraam-debian_${VERSION_NEW}_all"
+          for entry in "$OLD_DIR" "$NEW_DIR"; do
+            mkdir -p "$entry/usr/bin" "$entry/usr/share/uraam/GUI" "$entry/usr/share/applications" "$entry/usr/share/icons/hicolor/scalable/apps" "$entry/DEBIAN"
+          done
+          for entry in "$OLD_DIR" "$NEW_DIR"; do
+            cp uraam.sh "$entry/usr/share/uraam/"
+            cp -r Configs "$entry/usr/share/uraam/"
+            cp uraam-api.sh "$entry/usr/share/uraam/"
+            cp GUI/main.py GUI/api_protocol.py GUI/bridge_process.py GUI/theme.css "$entry/usr/share/uraam/GUI/"
+            cp uraam-gui "$entry/usr/bin/uraam-gui"
+            cp assets/uraam_logo.svg "$entry/usr/share/icons/hicolor/scalable/apps/uraam.svg"
+            cp packaging/debian/uraam.desktop "$entry/usr/share/applications/uraam.desktop"
+            cp packaging/debian/DEBIAN/postinst packaging/debian/DEBIAN/postrm "$entry/DEBIAN/"
+            chmod 0755 "$entry/usr/share/uraam/uraam.sh" "$entry/usr/share/uraam/uraam-api.sh" "$entry/usr/bin/uraam-gui"
+            chmod 0755 "$entry/DEBIAN/postinst" "$entry/DEBIAN/postrm"
+          done
+          sed "s/VERSION_PLACEHOLDER/$VERSION_OLD/" packaging/debian/DEBIAN/control > "$OLD_DIR/DEBIAN/control"
+          sed "s/VERSION_PLACEHOLDER/$VERSION_NEW/" packaging/debian/DEBIAN/control > "$NEW_DIR/DEBIAN/control"
+          printf '\\n# Legacy package payload for upgrade regression test\\n' >> "$OLD_DIR/usr/share/uraam/GUI/main.py"
+          dpkg-deb --build "$OLD_DIR"
+          dpkg-deb --build "$NEW_DIR"
+          sudo dpkg -i "${OLD_DIR}.deb"
+          mkdir -p "$HOME/.config/uraam/debloat" "$HOME/.local/share/uraam/Configs/backup-restore" "$HOME/.local/share/uraam/Logs/debloat"
+          printf '%s\\n' '{"preserve":"upgrade-config"}' > "$HOME/.config/uraam/debloat/upgrade-preservation.json"
+          printf '%s\\n' '{"preserve":"upgrade-backup"}' > "$HOME/.local/share/uraam/Configs/backup-restore/upgrade-preservation.json"
+          printf '%s\\n' 'upgrade-log-preservation' > "$HOME/.local/share/uraam/Logs/debloat/upgrade-preservation.log"
+          sudo dpkg -i "${NEW_DIR}.deb"
+          test -L /usr/bin/uraam
+          test "$(readlink /usr/bin/uraam)" = "/usr/share/uraam/uraam.sh"
+          ! grep -q 'Legacy package payload' /usr/share/uraam/GUI/main.py
+          grep -q '"preserve":"upgrade-config"' "$HOME/.config/uraam/debloat/upgrade-preservation.json"
+          grep -q '"preserve":"upgrade-backup"' "$HOME/.local/share/uraam/Configs/backup-restore/upgrade-preservation.json"
+          grep -q 'upgrade-log-preservation' "$HOME/.local/share/uraam/Logs/debloat/upgrade-preservation.log"
+          sudo dpkg -r uraam
+          test -f "$HOME/.config/uraam/debloat/upgrade-preservation.json"
+          test -f "$HOME/.local/share/uraam/Configs/backup-restore/upgrade-preservation.json"
+          test -f "$HOME/.local/share/uraam/Logs/debloat/upgrade-preservation.log"
+
       - name: Test read-only JSON API
         run: bash tests/test-json-api.sh
 
