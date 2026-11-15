@@ -188,6 +188,16 @@ class UraamWindow(Gtk.ApplicationWindow):
         )
         self._theme_provider = provider
 
+    def _unload_theme(self) -> None:
+        """Remove the display-wide CSS provider when this window closes."""
+        provider = getattr(self, "_theme_provider", None)
+        if provider is None:
+            return
+        display = Gdk.Display.get_default()
+        if display is not None:
+            Gtk.StyleContext.remove_provider_for_display(display, provider)
+        self._theme_provider = None
+
     @staticmethod
     def _set_accessible_label(widget: Gtk.Widget, label: str) -> None:
         """Expose a concise accessible name for controls without visible labels."""
@@ -710,6 +720,7 @@ class UraamWindow(Gtk.ApplicationWindow):
             process = self._active_process
             if process is not None:
                 signal_process_group(process, signal.SIGTERM)
+        self._unload_theme()
         return False
 
     def _reset_package_views(self, message: str) -> None:
