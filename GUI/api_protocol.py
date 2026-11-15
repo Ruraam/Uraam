@@ -142,6 +142,9 @@ def _validate_display_string(value: str, field: str) -> None:
         or 0x7F <= ord(character) <= 0x9F
         or 0xD800 <= ord(character) <= 0xDFFF
         or ord(character) in BIDI_CONTROL_CODEPOINTS
+        or unicodedata.category(character) in {"Cf", "Zl", "Zp"}
+        or 0xFDD0 <= ord(character) <= 0xFDEF
+        or ord(character) & 0xFFFF in {0xFFFE, 0xFFFF}
         for character in value
     ):
         raise RuntimeError(
