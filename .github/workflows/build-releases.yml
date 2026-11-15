@@ -3,7 +3,7 @@ name: Build and Release DEB Packages
 on:
   pull_request:
     paths:
-      - ".github/workflows/.build-releases.yml"
+      - ".github/workflows/build-releases.yml"
       - "uraam.sh"
       - "uraam-api.sh"
       - "uraam-gui"
