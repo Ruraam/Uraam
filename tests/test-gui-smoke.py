@@ -219,10 +219,12 @@ def test_shutdown_closes_pipes_with_pending_output() -> None:
             sys.executable,
             "-c",
             (
-                "import os, time; "
+                "import os; "
                 "os.write(2, b'READY\\n'); "
-                "chunk = b'x' * 65536; "
-                "while True: os.write(1, chunk); os.write(2, chunk)"
+                "chunk = b'x' * 65536\\n"
+                "while True:\\n"
+                "    os.write(1, chunk)\\n"
+                "    os.write(2, chunk)"
             ),
         ],
         stdout=subprocess.PIPE,
