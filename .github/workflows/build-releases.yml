@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/build-releases.yml"
+      - "CHANGELOG.md"
       - "uraam.sh"
       - "uraam-api.sh"
       - "uraam-gui"
