@@ -1579,6 +1579,8 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
             def start(self):
                 self.target()
 
+        queued_sources = []
+
         class FakeSource:
             def __init__(self):
                 self.callback = None
@@ -1733,7 +1735,7 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
         self.assertFalse(uraam_gui.UraamWindow._on_close_request(window, window))
         self.assertTrue(window._shutdown_event.is_set())
         self.assertTrue(window._closing)
-        self.assertFalse(window._loading)
+        self.assertTrue(window._loading)
         self.assertIsNone(window._pending_request)
         widget_calls_at_close = (
             list(window.loading_spinner.calls),
@@ -1742,6 +1744,7 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
         # The source callback was retained by the fake dispatcher; invoke it
         # after close to model a late GLib dispatch.
         self.assertFalse(queued_sources[0].callback())
+        self.assertFalse(window._loading)
         self.assertEqual(window.loading_spinner.calls, widget_calls_at_close[0])
         self.assertEqual(window.refresh_button.calls, widget_calls_at_close[1])
         self.assertEqual(delivered, [])
