@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import tempfile
+import time
 import threading
 from pathlib import Path
 
@@ -279,7 +281,65 @@ def test_reader_failure_kills_and_reaps_bridge() -> None:
             process.stderr.close()
 
 
+def test_natural_leader_exit_kills_descendant_process_group() -> None:
+    # The leader exits after its child is ready. The child deliberately closes
+    # the bridge pipes, so only process-group cleanup can prevent its later work.
+    with tempfile.TemporaryDirectory(prefix="uraam-bridge-descendant-") as temp_dir:
+        ready_path = Path(temp_dir) / "descendant-ready"
+        late_path = Path(temp_dir) / "descendant-ran-after-leader"
+        child_code = (
+            "import pathlib, time; "
+            f"pathlib.Path({str(ready_path)!r}).write_text('ready'); "
+            "time.sleep(1.0); "
+            f"pathlib.Path({str(late_path)!r}).write_text('late')"
+        )
+        leader_code = (
+            "import pathlib, subprocess, sys, time; "
+            f"subprocess.Popen([sys.executable, '-c', {child_code!r}], "
+            "stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); "
+            "deadline = time.monotonic() + 2.0; "
+            f"ready = pathlib.Path({str(ready_path)!r}); "
+            "while not ready.exists() and time.monotonic() < deadline: "
+            "time.sleep(0.01); "
+            "assert ready.exists(), 'descendant did not become ready'; "
+            "print('LEADER_DONE', flush=True)"
+        )
+        process = subprocess.Popen(
+            [sys.executable, "-c", leader_code],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            start_new_session=True,
+        )
+        try:
+            stdout, _stderr = communicate_process(
+                process,
+                threading.Event(),
+                timeout_seconds=3.0,
+                poll_interval=0.01,
+            )
+            if stdout.strip() != "LEADER_DONE":
+                raise AssertionError("The bridge leader did not finish normally")
+            if process.poll() is None or process.returncode != 0:
+                raise AssertionError("The bridge leader was not reaped cleanly")
+
+            # The descendant would write this marker after one second if the
+            # process group had not been terminated when the leader exited.
+            time.sleep(1.2)
+            if late_path.exists():
+                raise AssertionError("A bridge descendant survived leader exit")
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait(timeout=2.0)
+            if process.stdout is not None and not process.stdout.closed:
+                process.stdout.close()
+            if process.stderr is not None and not process.stderr.closed:
+                process.stderr.close()
+
+
 def main() -> int:
+    test_natural_leader_exit_kills_descendant_process_group()
     test_reader_failure_kills_and_reaps_bridge()
     test_shutdown_closes_pipes_with_pending_output()
     test_shutdown_races_natural_bridge_exit()
