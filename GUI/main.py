@@ -988,8 +988,9 @@ class UraamWindow(Gtk.ApplicationWindow):
             if self._closing:
                 raise BridgeProcessCancelled("The read-only bridge is shutting down.")
         environment = os.environ.copy()
-        if self._connection_serial:
-            environment["ANDROID_SERIAL"] = self._connection_serial
+        selected_serial = getattr(self, "_connection_serial", None)
+        if selected_serial:
+            environment["ANDROID_SERIAL"] = selected_serial
         process = subprocess.Popen(
             ["bash", str(API_PATH), command],
             cwd=str(ROOT_DIR),
@@ -1169,7 +1170,7 @@ class UraamWindow(Gtk.ApplicationWindow):
             if keyval == Gdk.KEY_2:
                 self._on_packages(None)
                 return True
-            if keyval == Gdk.KEY_3:
+            if keyval == getattr(Gdk, "KEY_3", None):
                 self._show_view("connections")
                 return True
         if navigation_modifiers == 0 and keyval == Gdk.KEY_Escape:
