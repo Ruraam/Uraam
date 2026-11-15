@@ -1649,6 +1649,98 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
         self.assertEqual(window.refresh_button.sensitivity, [False, True])
         self.assertEqual(delivered, [({"status": "connected"}, None)])
 
+    def test_fallback_idle_source_discards_completion_after_window_close(self):
+        class FakeControl:
+            def __init__(self):
+                self.calls = []
+
+            def start(self):
+                self.calls.append(("start",))
+
+            def stop(self):
+                self.calls.append(("stop",))
+
+            def set_sensitive(self, value):
+                self.calls.append(("set_sensitive", value))
+
+        class InlineThread:
+            def __init__(self, target, **_kwargs):
+                self.target = target
+
+            def start(self):
+                self.target()
+
+        class FakeSource:
+            def set_callback(self, callback):
+                self.callback = callback
+
+            def attach(self, _context):
+                return 1
+
+        class FakeGLib:
+            SOURCE_REMOVE = False
+
+            @staticmethod
+            def idle_add(_callback, *_args):
+                raise RuntimeError("idle dispatcher unavailable")
+
+            @staticmethod
+            def idle_source_new():
+                return FakeSource()
+
+            class MainContext:
+                @staticmethod
+                def default():
+                    return object()
+
+        window = type("WindowState", (), {})()
+        window._closing = False
+        window._loading = False
+        window._pending_request = None
+        window._process_lock = threading.Lock()
+        window._shutdown_event = threading.Event()
+        window._active_process = None
+        window._finish_async = uraam_gui.UraamWindow._finish_async.__get__(
+            window, uraam_gui.UraamWindow
+        )
+        window.loading_spinner = FakeControl()
+        window.refresh_button = FakeControl()
+        window.status_label = type(
+            "FakeLabel", (), {"set_text": lambda self, _message: None}
+        )()
+        delivered = []
+        original_thread = uraam_gui.threading.Thread
+        original_glib = uraam_gui.GLib
+        try:
+            uraam_gui.threading.Thread = InlineThread
+            uraam_gui.GLib = FakeGLib
+            uraam_gui.UraamWindow._start_async(
+                window,
+                "device-info",
+                lambda payload, error: delivered.append((payload, error)),
+            )
+        finally:
+            uraam_gui.threading.Thread = original_thread
+            uraam_gui.GLib = original_glib
+
+        # The completion is queued, but the GTK main context has not dispatched it.
+        self.assertTrue(window._loading)
+        self.assertFalse(uraam_gui.UraamWindow._on_close_request(window, window))
+        self.assertTrue(window._shutdown_event.is_set())
+        self.assertTrue(window._closing)
+        self.assertFalse(window._loading)
+        self.assertIsNone(window._pending_request)
+        widget_calls_at_close = (
+            list(window.loading_spinner.calls),
+            list(window.refresh_button.calls),
+        )
+        # The source callback was retained by the fake dispatcher; invoke it
+        # after close to model a late GLib dispatch.
+        self.assertFalse(window._fallback_source.callback())
+        self.assertEqual(window.loading_spinner.calls, widget_calls_at_close[0])
+        self.assertEqual(window.refresh_button.calls, widget_calls_at_close[1])
+        self.assertEqual(delivered, [])
+
     def test_async_api_error_restores_ui_and_allows_next_request(self):
         class FakeSpinner:
             def __init__(self):
