@@ -58,6 +58,15 @@ not-a-device-row
     if parsed != expected:
         raise AssertionError(f"ADB device parser returned {parsed!r}")
 
+    # Device discovery must retain entries beyond the former 2,000-character
+    # UI display limit; structured parsing is not allowed to use a display slice.
+    long_device_output = "List of devices attached\\n" + "".join(
+        f"SERIAL-{index:04d} device product:test\\n" for index in range(300)
+    )
+    long_devices = parse_adb_devices_output(long_device_output)
+    if len(long_devices) != 300 or long_devices[-1][0] != "SERIAL-0299":
+        raise AssertionError("ADB device parsing dropped entries from long command output")
+
 
 def drain_main_context() -> None:
     context = GLib.MainContext.default()
