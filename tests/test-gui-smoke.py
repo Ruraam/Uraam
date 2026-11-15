@@ -221,9 +221,9 @@ def test_shutdown_closes_pipes_with_pending_output() -> None:
             (
                 "import os; "
                 "os.write(2, b'READY\\n'); "
-                "chunk = b'x' * 65536\\n"
-                "while True:\\n"
-                "    os.write(1, chunk)\\n"
+                "chunk = b'x' * 65536\n"
+                "while True:\n"
+                "    os.write(1, chunk)\n"
                 "    os.write(2, chunk)"
             ),
         ],
