@@ -1,0 +1,118 @@
+name: Build and Release DEB Packages
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/build-releases.yml"
+      - "uraam.sh"
+      - "uraam-api.sh"
+      - "uraam-gui"
+      - "GUI/**"
+      - "Configs/**"
+      - "assets/**"
+      - "packaging/debian/**"
+      - "packaging/termux/**"
+  release:
+    types: [published]
+
+jobs:
+  build-debs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install package validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes dpkg-dev desktop-file-utils
+
+      - name: Extract version tag
+        id: get_version
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "release" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="0.0.0~pr${GITHUB_RUN_NUMBER}"
+          fi
+          if [[ -z "$VERSION" ]]; then
+            echo "::error::The release tag did not provide a package version."
+            exit 1
+          fi
+          echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Debian Package
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          PKG_DIR="uraam-debian_${VERSION}_all"
+          mkdir -p "$PKG_DIR/usr/bin" "$PKG_DIR/usr/share/uraam/GUI" "$PKG_DIR/usr/share/applications" "$PKG_DIR/usr/share/icons/hicolor/scalable/apps" "$PKG_DIR/DEBIAN"
+          cp uraam.sh "$PKG_DIR/usr/share/uraam/"
+          cp -r Configs "$PKG_DIR/usr/share/uraam/"
+          cp uraam-api.sh "$PKG_DIR/usr/share/uraam/"
+          cp GUI/main.py GUI/api_protocol.py GUI/bridge_process.py GUI/theme.css "$PKG_DIR/usr/share/uraam/GUI/"
+          cp uraam-gui "$PKG_DIR/usr/bin/uraam-gui"
+          cp assets/uraam_logo.svg "$PKG_DIR/usr/share/icons/hicolor/scalable/apps/uraam.svg"
+          cp packaging/debian/uraam.desktop "$PKG_DIR/usr/share/applications/uraam.desktop"
+          chmod 0755 "$PKG_DIR/usr/share/uraam/uraam.sh" "$PKG_DIR/usr/share/uraam/uraam-api.sh" "$PKG_DIR/usr/bin/uraam-gui"
+          sed "s/VERSION_PLACEHOLDER/$VERSION/" packaging/debian/DEBIAN/control > "$PKG_DIR/DEBIAN/control"
+          cp packaging/debian/DEBIAN/postinst "$PKG_DIR/DEBIAN/"
+          cp packaging/debian/DEBIAN/postrm "$PKG_DIR/DEBIAN/"
+          chmod 755 "$PKG_DIR/DEBIAN/postinst" "$PKG_DIR/DEBIAN/postrm"
+          dpkg-deb --build "$PKG_DIR"
+          DEB_FILE="${PKG_DIR}.deb"
+          test "$(dpkg-deb --field "$DEB_FILE" Package)" = "uraam"
+          test "$(dpkg-deb --field "$DEB_FILE" Version)" = "$VERSION"
+          test "$(dpkg-deb --field "$DEB_FILE" Architecture)" = "all"
+          dpkg-deb --contents "$DEB_FILE" > debian-package.contents
+          for required in \
+            "./usr/share/uraam/uraam.sh" \
+            "./usr/share/uraam/uraam-api.sh" \
+            "./usr/share/uraam/GUI/main.py" \
+            "./usr/share/uraam/GUI/api_protocol.py" \
+            "./usr/share/uraam/GUI/bridge_process.py" \
+            "./usr/share/uraam/GUI/theme.css" \
+            "./usr/bin/uraam-gui" \
+            "./usr/share/applications/uraam.desktop" \
+            "./usr/share/icons/hicolor/scalable/apps/uraam.svg"; do
+            grep -Fq "$required" debian-package.contents || {
+              echo "::error::Missing required Debian package path: $required"
+              exit 1
+            }
+          done
+          desktop-file-validate "$PKG_DIR/usr/share/applications/uraam.desktop"
+          CONTROL_DIR="$(mktemp -d)"
+          dpkg-deb --control "$DEB_FILE" "$CONTROL_DIR"
+          test -x "$CONTROL_DIR/postinst"
+          test -x "$CONTROL_DIR/postrm"
+
+      - name: Build Termux Package
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          PKG_DIR="uraam-termux_${VERSION}_all"
+          PREFIX="data/data/com.termux/files/usr"
+          mkdir -p "$PKG_DIR/$PREFIX/bin" "$PKG_DIR/$PREFIX/share/uraam" "$PKG_DIR/DEBIAN"
+          cp uraam.sh "$PKG_DIR/$PREFIX/share/uraam/"
+          cp -r Configs "$PKG_DIR/$PREFIX/share/uraam/"
+          chmod +x "$PKG_DIR/$PREFIX/share/uraam/uraam.sh"
+          sed "s/VERSION_PLACEHOLDER/$VERSION/" packaging/termux/DEBIAN/control > "$PKG_DIR/DEBIAN/control"
+          cp packaging/termux/DEBIAN/postinst "$PKG_DIR/DEBIAN/"
+          cp packaging/termux/DEBIAN/postrm "$PKG_DIR/DEBIAN/"
+          chmod 755 "$PKG_DIR/DEBIAN/postinst" "$PKG_DIR/DEBIAN/postrm"
+          dpkg-deb --build "$PKG_DIR"
+          TERMUX_DEB="${PKG_DIR}.deb"
+          test "$(dpkg-deb --field "$TERMUX_DEB" Package)" = "uraam"
+          test "$(dpkg-deb --field "$TERMUX_DEB" Version)" = "$VERSION"
+          test "$(dpkg-deb --field "$TERMUX_DEB" Architecture)" = "all"
+          dpkg-deb --contents "$TERMUX_DEB" | grep -Fq "/data/data/com.termux/files/usr/share/uraam/uraam.sh"
+
+      - name: Upload DEB Assets to Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            uraam-debian_*.deb
+            uraam-termux_*.deb
+          fail_on_unmatched_files: true
+          overwrite_files: true

@@ -1,0 +1,198 @@
+/* URAAM Cyberpunk Glass — BubbleOS-derived design tokens.
+ * Source palette: Ruraam/Bubbleos assets/bubbleos-logo.svg
+ */
+@define-color uraam_ink #0c2340;
+@define-color uraam_navy #0f172a;
+@define-color uraam_slate #1e293b;
+@define-color uraam_slate_light #334155;
+@define-color uraam_cyan #22d3ee;
+@define-color uraam_cyan_soft #67e8f9;
+@define-color uraam_sky #38bdf8;
+@define-color uraam_blue #60a5fa;
+@define-color uraam_indigo #818cf8;
+@define-color uraam_ice #e0f2fe;
+@define-color uraam_glass #7dd3fc;
+@define-color uraam_glass_edge #a5f3fc;
+@define-color uraam_muted #94a3b8;
+@define-color uraam_panel rgba(15, 23, 42, 0.78);
+@define-color uraam_panel_deep rgba(12, 35, 64, 0.88);
+@define-color uraam_border rgba(103, 232, 249, 0.22);
+@define-color uraam_border_active rgba(56, 189, 248, 0.62);
+
+window.uraam-window {
+  background:
+    radial-gradient(ellipse at 12% 0%, rgba(30, 64, 175, 0.22), transparent 42%),
+    radial-gradient(ellipse at 92% 100%, rgba(99, 102, 241, 0.14), transparent 38%),
+    linear-gradient(145deg, #071426 0%, #0c2340 48%, #0f172a 100%);
+  color: #e0f2fe;
+}
+
+window.uraam-window headerbar {
+  background: linear-gradient(100deg, rgba(12, 35, 64, 0.96), rgba(15, 23, 42, 0.92));
+  border-bottom: 1px solid rgba(103, 232, 249, 0.24);
+  box-shadow: 0 1px 18px rgba(34, 211, 238, 0.08);
+  color: #e0f2fe;
+}
+
+window.uraam-window label {
+  color: #dbeafe;
+}
+
+window.uraam-window label.dim-label {
+  color: #94a3b8;
+}
+
+window.uraam-window button {
+  color: #dffaff;
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.88), rgba(12, 35, 64, 0.82));
+  border: 1px solid rgba(103, 232, 249, 0.22);
+  border-radius: 10px;
+  padding: 8px 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+window.uraam-window button:hover {
+  background: linear-gradient(135deg, rgba(8, 145, 178, 0.26), rgba(59, 130, 246, 0.22));
+  border-color: rgba(103, 232, 249, 0.62);
+  box-shadow: 0 0 16px rgba(34, 211, 238, 0.12);
+}
+
+window.uraam-window button:active {
+  background: rgba(30, 64, 175, 0.36);
+}
+
+window.uraam-window list,
+window.uraam-window row {
+  background: rgba(15, 23, 42, 0.58);
+  color: #e0f2fe;
+}
+
+window.uraam-window list.boxed-list {
+  border: 1px solid rgba(103, 232, 249, 0.20);
+  border-radius: 14px;
+  background: rgba(12, 35, 64, 0.48);
+}
+
+window.uraam-window list.boxed-list row {
+  border-bottom: 1px solid rgba(103, 232, 249, 0.10);
+  padding: 3px 6px;
+}
+
+window.uraam-window scrolledwindow undershoot {
+  background: transparent;
+}
+
+window.uraam-window separator {
+  background: rgba(103, 232, 249, 0.16);
+}
+
+window.uraam-window scrollbar slider {
+  background: rgba(56, 189, 248, 0.45);
+  border-radius: 99px;
+}
+
+window.uraam-window scrollbar slider:hover {
+  background: rgba(103, 232, 249, 0.78);
+}
+
+window.uraam-window .title-1 {
+  color: #e0f2fe;
+  font-weight: 700;
+}
+
+window.uraam-window .uraam-accent {
+  color: #67e8f9;
+}
+
+/* Desktop navigation and dashboard surfaces */
+window.uraam-window .uraam-sidebar {
+  background: linear-gradient(180deg, rgba(2, 6, 23, 0.78), rgba(10, 21, 48, 0.62));
+  border: 1px solid rgba(165, 243, 252, 0.16);
+  border-radius: 16px;
+  padding: 14px;
+}
+window.uraam-window .uraam-brand {
+  color: #e0f2fe;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+window.uraam-window .uraam-subtitle,
+window.uraam-window .uraam-eyebrow,
+window.uraam-window .uraam-card-heading {
+  color: #67e8f9;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+window.uraam-window button.uraam-nav-button {
+  background: rgba(15, 23, 42, 0.55);
+  border-color: rgba(125, 211, 252, 0.12);
+}
+window.uraam-window button.uraam-nav-button.active {
+  background: linear-gradient(100deg, rgba(34, 211, 238, 0.30), rgba(99, 102, 241, 0.24));
+  border-color: rgba(103, 232, 249, 0.82);
+  box-shadow: inset 3px 0 0 #67e8f9, 0 0 14px rgba(34, 211, 238, 0.12);
+}
+
+window.uraam-window button.uraam-nav-button:focus,
+window.uraam-window button.uraam-nav-button:hover {
+  background: linear-gradient(100deg, rgba(34, 211, 238, 0.18), rgba(99, 102, 241, 0.16));
+  border-color: rgba(103, 232, 249, 0.55);
+}
+window.uraam-window .uraam-card,
+window.uraam-window .uraam-wide-card {
+  background: linear-gradient(145deg, rgba(10, 21, 48, 0.88), rgba(20, 18, 58, 0.72));
+  border: 1px solid rgba(165, 243, 252, 0.20);
+  border-radius: 16px;
+}
+window.uraam-window .uraam-card-value {
+  color: #e0f2fe;
+  font-size: 20px;
+  font-weight: 700;
+}
+window.uraam-window list.uraam-package-row {
+  background: rgba(10, 21, 48, 0.52);
+}
+window.uraam-window list.uraam-package-row:hover {
+  background: rgba(34, 211, 238, 0.12);
+}
+
+
+/* High-contrast keyboard focus is visible across all interactive controls. */
+window.uraam-window button:focus,
+window.uraam-window entry:focus,
+window.uraam-window dropdown:focus,
+window.uraam-window list row:focus,
+window.uraam-window expander:focus {
+  outline: 2px solid #67e8f9;
+  outline-offset: 3px;
+  border-color: #67e8f9;
+}
+
+/* Compact disclosure rows keep verbose package metadata easy to scan. */
+window.uraam-window expander.uraam-detail-expander {
+  background: rgba(10, 21, 48, 0.58);
+  border: 1px solid rgba(103, 232, 249, 0.20);
+  border-radius: 12px;
+  padding: 10px 14px;
+}
+
+window.uraam-window expander.uraam-detail-expander > title {
+  color: #67e8f9;
+  font-weight: 700;
+}
+
+window.uraam-window expander.uraam-detail-expander > title:hover {
+  color: #e0f2fe;
+}
+
+
+/* Make keyboard guidance discoverable without relying on hover tooltips. */
+window.uraam-window label.uraam-shortcut-hint {
+  color: #94a3b8;
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 10px 8px 4px;
+}

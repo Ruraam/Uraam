@@ -11,6 +11,11 @@ on:
       - ".github/workflows/.build-releases.yml"
       - "GUI/**"
       - "tests/test-json-api.sh"
+      - "tests/test-api-protocol.py"
+      - "tests/test-api-output-limits.sh"
+      - "tests/test-bridge-process.py"
+      - "tests/test-gui-smoke.py"
+      - "tests/test-api-display-safety.py"
       - ".github/workflows/gui-foundation.yml"
   push:
     branches:
@@ -20,6 +25,11 @@ on:
       - "uraam-gui"
       - "GUI/**"
       - "tests/test-json-api.sh"
+      - "tests/test-api-protocol.py"
+      - "tests/test-api-output-limits.sh"
+      - "tests/test-bridge-process.py"
+      - "tests/test-gui-smoke.py"
+      - "tests/test-api-display-safety.py"
       - ".github/workflows/gui-foundation.yml"
   workflow_dispatch:
 
@@ -37,7 +47,7 @@ jobs:
       - name: Install validation dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes jq shellcheck python3-gi gir1.2-gtk-4.0
+          sudo apt-get install --yes jq shellcheck python3-gi gir1.2-gtk-4.0 xvfb
 
       - name: Validate Bash syntax
         run: |
@@ -46,27 +56,44 @@ jobs:
           bash -n uraam-gui
           bash -n installer.sh
           bash -n tests/test-json-api.sh
+          bash -n tests/test-api-output-limits.sh
 
       - name: Run ShellCheck
-        run: shellcheck --severity=error uraam.sh uraam-api.sh uraam-gui installer.sh tests/test-json-api.sh
+        run: shellcheck --severity=error uraam.sh uraam-api.sh uraam-gui installer.sh tests/test-json-api.sh tests/test-api-output-limits.sh
+
+      - name: Verify standalone GTK frontend bundle
+        run: |
+          for module in main.py api_protocol.py bridge_process.py theme.css; do
+            grep -Fq "\"\$base_url/GUI/$module\" -o \"\$tmp_dir/$module\"" installer.sh
+            grep -Fq "\"\$tmp_dir/GUI/$module\" /usr/local/share/uraam/GUI/$module" installer.sh
+          done
 
       - name: Validate Python syntax and GTK4 bindings
         run: |
-          python3 -m py_compile GUI/main.py
+          python3 -m py_compile GUI/main.py GUI/api_protocol.py GUI/bridge_process.py tests/test-api-protocol.py tests/test-bridge-process.py tests/test-gui-smoke.py tests/test-api-display-safety.py
+          python3 tests/test-api-protocol.py
+          python3 tests/test-api-display-safety.py
+          python3 tests/test-bridge-process.py
           python3 -c "import gi; gi.require_version('Gtk', '4.0'); from gi.repository import Gtk; print(Gtk.get_major_version(), Gtk.get_minor_version())"
+
+      - name: Smoke-test GTK4 window without an Android device
+        env:
+          GTK_A11Y: none
+          GSK_RENDERER: cairo
+        run: xvfb-run --auto-servernum python3 tests/test-gui-smoke.py
 
       - name: Validate Debian desktop package layout
         run: |
           VERSION="0.0.0"
           PKG_DIR="uraam-debian_${VERSION}_all"
-          mkdir -p "$PKG_DIR/usr/bin" "$PKG_DIR/usr/share/uraam/GUI" "$PKG_DIR/usr/share/icons/hicolor/scalable/apps" "$PKG_DIR/DEBIAN"
+          mkdir -p "$PKG_DIR/usr/bin" "$PKG_DIR/usr/share/uraam/GUI" "$PKG_DIR/usr/share/applications" "$PKG_DIR/usr/share/icons/hicolor/scalable/apps" "$PKG_DIR/DEBIAN"
           cp uraam.sh "$PKG_DIR/usr/share/uraam/"
           cp -r Configs "$PKG_DIR/usr/share/uraam/"
           cp uraam-api.sh "$PKG_DIR/usr/share/uraam/"
-          cp GUI/main.py "$PKG_DIR/usr/share/uraam/GUI/"
+          cp GUI/main.py GUI/api_protocol.py GUI/bridge_process.py GUI/theme.css "$PKG_DIR/usr/share/uraam/GUI/"
           cp uraam-gui "$PKG_DIR/usr/bin/uraam-gui"
           cp assets/uraam_logo.svg "$PKG_DIR/usr/share/icons/hicolor/scalable/apps/uraam.svg"
-          cp packaging/debian/uraam.desktop "$PKG_DIR/usr/share/uraam/uraam.desktop"
+          cp packaging/debian/uraam.desktop "$PKG_DIR/usr/share/applications/uraam.desktop"
           sed "s/VERSION_PLACEHOLDER/$VERSION/" packaging/debian/DEBIAN/control > "$PKG_DIR/DEBIAN/control"
           cp packaging/debian/DEBIAN/postinst packaging/debian/DEBIAN/postrm "$PKG_DIR/DEBIAN/"
           chmod 0755 "$PKG_DIR/usr/share/uraam/uraam.sh" "$PKG_DIR/usr/share/uraam/uraam-api.sh" "$PKG_DIR/usr/bin/uraam-gui"
@@ -74,6 +101,78 @@ jobs:
           dpkg-deb --build "$PKG_DIR"
           dpkg-deb --contents "${PKG_DIR}.deb" | grep -q '/usr/bin/uraam-gui'
           dpkg-deb --contents "${PKG_DIR}.deb" | grep -q '/usr/share/uraam/GUI/main.py'
+          dpkg-deb --contents "${PKG_DIR}.deb" | grep -q '/usr/share/uraam/GUI/api_protocol.py'
+          dpkg-deb --contents "${PKG_DIR}.deb" | grep -q '/usr/share/uraam/GUI/bridge_process.py'
+          dpkg-deb --contents "${PKG_DIR}.deb" | grep -q '/usr/share/uraam/GUI/theme.css'
+          dpkg-deb --contents "${PKG_DIR}.deb" | grep -q '/usr/share/applications/uraam.desktop'
           dpkg-deb --contents "${PKG_DIR}.deb" | grep -q '/usr/share/icons/hicolor/scalable/apps/uraam.svg'
+      - name: Test Debian install and uninstall lifecycle
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes adb jq curl desktop-file-utils
+          sudo dpkg -i uraam-debian_0.0.0_all.deb
+          test -L /usr/bin/uraam
+          test "$(readlink /usr/bin/uraam)" = "/usr/share/uraam/uraam.sh"
+          test -x /usr/bin/uraam-gui
+          test -r /usr/share/uraam/GUI/main.py
+          test -r /usr/share/uraam/GUI/api_protocol.py
+          test -r /usr/share/uraam/GUI/bridge_process.py
+          test -r /usr/share/uraam/GUI/theme.css
+          test -r /usr/share/applications/uraam.desktop
+          test -r /usr/share/icons/hicolor/scalable/apps/uraam.svg
+          desktop-file-validate /usr/share/applications/uraam.desktop
+          sudo dpkg -r uraam
+          test ! -e /usr/bin/uraam
+          test ! -e /usr/bin/uraam-gui
+          test ! -e /usr/share/uraam
+          test ! -e /usr/share/applications/uraam.desktop
+          test ! -e /usr/share/icons/hicolor/scalable/apps/uraam.svg
+
+      - name: Test Debian package upgrade and user-data preservation
+        run: |
+          VERSION_OLD="0.0.0"
+          VERSION_NEW="0.0.1"
+          OLD_DIR="uraam-debian_${VERSION_OLD}_all"
+          NEW_DIR="uraam-debian_${VERSION_NEW}_all"
+          for entry in "$OLD_DIR" "$NEW_DIR"; do
+            mkdir -p "$entry/usr/bin" "$entry/usr/share/uraam/GUI" "$entry/usr/share/applications" "$entry/usr/share/icons/hicolor/scalable/apps" "$entry/DEBIAN"
+          done
+          for entry in "$OLD_DIR" "$NEW_DIR"; do
+            cp uraam.sh "$entry/usr/share/uraam/"
+            cp -r Configs "$entry/usr/share/uraam/"
+            cp uraam-api.sh "$entry/usr/share/uraam/"
+            cp GUI/main.py GUI/api_protocol.py GUI/bridge_process.py GUI/theme.css "$entry/usr/share/uraam/GUI/"
+            cp uraam-gui "$entry/usr/bin/uraam-gui"
+            cp assets/uraam_logo.svg "$entry/usr/share/icons/hicolor/scalable/apps/uraam.svg"
+            cp packaging/debian/uraam.desktop "$entry/usr/share/applications/uraam.desktop"
+            cp packaging/debian/DEBIAN/postinst packaging/debian/DEBIAN/postrm "$entry/DEBIAN/"
+            chmod 0755 "$entry/usr/share/uraam/uraam.sh" "$entry/usr/share/uraam/uraam-api.sh" "$entry/usr/bin/uraam-gui"
+            chmod 0755 "$entry/DEBIAN/postinst" "$entry/DEBIAN/postrm"
+          done
+          sed "s/VERSION_PLACEHOLDER/$VERSION_OLD/" packaging/debian/DEBIAN/control > "$OLD_DIR/DEBIAN/control"
+          sed "s/VERSION_PLACEHOLDER/$VERSION_NEW/" packaging/debian/DEBIAN/control > "$NEW_DIR/DEBIAN/control"
+          printf '\n# Legacy package payload for upgrade regression test\n' >> "$OLD_DIR/usr/share/uraam/GUI/main.py"
+          dpkg-deb --build "$OLD_DIR"
+          dpkg-deb --build "$NEW_DIR"
+          sudo dpkg -i "${OLD_DIR}.deb"
+          mkdir -p "$HOME/.config/uraam/debloat" "$HOME/.local/share/uraam/Configs/backup-restore" "$HOME/.local/share/uraam/Logs/debloat"
+          printf '%s\n' '{"preserve":"upgrade-config"}' > "$HOME/.config/uraam/debloat/upgrade-preservation.json"
+          printf '%s\n' '{"preserve":"upgrade-backup"}' > "$HOME/.local/share/uraam/Configs/backup-restore/upgrade-preservation.json"
+          printf '%s\n' 'upgrade-log-preservation' > "$HOME/.local/share/uraam/Logs/debloat/upgrade-preservation.log"
+          sudo dpkg -i "${NEW_DIR}.deb"
+          test -L /usr/bin/uraam
+          test "$(readlink /usr/bin/uraam)" = "/usr/share/uraam/uraam.sh"
+          ! grep -q 'Legacy package payload' /usr/share/uraam/GUI/main.py
+          grep -q '"preserve":"upgrade-config"' "$HOME/.config/uraam/debloat/upgrade-preservation.json"
+          grep -q '"preserve":"upgrade-backup"' "$HOME/.local/share/uraam/Configs/backup-restore/upgrade-preservation.json"
+          grep -q 'upgrade-log-preservation' "$HOME/.local/share/uraam/Logs/debloat/upgrade-preservation.log"
+          sudo dpkg -r uraam
+          test -f "$HOME/.config/uraam/debloat/upgrade-preservation.json"
+          test -f "$HOME/.local/share/uraam/Configs/backup-restore/upgrade-preservation.json"
+          test -f "$HOME/.local/share/uraam/Logs/debloat/upgrade-preservation.log"
+
       - name: Test read-only JSON API
         run: bash tests/test-json-api.sh
+
+      - name: Test API output size limits
+        run: bash tests/test-api-output-limits.sh

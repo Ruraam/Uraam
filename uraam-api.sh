@@ -7,6 +7,92 @@ umask 077
 API_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd -P)"
 URAAM_SCRIPT="${URAAM_SCRIPT:-$API_DIR/uraam.sh}"
 
+# API-only output ceilings. They do not change the interactive CLI engine.
+api_limit_or_default() {
+    local value="$1" fallback="$2" maximum="$3"
+    if [[ "$value" =~ ^[1-9][0-9]*$ ]] && (( value <= maximum )); then
+        printf '%s\n' "$value"
+    else
+        printf '%s\n' "$fallback"
+    fi
+}
+API_MAX_INVENTORY_BYTES="$(api_limit_or_default "${URAAM_API_MAX_INVENTORY_BYTES:-1048576}" 1048576 8388608)"
+API_MAX_DUMPSYS_BYTES="$(api_limit_or_default "${URAAM_API_MAX_DUMPSYS_BYTES:-2097152}" 2097152 8388608)"
+API_MAX_PATHS_BYTES="$(api_limit_or_default "${URAAM_API_MAX_PATHS_BYTES:-65536}" 65536 1048576)"
+
+# Capture only limit+1 data bytes plus a sentinel, then drain the pipe so
+# the device command can finish without SIGPIPE. The drain stores no output.
+api_capture_device_output() {
+    local limit="$1" output status
+    shift
+    output="$({ run_device_bounded "$@" 2>/dev/null; status=$?; printf X; exit "$status"; } | { head -c "$((limit + 2))"; cat >/dev/null; })"
+    status=$?
+    local LC_ALL=C
+    if (( ${#output} > limit + 1 )); then
+        return 126
+    fi
+    output="${output%X}"
+    (( status == 0 )) || return "$status"
+    printf '%s' "$output"
+}
+
+# API inventory reader preserves the engine transport and timeout layer while
+# enforcing a byte ceiling before parsing or retaining package names.
+api_device_package_list() {
+    local mode="${1:-active}" raw allow_empty=0 status
+    case "$mode" in
+        all) raw="$(api_capture_device_output "$API_MAX_INVENTORY_BYTES" pm list packages -u --user 0)" || { status=$?; (( status == 126 )) && return 126; return "$status"; } ;;
+        active) raw="$(api_capture_device_output "$API_MAX_INVENTORY_BYTES" pm list packages --user 0)" || { status=$?; (( status == 126 )) && return 126; return "$status"; } ;;
+        system) raw="$(api_capture_device_output "$API_MAX_INVENTORY_BYTES" pm list packages -s --user 0)" || { status=$?; (( status == 126 )) && return 126; return "$status"; }; allow_empty=1 ;;
+        user) raw="$(api_capture_device_output "$API_MAX_INVENTORY_BYTES" pm list packages -3 --user 0)" || { status=$?; (( status == 126 )) && return 126; return "$status"; }; allow_empty=1 ;;
+        *) return 2 ;;
+    esac
+    if ! printf '%s\n' "$raw" | tr -d '\r' | awk -v allow_empty="$allow_empty" '
+        NF == 0 { next }
+        /^package:[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$/ { count++; next }
+        { invalid = 1 }
+        END { if (invalid || (!allow_empty && count == 0)) exit 1 }
+    '; then
+        return 1
+    fi
+    printf '%s\n' "$raw" | tr -d '\r' | sed -n 's/^package://p' | sort -u
+}
+
+component_section_json() {
+    local dump_raw="$1" package_id="$2" wanted="$3" component_lines
+    if component_lines="$(awk -v wanted="$wanted" -v package="$package_id" '
+        BEGIN {
+            sections["Activities:"]=1
+            sections["Services:"]=1
+            sections["Receivers:"]=1
+            sections["Providers:"]=1
+        }
+        {
+            line=$0
+            sub(/^[[:space:]]+/, "", line)
+            sub(/[[:space:]]+$/, "", line)
+            if (line in sections) {
+                in_section=(line == wanted)
+                if (in_section) found=1
+                next
+            }
+            if (!in_section) next
+            split(line, fields, /[[:space:]]+/)
+            candidate=fields[1]
+            prefix=package "/"
+            if (index(candidate, prefix) == 1) {
+                class_name=substr(candidate, length(prefix)+1)
+                if (class_name ~ /^\.?[A-Za-z_$][A-Za-z0-9_$]*(\.[A-Za-z_$][A-Za-z0-9_$]*)*$/) print candidate
+            }
+        }
+        END { if (!found) exit 2 }
+    ' <<< "$dump_raw" 2>/dev/null)"; then
+        printf '%s\n' "$component_lines" | jq -Rsc 'split("\n") | map(select(length > 0)) | unique'
+    else
+        printf '%s\n' null
+    fi
+}
+
 json_error() {
     local message="$1" code="${2:-1}"
     jq -n --arg error "$message" '{status:"error",error:$error}'
@@ -20,22 +106,35 @@ URAAM JSON API (read-only)
 Usage:
   uraam-api.sh device-info
   uraam-api.sh list-packages
+  uraam-api.sh package-info:<package.id>
   uraam-api.sh --help
 
 Commands:
   device-info    Return the selected backend and device identity.
   list-packages  Return the installed package inventory for Android user 0.
+  package-info   Return read-only APK path and version metadata for one package.
 
-This initial API intentionally does not expose debloat, install, restore, or
-other state-changing operations. Those require a separately reviewed API.
+This API intentionally exposes no debloat, install, restore, or other
+state-changing operation.
 EOF
 }
 
 main() {
     local action="${1:-}"
+    if (($# != 1)); then
+        json_error "Expected exactly one API command. Use --help for usage." 2
+        return $?
+    fi
     case "$action" in
         -h|--help|help) usage; return 0 ;;
         device-info|list-packages) ;;
+        package-info:*)
+            PACKAGE_ID="${action#package-info:}"
+            [[ "$PACKAGE_ID" =~ ^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$ ]] || {
+                json_error "Invalid Android package identifier." 2
+                return $?
+            }
+            ;;
         *) json_error "Unsupported command. Use --help." 2; return $? ;;
     esac
 
@@ -48,8 +147,7 @@ main() {
         return 127
     }
 
-    # Load the existing engine's functions without starting its interactive
-    # dashboard. The engine remains the sole owner of device command logic.
+    # Load engine functions without starting its interactive dashboard.
     export URAAM_TESTING=1
     # shellcheck source=uraam.sh
     source "$URAAM_SCRIPT" || {
@@ -57,8 +155,95 @@ main() {
         return $?
     }
 
-    # Detection is read-only. Suppress the terminal-oriented status messages;
-    # this process reserves stdout exclusively for its JSON response.
+    # API-only timeout policy: keep the interactive CLI engine unchanged.
+    API_DEVICE_TIMEOUT="$(api_limit_or_default "${URAAM_API_DEVICE_TIMEOUT:-5}" 5 30)"
+    export URAAM_DEVICE_TIMEOUT="$API_DEVICE_TIMEOUT"
+
+    api_run_host_bounded() {
+        local timeout_bin candidate candidate_path
+        timeout_bin=""
+        for candidate in timeout gtimeout; do
+            candidate_path="$(command -v "$candidate" 2>/dev/null)" || continue
+            if "$candidate_path" --signal=TERM --kill-after=1 1s sh -c ":" >/dev/null 2>&1; then
+                timeout_bin="$candidate_path"
+                break
+            fi
+        done
+        [[ -n "$timeout_bin" ]] || return 125
+        "$timeout_bin" --signal=TERM --kill-after=1 "${API_DEVICE_TIMEOUT}s" "$@"
+    }
+
+    # Override only inside this API process. Every device property read now
+    # uses the engine's bounded transport wrapper.
+    device_getprop() {
+        local property="$1"
+        run_device_bounded getprop "$property" 2>/dev/null
+    }
+
+    backend_is_available() {
+        case "$EXEC_TYPE" in
+            ADB)
+                [[ -n "$BACKEND_SERIAL" ]] || return 1
+                [[ "$(api_run_host_bounded adb -s "$BACKEND_SERIAL" get-state 2>/dev/null)" == "device" ]]
+                ;;
+            ROOT)
+                if [[ "$(id -u)" -eq 0 ]]; then return 0; fi
+                command -v su >/dev/null 2>&1 && api_run_host_bounded su -c id >/dev/null 2>&1
+                ;;
+            SHIZUKU)
+                command -v rish >/dev/null 2>&1 && api_run_host_bounded rish -c id >/dev/null 2>&1
+                ;;
+            *) return 1 ;;
+        esac
+    }
+
+    # The CLI detector performs unbounded host-side probes. Reimplement its
+    # read-only selection here with a deadline, without changing uraam.sh.
+    detect_backend_status() {
+        EXEC_TYPE=""
+        BACKEND_SERIAL="${ANDROID_SERIAL:-}"
+
+        if command -v adb >/dev/null 2>&1; then
+            local devices serial
+            devices="$(api_run_host_bounded adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {print $1}')" || devices=""
+            if [[ -n "$BACKEND_SERIAL" ]]; then
+                if printf '%s\n' "$devices" | grep -Fxq "$BACKEND_SERIAL"; then
+                    EXEC_TYPE="ADB"
+                fi
+            else
+                serial="$(printf '%s\n' "$devices" | head -n1)"
+                if [[ -n "$serial" ]]; then
+                    BACKEND_SERIAL="$serial"
+                    EXEC_TYPE="ADB"
+                fi
+            fi
+        fi
+
+        if [[ -z "$EXEC_TYPE" ]] && is_termux; then
+            if [[ "$(id -u)" -eq 0 ]]; then
+                EXEC_TYPE="ROOT"
+            elif command -v su >/dev/null 2>&1 && api_run_host_bounded su -c id >/dev/null 2>&1; then
+                EXEC_TYPE="ROOT"
+            elif [[ -z "${BACKEND:-}" ]] && command -v rish >/dev/null 2>&1 &&
+                printf 'exit\n' | api_run_host_bounded rish >/dev/null 2>&1; then
+                EXEC_TYPE="SHIZUKU"
+            fi
+        fi
+
+        if [[ -n "$EXEC_TYPE" ]]; then
+            device_brand
+            msg "${PURPLE}[Target]${NC} $CURRENT_MODEL"
+            ok "Execution backend: $EXEC_TYPE"
+            return 0
+        fi
+
+        if is_installed_via_deb; then
+            CURRENT_MODEL="$(uname -s) $(uname -m)"
+        fi
+        warn "No execution backend detected."
+        return 1
+    }
+
     detect_backend_status >/dev/null 2>&1 || true
     if [[ -z "$EXEC_TYPE" ]] || ! backend_is_available; then
         if [[ "$action" == device-info ]]; then
@@ -88,15 +273,99 @@ main() {
                 --arg rom_version "$rom_version" \
                 '{status:"connected",version:$version,backend:$backend,serial:(if $serial == "" then null else $serial end),model:$model,oem:$oem,rom:{name:$rom,version:$rom_version}}'
             ;;
-        list-packages)
-            local packages
-            packages="$(device_package_list active 2>/dev/null)" || {
-                json_error "Android returned no reliable installed-package inventory." 5
+        package-info:*)
+            local package_id paths_raw dump_raw version_name version_code line
+            local requested_permissions permissions_json
+            local activities_json services_json receivers_json providers_json
+            local dump_status=0 metadata_limited=false
+            local -a apk_paths=()
+            package_id="${action#package-info:}"
+            paths_raw="$(api_capture_device_output "$API_MAX_PATHS_BYTES" pm path --user 0 "$package_id")" || {
+                json_error "Android could not resolve this package or its APK paths exceeded the API limit." 5
                 return $?
             }
+            while IFS= read -r line; do
+                # Accept only Package Manager's package:/absolute/path form.
+                [[ "$line" == package:/* ]] || continue
+                line="${line#package:}"
+                [[ "$line" =~ ^(/[A-Za-z0-9._~+=,@%-]+)+$ ]] || continue
+                [[ "$line" != *"/./"* && "$line" != *"/../"* && "$line" != */. && "$line" != */.. ]] || continue
+                apk_paths+=("$line")
+            done <<< "$paths_raw"
+            (("${#apk_paths[@]}" > 0)) || {
+                json_error "Package is not installed for Android user 0, or Android returned an invalid APK path." 5
+                return $?
+            }
+
+            dump_raw="$(api_capture_device_output "$API_MAX_DUMPSYS_BYTES" dumpsys package "$package_id")" || dump_status=$?
+            if (( dump_status != 0 )); then
+                dump_raw=""
+                (( dump_status == 126 )) && metadata_limited=true
+            fi
+            version_name="$(sed -n 's/.*versionName=\([^[:space:]]*\).*/\1/p' <<< "$dump_raw" | head -n 1)"
+            version_code="$(sed -n 's/.*versionCode=\([0-9][0-9]*\).*/\1/p' <<< "$dump_raw" | head -n 1)"
+            requested_permissions="$(awk '
+                /^[[:space:]]*requested permissions:[[:space:]]*$/ { in_section=1; found=1; next }
+                in_section && /^[[:space:]]*$/ { exit }
+                in_section {
+                    value=$0
+                    sub(/^[[:space:]]+/, "", value)
+                    sub(/[[:space:]]+$/, "", value)
+                    if (value ~ /^[A-Za-z0-9_]+([.][A-Za-z0-9_]+)+$/) print value
+                }
+                END { if (!found) exit 1 }
+            ' <<< "$dump_raw" 2>/dev/null || true)"
+            if grep -Eq '^[[:space:]]*requested permissions:[[:space:]]*$' <<< "$dump_raw"; then
+                permissions_json="$(printf '%s\n' "$requested_permissions" | jq -Rsc 'split("\n") | map(select(length > 0))')"
+            else
+                permissions_json=null
+            fi
+            activities_json="$(component_section_json "$dump_raw" "$package_id" Activities:)"
+            services_json="$(component_section_json "$dump_raw" "$package_id" Services:)"
+            receivers_json="$(component_section_json "$dump_raw" "$package_id" Receivers:)"
+            providers_json="$(component_section_json "$dump_raw" "$package_id" Providers:)"
+
+            jq -n --arg package "$package_id" --arg backend "$EXEC_TYPE" \
+                --arg version_name "$version_name" --arg version_code "$version_code" \
+                --argjson metadata_limited "$metadata_limited" \
+                --argjson requested_permissions "$permissions_json" \
+                --argjson activities "$activities_json" --argjson services "$services_json" \
+                --argjson receivers "$receivers_json" --argjson providers "$providers_json" \
+                --args \
+                '{status:"ok",package:$package,backend:$backend,paths:$ARGS.positional,
+                  version_name:(if $version_name == "" then null else $version_name end),
+                  version_code:(if $version_code == "" then null else $version_code end),
+                  requested_permissions:$requested_permissions,
+                  permissions_semantics:"requested_only_not_grant_status",
+                  components:{activities:$activities,services:$services,receivers:$receivers,providers:$providers},
+                  components_semantics:"entries_from_matching_dumpsys_sections_only",
+                  metadata_source:"dumpsys package",metadata_limited:$metadata_limited,read_only:true}' \
+                "${apk_paths[@]}"
+            ;;
+        list-packages)
+            local packages system_packages user_packages inventory_status
+            packages="$(api_device_package_list active 2>/dev/null)" || {
+                inventory_status=$?
+                if (( inventory_status == 126 )); then
+                    json_error "Android package inventory exceeds the API size limit; no partial inventory was returned." 6
+                else
+                    json_error "Android returned no reliable installed-package inventory." 5
+                fi
+                return $?
+            }
+            # Classification is best-effort; missing subsets remain unknown.
+            system_packages="$(api_device_package_list system 2>/dev/null || true)"
+            user_packages="$(api_device_package_list user 2>/dev/null || true)"
             jq -n --arg backend "$EXEC_TYPE" --arg serial "$BACKEND_SERIAL" \
                 --argjson packages "$(printf '%s\n' "$packages" | jq -Rsc 'split("\n") | map(select(length > 0))')" \
-                '{status:"ok",backend:$backend,serial:(if $serial == "" then null else $serial end),user:0,count:($packages|length),packages:$packages}'
+                --argjson system_packages "$(printf '%s\n' "$system_packages" | jq -Rsc 'split("\n") | map(select(length > 0))')" \
+                --argjson user_packages "$(printf '%s\n' "$user_packages" | jq -Rsc 'split("\n") | map(select(length > 0))')" \
+                '($packages | map(. as $p | {key:$p,value:(if (($system_packages | index($p)) != null and ($user_packages | index($p)) == null) then "system" elif (($user_packages | index($p)) != null and ($system_packages | index($p)) == null) then "user" else "unknown" end)}) | from_entries) as $types |
+                 {status:"ok",backend:$backend,serial:(if $serial == "" then null else $serial end),user:0,count:($packages|length),packages:$packages,package_types:$types,
+                  classification_available:([$types[] | select(. == "unknown")] | length == 0),
+                  system_count:([$types[] | select(. == "system")] | length),
+                  user_count:([$types[] | select(. == "user")] | length),
+                  unclassified_count:([$types[] | select(. == "unknown")] | length)}'
             ;;
     esac
 }
