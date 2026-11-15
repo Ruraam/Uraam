@@ -226,6 +226,50 @@ class BridgeProcessLifecycleTests(unittest.TestCase):
             communicate_process(process, shutdown, shutdown_grace_seconds=0.3)
         self.assertIsNotNone(process.poll())
 
+    def test_close_request_unregisters_window_theme_provider(self):
+        from unittest.mock import patch
+
+        provider = object()
+        display = object()
+        window = type("WindowState", (), {})()
+        window._closing = False
+        window._process_lock = threading.Lock()
+        window._pending_request = ("device-info", lambda *_args: None)
+        window._shutdown_event = threading.Event()
+        window._active_process = None
+        window._theme_provider = provider
+        window._unload_theme = uraam_gui.UraamWindow._unload_theme.__get__(
+            window, uraam_gui.UraamWindow
+        )
+
+        with (
+            patch.object(uraam_gui.Gdk.Display, "get_default", return_value=display),
+            patch.object(
+                uraam_gui.Gtk.StyleContext, "remove_provider_for_display"
+            ) as remove_provider,
+        ):
+            result = uraam_gui.UraamWindow._on_close_request(window, window)
+
+        self.assertFalse(result)
+        remove_provider.assert_called_once_with(display, provider)
+        self.assertIsNone(window._theme_provider)
+        self.assertTrue(window._closing)
+        self.assertTrue(window._shutdown_event.is_set())
+        self.assertIsNone(window._pending_request)
+
+    def test_unload_theme_is_safe_without_provider_or_display(self):
+        from unittest.mock import patch
+
+        window = type("WindowState", (), {"_theme_provider": None})()
+        uraam_gui.UraamWindow._unload_theme(window)
+        self.assertIsNone(window._theme_provider)
+
+        provider = object()
+        window._theme_provider = provider
+        with patch.object(uraam_gui.Gdk.Display, "get_default", return_value=None):
+            uraam_gui.UraamWindow._unload_theme(window)
+        self.assertIsNone(window._theme_provider)
+
     def test_repeated_close_requests_cancel_active_process_only_once(self):
         from unittest.mock import patch
 
