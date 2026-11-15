@@ -1501,6 +1501,8 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
 
         queued_callbacks = []
 
+        queued_sources = []
+
         class FakeGLib:
             SOURCE_REMOVE = False
 
@@ -1603,7 +1605,9 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
 
             @staticmethod
             def idle_source_new():
-                return FakeSource()
+                source = FakeSource()
+                queued_sources.append(source)
+                return source
 
             class MainContext:
                 @staticmethod
@@ -1724,6 +1728,7 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
             uraam_gui.GLib = original_glib
 
         # The completion is queued, but the GTK main context has not dispatched it.
+        self.assertEqual(len(queued_sources), 1)
         self.assertTrue(window._loading)
         self.assertFalse(uraam_gui.UraamWindow._on_close_request(window, window))
         self.assertTrue(window._shutdown_event.is_set())
@@ -1736,7 +1741,7 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
         )
         # The source callback was retained by the fake dispatcher; invoke it
         # after close to model a late GLib dispatch.
-        self.assertFalse(window._fallback_source.callback())
+        self.assertFalse(queued_sources[0].callback())
         self.assertEqual(window.loading_spinner.calls, widget_calls_at_close[0])
         self.assertEqual(window.refresh_button.calls, widget_calls_at_close[1])
         self.assertEqual(delivered, [])
