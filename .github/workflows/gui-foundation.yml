@@ -61,6 +61,13 @@ jobs:
       - name: Run ShellCheck
         run: shellcheck --severity=error uraam.sh uraam-api.sh uraam-gui installer.sh tests/test-json-api.sh tests/test-api-output-limits.sh
 
+      - name: Verify standalone GTK frontend bundle
+        run: |
+          for module in main.py api_protocol.py bridge_process.py theme.css; do
+            grep -Fq "\"\$base_url/GUI/$module\" -o \"\$tmp_dir/$module\"" installer.sh
+            grep -Fq "\"\$tmp_dir/GUI/$module\" /usr/local/share/uraam/GUI/$module" installer.sh
+          done
+
       - name: Validate Python syntax and GTK4 bindings
         run: |
           python3 -m py_compile GUI/main.py GUI/api_protocol.py GUI/bridge_process.py tests/test-api-protocol.py tests/test-bridge-process.py tests/test-gui-smoke.py tests/test-api-display-safety.py
