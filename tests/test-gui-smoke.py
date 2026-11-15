@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import subprocess
 import sys
+import threading
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -15,6 +17,7 @@ gi.require_version("Gdk", "4.0")
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
+from bridge_process import BridgeProcessCancelled, communicate_process  # noqa: E402
 from main import UraamApplication, UraamWindow  # noqa: E402
 
 
@@ -24,7 +27,57 @@ def drain_main_context() -> None:
         context.iteration(False)
 
 
+def test_shutdown_kills_and_reaps_unresponsive_bridge() -> None:
+    # The child deliberately ignores SIGTERM. Shutdown must escalate to
+    # SIGKILL and reap it rather than leaving an orphaned bridge process.
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import signal, time; "
+                "signal.signal(signal.SIGTERM, signal.SIG_IGN); "
+                "print('READY', flush=True); time.sleep(30)"
+            ),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+    try:
+        if process.stdout is None or process.stdout.readline().strip() != "READY":
+            raise AssertionError("The test bridge process did not become ready")
+
+        shutdown_event = threading.Event()
+        shutdown_event.set()
+        try:
+            communicate_process(
+                process,
+                shutdown_event,
+                timeout_seconds=2.0,
+                poll_interval=0.01,
+                shutdown_grace_seconds=0.05,
+            )
+        except BridgeProcessCancelled:
+            pass
+        else:
+            raise AssertionError("An active bridge process ignored shutdown")
+
+        if process.poll() is None:
+            raise AssertionError("An unresponsive bridge process was not reaped")
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=2.0)
+        if process.stdout is not None:
+            process.stdout.close()
+        if process.stderr is not None:
+            process.stderr.close()
+
+
 def main() -> int:
+    test_shutdown_kills_and_reaps_unresponsive_bridge()
     # Keep this smoke test isolated from ADB, Root, Shizuku and the device API.
     original_refresh = UraamWindow._refresh_device
     UraamWindow._refresh_device = lambda self: None
