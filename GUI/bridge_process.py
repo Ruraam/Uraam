@@ -145,6 +145,12 @@ def communicate_process(
             stdout,
             buffers["stderr"].decode("utf-8", errors="replace"),
         )
+    except BaseException:
+        # Reader/selector failures must not orphan the bridge or its children.
+        # Always signal the isolated process group: the leader may already
+        # have exited while descendants still hold resources or pipe handles.
+        _kill_and_reap(process)
+        raise
     finally:
         _close_pipe(process.stdout)
         _close_pipe(process.stderr)
