@@ -212,6 +212,23 @@ class ApiProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "unsafe control characters or unsafe Unicode"):
             decode_api_response(payload, "", 0)
 
+    def test_rejects_invisible_format_controls_in_display_metadata(self):
+        for field, prefix in (("model", "Pixel"), ("oem", "google")):
+            for codepoint in (0x200B, 0x2060, 0x2028, 0xFDD0, 0xFFFE):
+                with self.subTest(field=field, codepoint=hex(codepoint)):
+                    value = prefix + chr(codepoint)
+                    model = value if field == "model" else "Pixel"
+                    oem = value if field == "oem" else "google"
+                    payload = (
+                        '{"status":"connected","version":"4.4.3","backend":"adb",'
+                        '"serial":"device-123","model":"' + model + '",'
+                        '"oem":"' + oem + '","rom":null}'
+                    )
+                    with self.assertRaisesRegex(
+                        RuntimeError, "unsafe control characters or unsafe Unicode"
+                    ):
+                        decode_api_response(payload, "", 0)
+
     def test_rejects_non_standard_json_constants(self):
         with self.assertRaisesRegex(RuntimeError, "non-standard JSON constant"):
             decode_api_response('{"status":"ok","value":NaN}', "", 0)
