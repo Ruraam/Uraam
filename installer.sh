@@ -333,6 +333,7 @@ install_standalone_gui() {
        ! curl --fail --location --silent --show-error --retry 2 --connect-timeout 15 "$base_url/GUI/main.py" -o "$tmp_dir/main.py" ||
        ! curl --fail --location --silent --show-error --retry 2 --connect-timeout 15 "$base_url/GUI/api_protocol.py" -o "$tmp_dir/api_protocol.py" ||
        ! curl --fail --location --silent --show-error --retry 2 --connect-timeout 15 "$base_url/GUI/bridge_process.py" -o "$tmp_dir/bridge_process.py" ||
+       ! curl --fail --location --silent --show-error --retry 2 --connect-timeout 15 "$base_url/GUI/theme.css" -o "$tmp_dir/theme.css" ||
        ! curl --fail --location --silent --show-error --retry 2 --connect-timeout 15 "$base_url/assets/uraam_logo.svg" -o "$tmp_dir/uraam.svg"; then
         rm -rf -- "$tmp_dir"; log_error "Unable to download all desktop components."; return 1
     fi
@@ -343,6 +344,7 @@ install_standalone_gui() {
     mv "$tmp_dir/main.py" "$tmp_dir/GUI/main.py"
     mv "$tmp_dir/api_protocol.py" "$tmp_dir/GUI/api_protocol.py"
     mv "$tmp_dir/bridge_process.py" "$tmp_dir/GUI/bridge_process.py"
+    mv "$tmp_dir/theme.css" "$tmp_dir/GUI/theme.css"
     cat > "$tmp_dir/uraam.desktop" <<'EOF'
 [Desktop Entry]
 Type=Application
@@ -364,6 +366,7 @@ EOF
        ! run_as_root install -m 0644 "$tmp_dir/GUI/main.py" /usr/local/share/uraam/GUI/main.py ||
        ! run_as_root install -m 0644 "$tmp_dir/GUI/api_protocol.py" /usr/local/share/uraam/GUI/api_protocol.py ||
        ! run_as_root install -m 0644 "$tmp_dir/GUI/bridge_process.py" /usr/local/share/uraam/GUI/bridge_process.py ||
+       ! run_as_root install -m 0644 "$tmp_dir/GUI/theme.css" /usr/local/share/uraam/GUI/theme.css ||
        ! run_as_root install -m 0644 "$tmp_dir/uraam.svg" /usr/local/share/icons/hicolor/scalable/apps/uraam.svg ||
        ! run_as_root install -m 0644 "$tmp_dir/uraam.desktop" /usr/local/share/applications/uraam.desktop; then
         rm -rf -- "$tmp_dir"; return 1
