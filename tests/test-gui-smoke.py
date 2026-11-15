@@ -17,6 +17,7 @@ gi.require_version("Gdk", "4.0")
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
+import bridge_process  # noqa: E402
 from bridge_process import BridgeProcessCancelled, communicate_process  # noqa: E402
 from main import UraamApplication, UraamWindow  # noqa: E402
 
@@ -217,7 +218,69 @@ def test_shutdown_closes_pipes_with_pending_output() -> None:
             process.stderr.close()
 
 
+def test_reader_failure_kills_and_reaps_bridge() -> None:
+    # Simulate a selector/pipe setup failure after the child has started.
+    # The exceptional path must still kill the process group and close pipes.
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            "import time; print('READY', flush=True); time.sleep(30)",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+    original_selector = bridge_process.selectors.DefaultSelector
+
+    class BrokenSelector:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def register(self, *_args, **_kwargs):
+            raise OSError("simulated selector registration failure")
+
+    try:
+        if process.stdout is None or process.stdout.readline().strip() != "READY":
+            raise AssertionError("The reader-failure bridge did not become ready")
+
+        bridge_process.selectors.DefaultSelector = BrokenSelector
+        try:
+            communicate_process(
+                process,
+                threading.Event(),
+                timeout_seconds=3.0,
+                poll_interval=0.01,
+            )
+        except OSError as exc:
+            if "simulated selector registration failure" not in str(exc):
+                raise
+        else:
+            raise AssertionError("The simulated reader failure was not propagated")
+
+        if process.poll() is None:
+            raise AssertionError("Reader failure left the bridge process running")
+        if process.stdout is None or not process.stdout.closed:
+            raise AssertionError("Reader failure did not close stdout")
+        if process.stderr is None or not process.stderr.closed:
+            raise AssertionError("Reader failure did not close stderr")
+    finally:
+        bridge_process.selectors.DefaultSelector = original_selector
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=2.0)
+        if process.stdout is not None and not process.stdout.closed:
+            process.stdout.close()
+        if process.stderr is not None and not process.stderr.closed:
+            process.stderr.close()
+
+
 def main() -> int:
+    test_reader_failure_kills_and_reaps_bridge()
     test_shutdown_closes_pipes_with_pending_output()
     test_shutdown_races_natural_bridge_exit()
     test_shutdown_kills_and_reaps_unresponsive_bridge()
