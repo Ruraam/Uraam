@@ -19,6 +19,7 @@ from typing import Any
 
 from bridge_process import (
     BridgeProcessCancelled,
+    BridgeProcessOutputLimit,
     BridgeProcessTimeout,
     communicate_process,
     signal_process_group,
@@ -804,17 +805,33 @@ class UraamWindow(Gtk.ApplicationWindow):
         self.connection_status.set_text("Working…")
 
         def worker() -> None:
+            process: subprocess.Popen[bytes] | None = None
             try:
-                proc = subprocess.run(
-                    [adb, *args], capture_output=True, text=True, errors="replace",
-                    timeout=20, check=False
+                process = subprocess.Popen(
+                    [adb, *args],
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    start_new_session=True,
                 )
-                out, err = (proc.stdout or "").strip(), (proc.stderr or "").strip()
+                stdout, stderr = communicate_process(
+                    process, self._shutdown_event, timeout_seconds=20
+                )
+                out, err = stdout.strip(), stderr.strip()
                 if secret:
-                    out, err = out.replace(secret, "[redacted]"), err.replace(secret, "[redacted]")
-                result = {"code": proc.returncode, "out": out[:2000], "err": err[:2000]}
-            except subprocess.TimeoutExpired:
+                    out = out.replace(secret, "[redacted]")
+                    err = err.replace(secret, "[redacted]")
+                result = {
+                    "code": process.returncode,
+                    "out": out,
+                    "err": err[:2000],
+                }
+            except BridgeProcessOutputLimit as exc:
+                result = {"code": 125, "out": "", "err": str(exc)[:1000]}
+            except BridgeProcessTimeout:
                 result = {"code": 124, "out": "", "err": "ADB timed out after 20 seconds."}
+            except BridgeProcessCancelled:
+                result = {"code": 125, "out": "", "err": "ADB request was cancelled."}
             except OSError as exc:
                 result = {"code": 127, "out": "", "err": str(exc)[:1000]}
             GLib.idle_add(self._finish_adb, callback, result)
@@ -949,12 +966,27 @@ class UraamWindow(Gtk.ApplicationWindow):
             ["-s", self._connection_serial, "shell", "monkey", "-p", SHIZUKU_PACKAGE, "1"], opened
         )
 
+    def _selected_adb_serial(self) -> str | None:
+        index = self.device_dropdown.get_selected()
+        if index < 0 or index >= len(self._connection_devices):
+            return None
+        serial, state = self._connection_devices[index]
+        return serial if state == "device" else None
+
     def _start_legacy_shizuku(self, _button: Gtk.Button) -> None:
-        if not self._connection_serial:
-            self.shizuku_status.set_text("Connect and select an ADB device first.")
+        selected_serial = self._connection_serial
+        if not selected_serial or self._selected_adb_serial() != selected_serial:
+            self.shizuku_status.set_text(
+                "The selected device changed. Select it again before starting Shizuku."
+            )
             return
 
         def check_sdk(result: dict[str, Any]) -> None:
+            if self._connection_serial != selected_serial or self._selected_adb_serial() != selected_serial:
+                self.shizuku_status.set_text(
+                    "The selected device changed during the Android version check; start was cancelled."
+                )
+                return
             if result["code"] != 0 or not result["out"].strip().isdigit():
                 self.shizuku_status.set_text("Could not determine Android version; start was cancelled.")
                 return
@@ -966,6 +998,11 @@ class UraamWindow(Gtk.ApplicationWindow):
                 return
 
             def started(start_result: dict[str, Any]) -> None:
+                if self._connection_serial != selected_serial or self._selected_adb_serial() != selected_serial:
+                    self.shizuku_status.set_text(
+                        "The selected device changed; Shizuku start result was discarded."
+                    )
+                    return
                 self.shizuku_status.set_text(
                     "Start command completed; check Shizuku's running status."
                     if start_result["code"] == 0
@@ -973,12 +1010,12 @@ class UraamWindow(Gtk.ApplicationWindow):
                 )
 
             self._run_adb(
-                ["-s", self._connection_serial, "shell", "sh", SHIZUKU_START_SCRIPT],
+                ["-s", selected_serial, "shell", "sh", SHIZUKU_START_SCRIPT],
                 started,
             )
 
         self._run_adb(
-            ["-s", self._connection_serial, "shell", "getprop", "ro.build.version.sdk"],
+            ["-s", selected_serial, "shell", "getprop", "ro.build.version.sdk"],
             check_sdk,
         )
 
@@ -987,6 +1024,7 @@ class UraamWindow(Gtk.ApplicationWindow):
         self._show_connection_step("complete")
 
     def _finish_connection(self) -> None:
+        self._show_connection_step("home")
         self._show_view("dashboard")
         self._refresh_device()
 
