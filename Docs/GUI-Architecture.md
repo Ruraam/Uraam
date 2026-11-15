@@ -4,7 +4,7 @@ URAAM Desktop is an optional GTK4 frontend. It does not replace the Bash CLI and
 
 ## Current scope
 
-The first foundation milestone is deliberately read-only:
+The JSON bridge remains deliberately read-only:
 
 - `uraam-api.sh device-info` reports the selected backend and device identity.
 - `uraam-api.sh list-packages` returns the installed package inventory for Android user 0, plus best-effort system / third-party classification from Android Package Manager.
