@@ -60,8 +60,8 @@ not-a-device-row
 
     # Device discovery must retain entries beyond the former 2,000-character
     # UI display limit; structured parsing is not allowed to use a display slice.
-    long_device_output = "List of devices attached\\n" + "".join(
-        f"SERIAL-{index:04d} device product:test\\n" for index in range(300)
+    long_device_output = "List of devices attached\n" + "".join(
+        f"SERIAL-{index:04d} device product:test\n" for index in range(300)
     )
     long_devices = parse_adb_devices_output(long_device_output)
     if len(long_devices) != 300 or long_devices[-1][0] != "SERIAL-0299":
@@ -220,9 +220,9 @@ def test_shutdown_closes_pipes_with_pending_output() -> None:
             "-c",
             (
                 "import os, time; "
-                "os.write(2, b'READY\\n'); "
+                "os.write(2, b'READY\n'); "
                 "chunk = b'x' * 65536; "
-                "exec('while True:\\n os.write(1, chunk)\\n os.write(2, chunk)')"
+                "exec('while True:\n os.write(1, chunk)\n os.write(2, chunk)')"
             ),
         ],
         stdout=subprocess.PIPE,
