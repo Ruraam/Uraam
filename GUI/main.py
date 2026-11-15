@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Optional GTK4 frontend for URAAM's read-only JSON bridge.
+"""Optional GTK4 frontend for URAAM.
 
-The Bash engine remains authoritative. This first GUI milestone only displays
-device information and the installed Android user-0 package inventory.
+The Bash engine remains authoritative for package operations. The GUI combines
+a read-only device/inventory bridge with a bounded wireless connection assistant.
 """
 from __future__ import annotations
 
@@ -381,7 +381,7 @@ class UraamWindow(Gtk.ApplicationWindow):
         self.device_card = self._make_card("Device", "Waiting for device", "Android device identity")
         self.backend_card = self._make_card("Connection", "Not detected", "ADB · Root · Shizuku")
         self.rom_card = self._make_card("System", "—", "ROM and Android version")
-        self.version_card = self._make_card("URAAM engine", "5.1.0", "Bash engine · GTK4 frontend")
+        self.version_card = self._make_card("URAAM engine", "5.2.0", "Bash engine · GTK4 frontend")
         grid.attach(self.device_card, 0, 0, 1, 1)
         grid.attach(self.backend_card, 1, 0, 1, 1)
         grid.attach(self.rom_card, 0, 1, 1, 1)
@@ -407,7 +407,7 @@ class UraamWindow(Gtk.ApplicationWindow):
         page.append(inventory)
 
         note = Gtk.Label(
-            label="Read-only desktop milestone. Debloating, APK installation and restoration remain protected by the existing Bash workflows.",
+            label="Device and package information is read-only. Debloating, APK installation and restoration remain protected by the existing Bash workflows.",
             xalign=0,
         )
         note.set_wrap(True)
