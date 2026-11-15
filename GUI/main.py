@@ -720,7 +720,9 @@ class UraamWindow(Gtk.ApplicationWindow):
             process = self._active_process
             if process is not None:
                 signal_process_group(process, signal.SIGTERM)
-        self._unload_theme()
+        unload_theme = getattr(self, "_unload_theme", None)
+        if callable(unload_theme):
+            unload_theme()
         return False
 
     def _reset_package_views(self, message: str) -> None:
