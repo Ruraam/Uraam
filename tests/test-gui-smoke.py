@@ -222,7 +222,7 @@ def test_shutdown_closes_pipes_with_pending_output() -> None:
                 "import os, time; "
                 "os.write(2, b'READY\\n'); "
                 "chunk = b'x' * 65536; "
-                "exec('while True:\n os.write(1, chunk)\n os.write(2, chunk)')"
+                "while True: os.write(1, chunk); os.write(2, chunk)"
             ),
         ],
         stdout=subprocess.PIPE,
