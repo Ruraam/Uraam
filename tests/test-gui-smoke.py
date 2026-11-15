@@ -220,7 +220,7 @@ def test_shutdown_closes_pipes_with_pending_output() -> None:
             "-c",
             (
                 "import os, time; "
-                "os.write(2, b'READY\n'); "
+                "os.write(2, b'READY\\n'); "
                 "chunk = b'x' * 65536; "
                 "exec('while True:\n os.write(1, chunk)\n os.write(2, chunk)')"
             ),
