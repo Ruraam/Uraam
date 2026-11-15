@@ -151,14 +151,14 @@ jobs:
           done
           sed "s/VERSION_PLACEHOLDER/$VERSION_OLD/" packaging/debian/DEBIAN/control > "$OLD_DIR/DEBIAN/control"
           sed "s/VERSION_PLACEHOLDER/$VERSION_NEW/" packaging/debian/DEBIAN/control > "$NEW_DIR/DEBIAN/control"
-          printf '\\n# Legacy package payload for upgrade regression test\\n' >> "$OLD_DIR/usr/share/uraam/GUI/main.py"
+          printf '\n# Legacy package payload for upgrade regression test\n' >> "$OLD_DIR/usr/share/uraam/GUI/main.py"
           dpkg-deb --build "$OLD_DIR"
           dpkg-deb --build "$NEW_DIR"
           sudo dpkg -i "${OLD_DIR}.deb"
           mkdir -p "$HOME/.config/uraam/debloat" "$HOME/.local/share/uraam/Configs/backup-restore" "$HOME/.local/share/uraam/Logs/debloat"
-          printf '%s\\n' '{"preserve":"upgrade-config"}' > "$HOME/.config/uraam/debloat/upgrade-preservation.json"
-          printf '%s\\n' '{"preserve":"upgrade-backup"}' > "$HOME/.local/share/uraam/Configs/backup-restore/upgrade-preservation.json"
-          printf '%s\\n' 'upgrade-log-preservation' > "$HOME/.local/share/uraam/Logs/debloat/upgrade-preservation.log"
+          printf '%s\n' '{"preserve":"upgrade-config"}' > "$HOME/.config/uraam/debloat/upgrade-preservation.json"
+          printf '%s\n' '{"preserve":"upgrade-backup"}' > "$HOME/.local/share/uraam/Configs/backup-restore/upgrade-preservation.json"
+          printf '%s\n' 'upgrade-log-preservation' > "$HOME/.local/share/uraam/Logs/debloat/upgrade-preservation.log"
           sudo dpkg -i "${NEW_DIR}.deb"
           test -L /usr/bin/uraam
           test "$(readlink /usr/bin/uraam)" = "/usr/share/uraam/uraam.sh"
