@@ -90,10 +90,10 @@ jobs:
           cp uraam.sh "$PKG_DIR/usr/share/uraam/"
           cp -r Configs "$PKG_DIR/usr/share/uraam/"
           cp uraam-api.sh "$PKG_DIR/usr/share/uraam/"
-          cp GUI/main.py GUI/api_protocol.py GUI/bridge_process.py "$PKG_DIR/usr/share/uraam/GUI/"
+          cp GUI/main.py GUI/api_protocol.py GUI/bridge_process.py GUI/theme.css "$PKG_DIR/usr/share/uraam/GUI/"
           cp uraam-gui "$PKG_DIR/usr/bin/uraam-gui"
           cp assets/uraam_logo.svg "$PKG_DIR/usr/share/icons/hicolor/scalable/apps/uraam.svg"
-          cp packaging/debian/uraam.desktop "$PKG_DIR/usr/share/uraam/uraam.desktop"
+          cp packaging/debian/uraam.desktop "$PKG_DIR/usr/share/applications/uraam.desktop"
           sed "s/VERSION_PLACEHOLDER/$VERSION/" packaging/debian/DEBIAN/control > "$PKG_DIR/DEBIAN/control"
           cp packaging/debian/DEBIAN/postinst packaging/debian/DEBIAN/postrm "$PKG_DIR/DEBIAN/"
           chmod 0755 "$PKG_DIR/usr/share/uraam/uraam.sh" "$PKG_DIR/usr/share/uraam/uraam-api.sh" "$PKG_DIR/usr/bin/uraam-gui"
@@ -101,6 +101,10 @@ jobs:
           dpkg-deb --build "$PKG_DIR"
           dpkg-deb --contents "${PKG_DIR}.deb" | grep -q '/usr/bin/uraam-gui'
           dpkg-deb --contents "${PKG_DIR}.deb" | grep -q '/usr/share/uraam/GUI/main.py'
+          dpkg-deb --contents "${PKG_DIR}.deb" | grep -q '/usr/share/uraam/GUI/api_protocol.py'
+          dpkg-deb --contents "${PKG_DIR}.deb" | grep -q '/usr/share/uraam/GUI/bridge_process.py'
+          dpkg-deb --contents "${PKG_DIR}.deb" | grep -q '/usr/share/uraam/GUI/theme.css'
+          dpkg-deb --contents "${PKG_DIR}.deb" | grep -q '/usr/share/applications/uraam.desktop'
           dpkg-deb --contents "${PKG_DIR}.deb" | grep -q '/usr/share/icons/hicolor/scalable/apps/uraam.svg'
       - name: Test read-only JSON API
         run: bash tests/test-json-api.sh
