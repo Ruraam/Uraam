@@ -176,9 +176,9 @@ def test_shutdown_closes_pipes_with_pending_output() -> None:
             "-c",
             (
                 "import os, time; "
-                "os.write(2, b'READY\\n'); "
+                "os.write(2, b'READY\n'); "
                 "chunk = b'x' * 65536; "
-                "exec('while True:\\n os.write(1, chunk)\\n os.write(2, chunk)')"
+                "exec('while True:\n os.write(1, chunk)\n os.write(2, chunk)')"
             ),
         ],
         stdout=subprocess.PIPE,
@@ -288,21 +288,21 @@ def test_natural_leader_exit_kills_descendant_process_group() -> None:
         ready_path = Path(temp_dir) / "descendant-ready"
         late_path = Path(temp_dir) / "descendant-ran-after-leader"
         child_code = (
-            "import pathlib, time\\n"
-            f"pathlib.Path({str(ready_path)!r}).write_text('ready')\\n"
-            "time.sleep(1.0)\\n"
-            f"pathlib.Path({str(late_path)!r}).write_text('late')\\n"
+            "import pathlib, time\n"
+            f"pathlib.Path({str(ready_path)!r}).write_text('ready')\n"
+            "time.sleep(1.0)\n"
+            f"pathlib.Path({str(late_path)!r}).write_text('late')\n"
         )
         leader_code = (
-            "import pathlib, subprocess, sys, time\\n"
+            "import pathlib, subprocess, sys, time\n"
             f"subprocess.Popen([sys.executable, '-c', {child_code!r}], "
-            "stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)\\n"
-            "deadline = time.monotonic() + 2.0\\n"
-            f"ready = pathlib.Path({str(ready_path)!r})\\n"
-            "while not ready.exists() and time.monotonic() < deadline:\\n"
-            "    time.sleep(0.01)\\n"
-            "assert ready.exists(), 'descendant did not become ready'\\n"
-            "print('LEADER_DONE', flush=True)\\n"
+            "stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)\n"
+            "deadline = time.monotonic() + 2.0\n"
+            f"ready = pathlib.Path({str(ready_path)!r})\n"
+            "while not ready.exists() and time.monotonic() < deadline:\n"
+            "    time.sleep(0.01)\n"
+            "assert ready.exists(), 'descendant did not become ready'\n"
+            "print('LEADER_DONE', flush=True)\n"
         )
         process = subprocess.Popen(
             [sys.executable, "-c", leader_code],
