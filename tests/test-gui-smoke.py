@@ -436,6 +436,35 @@ def main() -> int:
         finally:
             window._start_async = original_start_async
 
+        # A failing active request must not block the newest pending request.
+        error_handoff_starts = []
+        active_error_callbacks = []
+        pending_after_error = lambda *args: None
+        window._closing = False
+        window._loading = True
+        window._pending_request = ("latest-after-error", pending_after_error)
+        window._start_async = lambda command, callback: error_handoff_starts.append(
+            (command, callback)
+        )
+        try:
+            finish_result = window._finish_async(
+                lambda payload, error: active_error_callbacks.append((payload, error)),
+                None,
+                "simulated bridge failure",
+            )
+            if finish_result != GLib.SOURCE_REMOVE:
+                raise AssertionError("A failed active request was not removed from the GLib queue")
+            if active_error_callbacks:
+                raise AssertionError("A superseded failing request invoked its obsolete callback")
+            if error_handoff_starts != [
+                ("latest-after-error", pending_after_error)
+            ]:
+                raise AssertionError("The newest request did not start after active failure")
+            if window._pending_request is not None or window._loading:
+                raise AssertionError("Error handoff left stale async state")
+        finally:
+            window._start_async = original_start_async
+
         # Thread startup can fail before any worker runs. The UI must be
         # restored synchronously and the callback must receive a bounded error.
         import main as gui_main
