@@ -580,7 +580,7 @@ class ApiProtocolTests(unittest.TestCase):
             '"system_count":0,"user_count":1,"unclassified_count":0,'
             '"classification_available":true}'
         )
-        with self.assertRaisesRegex(RuntimeError, "invalid Android package identifier"):
+        with self.assertRaisesRegex(RuntimeError, "unsafe control characters or unsafe Unicode|invalid Android package identifier"):
             decode_api_response(payload, "", 0)
 
     def test_rejects_zero_width_character_in_package_classification_key(self):
