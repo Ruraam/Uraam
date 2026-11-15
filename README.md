@@ -47,7 +47,7 @@ It is designed to keep operations visible: URAAM shows the packages it intends t
 - **Backup / restore lists:** save packages missing for Android user 0 and ask Android to re-enable/reinstall existing system package records.
 - **Batch APK installation:** install APK files placed in the configured Apps directory.
 - **Logs and updater:** inspect operation logs and use the built-in updater where supported.
-- **Optional desktop foundation:** an experimental GTK4 frontend can display device status and the installed user-0 package inventory; the Bash CLI remains the complete interface for package operations.
+- **Optional GTK4 desktop:** device dashboard, read-only application inventory, guided wireless ADB pairing/connection, and a Shizuku setup assistant; package-changing workflows remain in the Bash CLI.
 
 ## Supported environments
 
@@ -95,7 +95,7 @@ bash ./uraam.sh
 
 During installation, choose **Yes** when the installer asks whether to install URAAM Desktop. On Debian/Ubuntu, it installs the GTK4 runtime dependencies and registers **URAAM Desktop** in the applications menu with the official SVG icon. The standalone Linux installer provides the same integration under `/usr/local`. Termux remains Bash-only.
 
-You can also install the frontend dependencies manually and launch `uraam-gui`. The current GUI displays device identity and the installed Android user-0 package inventory; debloat and other package-changing workflows remain in the Bash interface. See [URAAM Desktop architecture](Docs/GUI-Architecture.md) for the API boundary and current limitations.
+You can also install the frontend dependencies manually and launch `uraam-gui`. The desktop includes a guided Connections section for wireless ADB and Shizuku setup, alongside device identity and the installed Android user-0 package inventory. Debloat and other package-changing workflows remain in the Bash interface. See [URAAM Desktop architecture](Docs/GUI-Architecture.md) for the API boundary and connection-assistant limitations.
 
 Do not run an unreviewed script as root. Use the least-privileged backend that meets your needs.
 
@@ -104,8 +104,8 @@ Do not run an unreviewed script as root. Use the least-privileged backend that m
 Choose one connection method:
 
 1. **USB ADB:** enable Developer options and USB debugging, connect the device, accept the authorization prompt, then verify it with `adb devices`.
-2. **Wireless debugging:** use Android's Wireless debugging pairing flow or URAAM's wireless helper. Keep the host and device on the same trusted network.
-3. **Shizuku:** start Shizuku and make its `rish` command available in the Termux environment before selecting the Shizuku backend.
+2. **Wireless debugging:** on Android 11+, open the desktop **Connections** assistant, pair with the temporary pairing code, then connect using the separate wireless-debugging address and port. Keep both devices on the same trusted network. Android 10 and older require ADB TCP/IP to be enabled over USB first.
+3. **Shizuku:** on Android 11+, start pairing inside the Shizuku app and enter its code in the Shizuku notification; the desktop assistant can open/check Shizuku when an ADB device is connected. Android 10 and older can use the assistant's guarded computer-start action. The `rish` backend remains available in Termux.
 4. **Local root:** use only on a rooted Android environment where the `su` command is available and authorized.
 
 See the [Quick Start](Docs/Quick-Start-Guide.md) and [Shizuku / Wireless ADB guide](Docs/Shizuku_wireless.md) for detailed setup.
