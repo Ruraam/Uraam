@@ -564,7 +564,25 @@ class UraamWindow(Gtk.ApplicationWindow):
                 error = _bounded_error_message(
                     str(exc), "Unable to complete the read-only bridge request."
                 )
-            GLib.idle_add(self._finish_async, callback, payload, error)
+            try:
+                GLib.idle_add(self._finish_async, callback, payload, error)
+            except Exception:
+                # Keep GTK widget updates on the main context even if the
+                # convenience idle_add wrapper cannot enqueue the completion.
+                LOGGER.exception(
+                    "GLib.idle_add failed; retrying with an explicit idle source"
+                )
+                try:
+                    source = GLib.idle_source_new()
+                    source.set_callback(
+                        lambda: self._finish_async(callback, payload, error)
+                    )
+                    source.attach(GLib.MainContext.default())
+                except Exception:
+                    # There is no safe worker-thread fallback for GTK updates.
+                    LOGGER.exception(
+                        "Unable to enqueue the GTK completion on the main context"
+                    )
 
         try:
             thread = threading.Thread(
