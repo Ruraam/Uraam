@@ -164,7 +164,61 @@ def test_shutdown_races_natural_bridge_exit() -> None:
             completed.stderr.close()
 
 
+def test_shutdown_closes_pipes_with_pending_output() -> None:
+    # Keep both output pipes busy when shutdown arrives. The reader must stop
+    # the process, reap it, and close both pipe handles on the cancellation path.
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import os, time; "
+                "os.write(2, b'READY\\n'); "
+                "chunk = b'x' * 65536; "
+                "exec('while True:\\n os.write(1, chunk)\\n os.write(2, chunk)')"
+            ),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        start_new_session=True,
+    )
+    try:
+        if process.stderr is None or process.stderr.readline().strip() != b"READY":
+            raise AssertionError("The pipe-stress bridge did not become ready")
+
+        shutdown_event = threading.Event()
+        shutdown_event.set()
+        try:
+            communicate_process(
+                process,
+                shutdown_event,
+                timeout_seconds=3.0,
+                poll_interval=0.01,
+                shutdown_grace_seconds=0.1,
+            )
+        except BridgeProcessCancelled:
+            pass
+        else:
+            raise AssertionError("Shutdown did not cancel the pipe-stress bridge")
+
+        if process.poll() is None:
+            raise AssertionError("The pipe-stress bridge process was not reaped")
+        if process.stdout is None or not process.stdout.closed:
+            raise AssertionError("The bridge stdout pipe was not closed")
+        if process.stderr is None or not process.stderr.closed:
+            raise AssertionError("The bridge stderr pipe was not closed")
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=2.0)
+        if process.stdout is not None and not process.stdout.closed:
+            process.stdout.close()
+        if process.stderr is not None and not process.stderr.closed:
+            process.stderr.close()
+
+
 def main() -> int:
+    test_shutdown_closes_pipes_with_pending_output()
     test_shutdown_races_natural_bridge_exit()
     test_shutdown_kills_and_reaps_unresponsive_bridge()
     # Keep this smoke test isolated from ADB, Root, Shizuku and the device API.
