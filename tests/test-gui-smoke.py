@@ -465,6 +465,60 @@ def main() -> int:
         finally:
             window._start_async = original_start_async
 
+        # If the newest request also fails after being handed off, its
+        # own callback must run and the complete UI state must be restored.
+        chained_error_starts = []
+        chained_active_callbacks = []
+        chained_latest_callbacks = []
+        chained_latest_callback = lambda payload, error: chained_latest_callbacks.append(
+            (payload, error)
+        )
+        window._closing = False
+        window._loading = True
+        window._pending_request = ("latest-then-fails", chained_latest_callback)
+        window._start_async = lambda command, callback: chained_error_starts.append(
+            (command, callback)
+        )
+        try:
+            first_finish = window._finish_async(
+                lambda *args: chained_active_callbacks.append(args),
+                {"status": "obsolete"},
+                None,
+            )
+            if first_finish != GLib.SOURCE_REMOVE:
+                raise AssertionError("The superseded successful result was not removed")
+            if chained_active_callbacks:
+                raise AssertionError("The superseded callback ran before the latest request")
+            if chained_error_starts != [
+                ("latest-then-fails", chained_latest_callback)
+            ]:
+                raise AssertionError("The latest request was not handed off exactly once")
+
+            window._loading = True
+            window._pending_request = None
+            window.refresh_button.set_sensitive(False)
+            window.loading_spinner.start()
+            window.status_label.set_text("Loading latest-then-fails…")
+            second_finish = window._finish_async(
+                chained_latest_callback,
+                None,
+                "simulated latest bridge failure",
+            )
+            if second_finish != GLib.SOURCE_REMOVE:
+                raise AssertionError("The latest failed result was not removed")
+            if chained_latest_callbacks != [
+                (None, "simulated latest bridge failure")
+            ]:
+                raise AssertionError("The latest request failure was not delivered exactly once")
+            if window._loading or window._pending_request is not None:
+                raise AssertionError("Chained request failure left stale async state")
+            if window.loading_spinner.get_spinning():
+                raise AssertionError("Chained request failure left the spinner running")
+            if not window.refresh_button.get_sensitive():
+                raise AssertionError("Chained request failure left refresh disabled")
+        finally:
+            window._start_async = original_start_async
+
         # Thread startup can fail before any worker runs. The UI must be
         # restored synchronously and the callback must receive a bounded error.
         import main as gui_main
