@@ -21,7 +21,41 @@ from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
 import bridge_process  # noqa: E402
 from bridge_process import BridgeProcessCancelled, communicate_process  # noqa: E402
-from main import UraamApplication, UraamWindow  # noqa: E402
+from main import (
+    UraamApplication,
+    UraamWindow,
+    parse_adb_devices_output,
+    validate_adb_endpoint,
+)  # noqa: E402
+
+
+def test_connection_assistant_input_validation() -> None:
+    for endpoint in ("192.168.1.10:37123", "phone.local:5555", "[2001:db8::1]:5555"):
+        if validate_adb_endpoint(endpoint) != endpoint:
+            raise AssertionError("A valid ADB endpoint was changed")
+    for endpoint in ("", "host", "host:0", "host:65536", "host:abc", "host;id:5555",
+                     "[not-ipv6]:5555", "host name:5555"):
+        try:
+            validate_adb_endpoint(endpoint)
+        except ValueError:
+            continue
+        raise AssertionError(f"An invalid ADB endpoint was accepted: {endpoint!r}")
+
+    parsed = parse_adb_devices_output(
+        "* daemon started successfully *\\n"
+        "List of devices attached\\n"
+        "SERIAL-ONE device product:test\\n"
+        "SERIAL-TWO unauthorized usb:1-2\\n"
+        "192.168.1.4:5555 offline\\n"
+        "not-a-device-row\\n"
+    )
+    expected = [
+        ("SERIAL-ONE", "device"),
+        ("SERIAL-TWO", "unauthorized"),
+        ("192.168.1.4:5555", "offline"),
+    ]
+    if parsed != expected:
+        raise AssertionError(f"ADB device parser returned {parsed!r}")
 
 
 def drain_main_context() -> None:
@@ -334,6 +368,7 @@ def test_natural_leader_exit_kills_descendant_process_group() -> None:
 
 
 def main() -> int:
+    test_connection_assistant_input_validation()
     test_natural_leader_exit_kills_descendant_process_group()
     test_reader_failure_kills_and_reaps_bridge()
     test_shutdown_closes_pipes_with_pending_output()
@@ -360,6 +395,10 @@ def main() -> int:
             raise AssertionError("The applications view was not constructed")
         if window.package_detail_name.get_text() != "Select an application":
             raise AssertionError("The package inspector was not initialized")
+        if window.connection_stack.get_child_by_name("pair") is None:
+            raise AssertionError("The wireless pairing wizard page was not constructed")
+        if window.connection_stack.get_child_by_name("shizuku") is None:
+            raise AssertionError("The Shizuku assistant page was not constructed")
 
         # Stress the current metadata rendering path with the protocol's
         # maximum component count. This checks GTK construction/layout work
@@ -423,6 +462,9 @@ def main() -> int:
         if window.package_count_label.get_text() != "Showing 1 of 2 package(s)":
             raise AssertionError("The GTK package count is inconsistent")
 
+        window._show_view("connections")
+        if window.stack.get_visible_child_name() != "connections":
+            raise AssertionError("Connection assistant navigation failed")
         window._show_view("packages")
         if window.stack.get_visible_child_name() != "packages":
             raise AssertionError("Applications navigation failed")
@@ -437,6 +479,7 @@ def main() -> int:
             window.refresh_button,
             window.dashboard_button,
             window.packages_button,
+            window.connections_button,
             window.package_detail_back_button,
         ):
             control.grab_focus()
