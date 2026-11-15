@@ -42,12 +42,13 @@ def test_connection_assistant_input_validation() -> None:
         raise AssertionError(f"An invalid ADB endpoint was accepted: {endpoint!r}")
 
     parsed = parse_adb_devices_output(
-        "* daemon started successfully *\\n"
-        "List of devices attached\\n"
-        "SERIAL-ONE device product:test\\n"
-        "SERIAL-TWO unauthorized usb:1-2\\n"
-        "192.168.1.4:5555 offline\\n"
-        "not-a-device-row\\n"
+        """* daemon started successfully *
+List of devices attached
+SERIAL-ONE device product:test
+SERIAL-TWO unauthorized usb:1-2
+192.168.1.4:5555 offline
+not-a-device-row
+"""
     )
     expected = [
         ("SERIAL-ONE", "device"),
