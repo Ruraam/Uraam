@@ -6,8 +6,8 @@ from __future__ import annotations
 import subprocess
 import sys
 import tempfile
-import time
 import threading
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -176,9 +176,9 @@ def test_shutdown_closes_pipes_with_pending_output() -> None:
             "-c",
             (
                 "import os, time; "
-                "os.write(2, b'READY\n'); "
+                "os.write(2, b'READY\\n'); "
                 "chunk = b'x' * 65536; "
-                "exec('while True:\n os.write(1, chunk)\n os.write(2, chunk)')"
+                "exec('while True:\\n os.write(1, chunk)\\n os.write(2, chunk)')"
             ),
         ],
         stdout=subprocess.PIPE,
@@ -282,27 +282,24 @@ def test_reader_failure_kills_and_reaps_bridge() -> None:
 
 
 def test_natural_leader_exit_kills_descendant_process_group() -> None:
-    # The leader exits after its child is ready. The child deliberately closes
-    # the bridge pipes, so only process-group cleanup can prevent its later work.
+    # The leader exits while its child remains in the isolated process group.
+    # The child has no inherited bridge pipes, so only group cleanup stops it.
     with tempfile.TemporaryDirectory(prefix="uraam-bridge-descendant-") as temp_dir:
         ready_path = Path(temp_dir) / "descendant-ready"
         late_path = Path(temp_dir) / "descendant-ran-after-leader"
         child_code = (
-            "import pathlib, time\n"
-            f"pathlib.Path({str(ready_path)!r}).write_text('ready')\n"
-            "time.sleep(1.0)\n"
-            f"pathlib.Path({str(late_path)!r}).write_text('late')\n"
+            "import pathlib,time; "
+            f"pathlib.Path({str(ready_path)!r}).write_text('ready'); "
+            "time.sleep(1.0); "
+            f"pathlib.Path({str(late_path)!r}).write_text('late')"
         )
         leader_code = (
-            "import pathlib, subprocess, sys, time\n"
-            f"subprocess.Popen([sys.executable, '-c', {child_code!r}], "
-            "stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)\n"
-            "deadline = time.monotonic() + 2.0\n"
-            f"ready = pathlib.Path({str(ready_path)!r})\n"
-            "while not ready.exists() and time.monotonic() < deadline:\n"
-            "    time.sleep(0.01)\n"
-            "assert ready.exists(), 'descendant did not become ready'\n"
-            "print('LEADER_DONE', flush=True)\n"
+            "import pathlib,subprocess,sys,time; "
+            f"subprocess.Popen([sys.executable,'-c',{child_code!r}], "
+            "stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL); "
+            "time.sleep(0.1); "
+            f"assert pathlib.Path({str(ready_path)!r}).exists(); "
+            "print('LEADER_DONE',flush=True)"
         )
         process = subprocess.Popen(
             [sys.executable, "-c", leader_code],
@@ -323,8 +320,6 @@ def test_natural_leader_exit_kills_descendant_process_group() -> None:
             if process.poll() is None or process.returncode != 0:
                 raise AssertionError("The bridge leader was not reaped cleanly")
 
-            # The descendant would write this marker after one second if the
-            # process group had not been terminated when the leader exited.
             time.sleep(1.2)
             if late_path.exists():
                 raise AssertionError("A bridge descendant survived leader exit")
