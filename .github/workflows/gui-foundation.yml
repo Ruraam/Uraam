@@ -86,7 +86,7 @@ jobs:
         run: |
           VERSION="0.0.0"
           PKG_DIR="uraam-debian_${VERSION}_all"
-          mkdir -p "$PKG_DIR/usr/bin" "$PKG_DIR/usr/share/uraam/GUI" "$PKG_DIR/usr/share/icons/hicolor/scalable/apps" "$PKG_DIR/DEBIAN"
+          mkdir -p "$PKG_DIR/usr/bin" "$PKG_DIR/usr/share/uraam/GUI" "$PKG_DIR/usr/share/applications" "$PKG_DIR/usr/share/icons/hicolor/scalable/apps" "$PKG_DIR/DEBIAN"
           cp uraam.sh "$PKG_DIR/usr/share/uraam/"
           cp -r Configs "$PKG_DIR/usr/share/uraam/"
           cp uraam-api.sh "$PKG_DIR/usr/share/uraam/"
