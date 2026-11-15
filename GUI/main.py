@@ -657,15 +657,16 @@ class UraamWindow(Gtk.ApplicationWindow):
         connect.append(self.connect_status)
         back = Gtk.Button(label="← Back")
         back.set_halign(Gtk.Align.START)
-        back.connect("clicked", lambda _b: self._show_connection_step("pair"))
+        back.connect("clicked", self._back_from_connect)
         connect.append(back)
         self.connection_stack.add_named(connect, "connect")
 
         shizuku = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         shizuku.append(self._connection_heading(
             "03 / SHIZUKU",
-            "Shizuku runs on Android. URAAM can check for the app and open it. On Android "
-            "11+ start the service inside Shizuku using Wireless debugging."
+            "Android 11+: start pairing inside the Shizuku app, enable Wireless debugging, "
+            "then enter the pairing code in the Shizuku notification. Tap Start in Shizuku. "
+            "This is separate from pairing this computer with ADB."
         ))
         row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         check = Gtk.Button(label="Check Shizuku")
@@ -681,13 +682,16 @@ class UraamWindow(Gtk.ApplicationWindow):
             "Android may ask you to pair again inside the Shizuku app."
         )
         shizuku.append(self.shizuku_status)
+        use_adb = Gtk.Button(label="Connect a computer with ADB to inspect this device")
+        use_adb.connect("clicked", self._use_adb_for_shizuku)
+        shizuku.append(use_adb)
         legacy = Gtk.Button(label="Start Shizuku · Android 10 or older")
         legacy.connect("clicked", self._start_legacy_shizuku)
         shizuku.append(legacy)
         shizuku.append(self._connection_note(
-            "The legacy button runs Shizuku's start script only when clicked. Do not use "
-            "it on Android 11+; use the Shizuku app instead. The desktop GUI still uses "
-            "ADB; the rish backend remains available in Termux."
+            "The legacy button runs the official computer-start script only when clicked, "
+            "and only on Android 10 or older. Android 11+ must use Shizuku's in-app pairing. "
+            "The desktop GUI uses ADB; the rish backend remains available in Termux."
         ))
         finish_shizuku = Gtk.Button(label="Finish  →")
         finish_shizuku.add_css_class("suggested-action")
@@ -761,15 +765,27 @@ class UraamWindow(Gtk.ApplicationWindow):
 
     def _begin_connection(self, mode: str) -> None:
         self.connection_mode = mode
-        self.connection_status.set_text(
-            "Wireless ADB setup." if mode == "adb" else "Shizuku setup · first establish ADB."
-        )
-        self._show_connection_step("pair")
+        if mode == "shizuku":
+            self.connection_status.set_text(
+                "Shizuku wireless pairing is performed in the Shizuku app on Android 11+."
+            )
+            self._show_connection_step("shizuku")
+        else:
+            self.connection_status.set_text("Wireless ADB pairing assistant.")
+            self._show_connection_step("pair")
 
     def _use_existing_adb(self, _button: Gtk.Button) -> None:
         self.connection_mode = "adb"
         self._show_connection_step("connect")
         self._refresh_adb_devices()
+
+    def _use_adb_for_shizuku(self, _button: Gtk.Button) -> None:
+        self.connection_mode = "shizuku"
+        self._show_connection_step("connect")
+        self._refresh_adb_devices()
+
+    def _back_from_connect(self, _button: Gtk.Button) -> None:
+        self._show_connection_step("shizuku" if self.connection_mode == "shizuku" else "pair")
 
     def _run_adb(self, args: list[str], callback: Any, secret: str | None = None) -> None:
         if self._closing or self._connection_busy:
@@ -929,14 +945,32 @@ class UraamWindow(Gtk.ApplicationWindow):
             self.shizuku_status.set_text("Connect and select an ADB device first.")
             return
 
-        def started(result: dict[str, Any]) -> None:
-            self.shizuku_status.set_text(
-                "Start command completed; check Shizuku's status."
-                if result["code"] == 0 else result["err"] or result["out"] or "Shizuku start failed."
+        def check_sdk(result: dict[str, Any]) -> None:
+            if result["code"] != 0 or not result["out"].strip().isdigit():
+                self.shizuku_status.set_text("Could not determine Android version; start was cancelled.")
+                return
+            if int(result["out"].strip()) > 29:
+                self.shizuku_status.set_text(
+                    "This device is Android 11 or newer. Start Shizuku from its app using "
+                    "Wireless debugging; the legacy start script was not run."
+                )
+                return
+
+            def started(start_result: dict[str, Any]) -> None:
+                self.shizuku_status.set_text(
+                    "Start command completed; check Shizuku's running status."
+                    if start_result["code"] == 0
+                    else start_result["err"] or start_result["out"] or "Shizuku start failed."
+                )
+
+            self._run_adb(
+                ["-s", self._connection_serial, "shell", "sh", SHIZUKU_START_SCRIPT],
+                started,
             )
 
         self._run_adb(
-            ["-s", self._connection_serial, "shell", "sh", SHIZUKU_START_SCRIPT], started
+            ["-s", self._connection_serial, "shell", "getprop", "ro.build.version.sdk"],
+            check_sdk,
         )
 
     def _complete_connection(self) -> None:
