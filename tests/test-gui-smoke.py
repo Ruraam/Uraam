@@ -288,21 +288,21 @@ def test_natural_leader_exit_kills_descendant_process_group() -> None:
         ready_path = Path(temp_dir) / "descendant-ready"
         late_path = Path(temp_dir) / "descendant-ran-after-leader"
         child_code = (
-            "import pathlib, time; "
-            f"pathlib.Path({str(ready_path)!r}).write_text('ready'); "
-            "time.sleep(1.0); "
-            f"pathlib.Path({str(late_path)!r}).write_text('late')"
+            "import pathlib, time\\n"
+            f"pathlib.Path({str(ready_path)!r}).write_text('ready')\\n"
+            "time.sleep(1.0)\\n"
+            f"pathlib.Path({str(late_path)!r}).write_text('late')\\n"
         )
         leader_code = (
-            "import pathlib, subprocess, sys, time; "
+            "import pathlib, subprocess, sys, time\\n"
             f"subprocess.Popen([sys.executable, '-c', {child_code!r}], "
-            "stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); "
-            "deadline = time.monotonic() + 2.0; "
-            f"ready = pathlib.Path({str(ready_path)!r}); "
-            "while not ready.exists() and time.monotonic() < deadline: "
-            "time.sleep(0.01); "
-            "assert ready.exists(), 'descendant did not become ready'; "
-            "print('LEADER_DONE', flush=True)"
+            "stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)\\n"
+            "deadline = time.monotonic() + 2.0\\n"
+            f"ready = pathlib.Path({str(ready_path)!r})\\n"
+            "while not ready.exists() and time.monotonic() < deadline:\\n"
+            "    time.sleep(0.01)\\n"
+            "assert ready.exists(), 'descendant did not become ready'\\n"
+            "print('LEADER_DONE', flush=True)\\n"
         )
         process = subprocess.Popen(
             [sys.executable, "-c", leader_code],
