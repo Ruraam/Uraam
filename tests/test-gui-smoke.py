@@ -657,6 +657,44 @@ def main() -> int:
             window._show_view = original_show_view
             window._run_async = original_run_async
 
+        # Closing with a pending request must discard it and prevent any
+        # later async completion or new action from starting more work.
+        close_pending_starts = []
+        close_pending_callbacks = []
+        close_pending_callback = lambda *args: close_pending_callbacks.append(args)
+        original_start_for_close = window._start_async
+        window._closing = False
+        window._loading = True
+        window._pending_request = ("must-not-start-after-close", close_pending_callback)
+        window._start_async = lambda command, callback: close_pending_starts.append(
+            (command, callback)
+        )
+        try:
+            window._on_close_request(window)
+            if not window._closing:
+                raise AssertionError("Close request did not set the shutdown guard")
+            if window._pending_request is not None:
+                raise AssertionError("Close request did not discard the pending request")
+
+            finish_result = window._finish_async(
+                lambda *args: close_pending_callbacks.append(args),
+                {"status": "connected", "serial": "completed-during-close"},
+                None,
+            )
+            if finish_result != GLib.SOURCE_REMOVE:
+                raise AssertionError("A completion during shutdown was not removed")
+            window._run_async("new-action-after-close", close_pending_callback)
+            if close_pending_starts:
+                raise AssertionError("A pending or new request started after close")
+            if close_pending_callbacks:
+                raise AssertionError("A callback ran after the window began closing")
+            if window._loading or window._pending_request is not None:
+                raise AssertionError("Close with pending work left stale async state")
+        finally:
+            window._start_async = original_start_for_close
+            window._closing = False
+            window._shutdown_event.clear()
+
         # Exercise the real close-request path, then deliver late key events
         # through the retained handler. The closing guard must return before
         # touching the stack or any other GTK widget.
