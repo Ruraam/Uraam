@@ -689,10 +689,14 @@ class UraamWindow(Gtk.ApplicationWindow):
         legacy.connect("clicked", self._start_legacy_shizuku)
         shizuku.append(legacy)
         shizuku.append(self._connection_note(
-            "The legacy button runs the official computer-start script only when clicked, "
-            "and only on Android 10 or older. Android 11+ must use Shizuku's in-app pairing. "
-            "The desktop GUI uses ADB; the rish backend remains available in Termux."
+            "The legacy button runs the official computer-start script (Shizuku 11.2.0+) "
+            "only when clicked, and only on Android 10 or older. Android 11+ must use "
+            "Shizuku's in-app pairing. The desktop GUI uses ADB; rish remains available in Termux."
         ))
+        back_home = Gtk.Button(label="← Back to connection methods")
+        back_home.set_halign(Gtk.Align.START)
+        back_home.connect("clicked", lambda _b: self._show_connection_step("home"))
+        shizuku.append(back_home)
         finish_shizuku = Gtk.Button(label="Finish  →")
         finish_shizuku.add_css_class("suggested-action")
         finish_shizuku.connect("clicked", lambda _b: self._complete_connection())
@@ -879,8 +883,11 @@ class UraamWindow(Gtk.ApplicationWindow):
             return
 
         def connected(result: dict[str, Any]) -> None:
-            if result["code"] != 0:
-                self.connection_status.set_text(result["err"] or result["out"] or "ADB connect failed.")
+            response = result["out"].lower()
+            if result["code"] != 0 or "failed to connect" in response or "cannot connect" in response:
+                self.connection_status.set_text(
+                    result["err"] or result["out"] or "ADB connect failed."
+                )
                 return
             self.connect_status.set_text(result["out"] or f"ADB connection requested for {endpoint}.")
             self._refresh_adb_devices(lambda: self._select_connected_endpoint(endpoint))
