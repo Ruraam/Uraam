@@ -642,7 +642,6 @@ def main() -> int:
                 (Gdk.KEY_1, Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.ALT_MASK),
                 (Gdk.KEY_Escape, Gdk.ModifierType.SHIFT_MASK),
                 (Gdk.KEY_Escape, Gdk.ModifierType.ALT_MASK),
-                (Gdk.KEY_3, Gdk.ModifierType.CONTROL_MASK),
             )
             for keyval, modifiers in invalid_shortcuts:
                 if window._on_key_pressed(None, keyval, 0, modifiers):
@@ -651,6 +650,17 @@ def main() -> int:
                     )
                 if window.stack.get_visible_child_name() != "dashboard":
                     raise AssertionError("An unsupported shortcut changed the active page")
+
+            if not window._on_key_pressed(
+                None, Gdk.KEY_3, 0, Gdk.ModifierType.CONTROL_MASK
+            ):
+                raise AssertionError("Ctrl+3 did not open the connection assistant")
+            if window.stack.get_visible_child_name() != "connections":
+                raise AssertionError("Ctrl+3 selected the wrong page")
+            if not window._on_key_pressed(
+                None, Gdk.KEY_1, 0, Gdk.ModifierType.CONTROL_MASK
+            ):
+                raise AssertionError("Ctrl+1 did not return to the dashboard")
         finally:
             window._run_async = original_run_async
             window._show_device = original_show_device
