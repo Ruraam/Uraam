@@ -125,7 +125,7 @@ class BridgeDisplayStringSafetyTests(unittest.TestCase):
                 payload = self._package_detail()
                 payload["paths"] = ["/data/app/base" + character + ".apk"]
                 with self.assertRaisesRegex(
-                    RuntimeError, "invisible or layout-control Unicode characters.*paths"
+                    RuntimeError, "unsafe control characters or unsafe Unicode.*paths"
                 ):
                     self._decode(payload)
 
@@ -138,7 +138,7 @@ class BridgeDisplayStringSafetyTests(unittest.TestCase):
                 ]
                 with self.assertRaisesRegex(
                     RuntimeError,
-                    "invisible or layout-control Unicode characters.*requested_permissions",
+                    "unsafe control characters or unsafe Unicode.*requested_permissions",
                 ):
                     self._decode(payload)
 
@@ -150,7 +150,7 @@ class BridgeDisplayStringSafetyTests(unittest.TestCase):
                     "activities": ["com.example.Main" + character]
                 }
                 with self.assertRaisesRegex(
-                    RuntimeError, "invisible or layout-control Unicode characters.*components"
+                    RuntimeError, "unsafe control characters or unsafe Unicode.*components"
                 ):
                     self._decode(payload)
 
@@ -163,7 +163,7 @@ class BridgeDisplayStringSafetyTests(unittest.TestCase):
                 ]
                 with self.assertRaisesRegex(
                     RuntimeError,
-                    "invisible or layout-control Unicode characters.*requested_permissions",
+                    "unsafe control characters or unsafe Unicode.*requested_permissions",
                 ):
                     self._decode(payload)
 
@@ -176,7 +176,7 @@ class BridgeDisplayStringSafetyTests(unittest.TestCase):
                 }
                 with self.assertRaisesRegex(
                     RuntimeError,
-                    "invisible or layout-control Unicode characters.*components",
+                    "unsafe control characters or unsafe Unicode.*components",
                 ):
                     self._decode(payload)
 
