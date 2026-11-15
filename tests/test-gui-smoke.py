@@ -76,7 +76,96 @@ def test_shutdown_kills_and_reaps_unresponsive_bridge() -> None:
             process.stderr.close()
 
 
+def test_shutdown_races_natural_bridge_exit() -> None:
+    # Shutdown may race with a bridge that handles SIGTERM and exits cleanly.
+    graceful = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import signal, sys, time; "
+                "signal.signal(signal.SIGTERM, lambda *_: sys.exit(0)); "
+                "print('READY', flush=True); time.sleep(30)"
+            ),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+    try:
+        if graceful.stdout is None or graceful.stdout.readline().strip() != "READY":
+            raise AssertionError("The graceful-exit bridge did not become ready")
+        shutdown_event = threading.Event()
+        shutdown_event.set()
+        try:
+            communicate_process(
+                graceful,
+                shutdown_event,
+                timeout_seconds=2.0,
+                poll_interval=0.01,
+                shutdown_grace_seconds=0.2,
+            )
+        except BridgeProcessCancelled:
+            pass
+        else:
+            raise AssertionError("Shutdown did not take precedence over late output")
+        if graceful.poll() is None:
+            raise AssertionError("The gracefully stopping bridge was not reaped")
+        if graceful.returncode != 0:
+            raise AssertionError("The bridge did not complete its graceful SIGTERM handler")
+    finally:
+        if graceful.poll() is None:
+            graceful.kill()
+            graceful.wait(timeout=2.0)
+        if graceful.stdout is not None:
+            graceful.stdout.close()
+        if graceful.stderr is not None:
+            graceful.stderr.close()
+
+    # Also cover the narrow ordering where the child has exited naturally,
+    # but its pipe EOF/result has not yet been consumed when shutdown begins.
+    completed = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            "print('COMPLETE', flush=True)",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+    try:
+        completed.wait(timeout=2.0)
+        shutdown_event = threading.Event()
+        shutdown_event.set()
+        try:
+            communicate_process(
+                completed,
+                shutdown_event,
+                timeout_seconds=2.0,
+                poll_interval=0.01,
+                shutdown_grace_seconds=0.05,
+            )
+        except BridgeProcessCancelled:
+            pass
+        else:
+            raise AssertionError("A completed result was delivered after shutdown")
+        if completed.poll() is None or completed.returncode != 0:
+            raise AssertionError("The naturally completed bridge was not reaped cleanly")
+    finally:
+        if completed.poll() is None:
+            completed.kill()
+            completed.wait(timeout=2.0)
+        if completed.stdout is not None:
+            completed.stdout.close()
+        if completed.stderr is not None:
+            completed.stderr.close()
+
+
 def main() -> int:
+    test_shutdown_races_natural_bridge_exit()
     test_shutdown_kills_and_reaps_unresponsive_bridge()
     # Keep this smoke test isolated from ADB, Root, Shizuku and the device API.
     original_refresh = UraamWindow._refresh_device
