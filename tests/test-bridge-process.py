@@ -1579,8 +1579,6 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
             def start(self):
                 self.target()
 
-        queued_sources = []
-
         class FakeSource:
             def __init__(self):
                 self.callback = None
@@ -1605,9 +1603,7 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
 
             @staticmethod
             def idle_source_new():
-                source = FakeSource()
-                queued_sources.append(source)
-                return source
+                return FakeSource()
 
             class MainContext:
                 @staticmethod
@@ -1681,6 +1677,8 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
             def attach(self, _context):
                 return 1
 
+        queued_sources = []
+
         class FakeGLib:
             SOURCE_REMOVE = False
 
@@ -1690,7 +1688,9 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
 
             @staticmethod
             def idle_source_new():
-                return FakeSource()
+                source = FakeSource()
+                queued_sources.append(source)
+                return source
 
             class MainContext:
                 @staticmethod
