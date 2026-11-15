@@ -1507,6 +1507,104 @@ class AsyncRequestCoalescingTests(unittest.TestCase):
         self.assertTrue(error.endswith("..."))
         self.assertNotIn("\n", error)
 
+    def test_idle_add_failure_retries_completion_with_main_context_source(self):
+        class FakeSpinner:
+            def __init__(self):
+                self.started = 0
+                self.stopped = 0
+
+            def start(self):
+                self.started += 1
+
+            def stop(self):
+                self.stopped += 1
+
+        class FakeButton:
+            def __init__(self):
+                self.sensitivity = []
+
+            def set_sensitive(self, value):
+                self.sensitivity.append(value)
+
+        class InlineThread:
+            def __init__(self, target, **_kwargs):
+                self.target = target
+
+            def start(self):
+                self.target()
+
+        queued_sources = []
+
+        class FakeSource:
+            def __init__(self):
+                self.callback = None
+                self.context = None
+
+            def set_callback(self, callback):
+                self.callback = callback
+
+            def attach(self, context):
+                self.context = context
+                queued_sources.append(self)
+                return 1
+
+        context = object()
+
+        class FakeGLib:
+            SOURCE_REMOVE = False
+
+            @staticmethod
+            def idle_add(_callback, *_args):
+                raise RuntimeError("idle dispatcher unavailable")
+
+            @staticmethod
+            def idle_source_new():
+                return FakeSource()
+
+            class MainContext:
+                @staticmethod
+                def default():
+                    return context
+
+        window = type("WindowState", (), {})()
+        window._closing = False
+        window._loading = False
+        window._pending_request = None
+        window._finish_async = uraam_gui.UraamWindow._finish_async.__get__(
+            window, uraam_gui.UraamWindow
+        )
+        window.refresh_button = FakeButton()
+        window.loading_spinner = FakeSpinner()
+        window.status_label = type(
+            "FakeLabel", (), {"set_text": lambda self, _message: None}
+        )()
+        window._api_call = lambda _command: {"status": "connected"}
+        delivered = []
+        original_thread = uraam_gui.threading.Thread
+        original_glib = uraam_gui.GLib
+        try:
+            uraam_gui.threading.Thread = InlineThread
+            uraam_gui.GLib = FakeGLib
+            uraam_gui.UraamWindow._start_async(
+                window,
+                "device-info",
+                lambda payload, error: delivered.append((payload, error)),
+            )
+        finally:
+            uraam_gui.threading.Thread = original_thread
+            uraam_gui.GLib = original_glib
+
+        self.assertTrue(window._loading)
+        self.assertEqual(len(queued_sources), 1)
+        self.assertIs(queued_sources[0].context, context)
+        self.assertEqual(delivered, [])
+
+        self.assertFalse(queued_sources[0].callback())
+        self.assertFalse(window._loading)
+        self.assertEqual(window.loading_spinner.stopped, 1)
+        self.assertEqual(window.refresh_button.sensitivity, [False, True])
+        self.assertEqual(delivered, [({"status": "connected"}, None)])
+
     def test_async_api_error_restores_ui_and_allows_next_request(self):
         class FakeSpinner:
             def __init__(self):
