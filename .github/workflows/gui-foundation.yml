@@ -106,6 +106,28 @@ jobs:
           dpkg-deb --contents "${PKG_DIR}.deb" | grep -q '/usr/share/uraam/GUI/theme.css'
           dpkg-deb --contents "${PKG_DIR}.deb" | grep -q '/usr/share/applications/uraam.desktop'
           dpkg-deb --contents "${PKG_DIR}.deb" | grep -q '/usr/share/icons/hicolor/scalable/apps/uraam.svg'
+      - name: Test Debian install and uninstall lifecycle
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes adb jq curl desktop-file-utils
+          sudo dpkg -i uraam-debian_0.0.0_all.deb
+          test -L /usr/bin/uraam
+          test "$(readlink /usr/bin/uraam)" = "/usr/share/uraam/uraam.sh"
+          test -x /usr/bin/uraam-gui
+          test -r /usr/share/uraam/GUI/main.py
+          test -r /usr/share/uraam/GUI/api_protocol.py
+          test -r /usr/share/uraam/GUI/bridge_process.py
+          test -r /usr/share/uraam/GUI/theme.css
+          test -r /usr/share/applications/uraam.desktop
+          test -r /usr/share/icons/hicolor/scalable/apps/uraam.svg
+          desktop-file-validate /usr/share/applications/uraam.desktop
+          sudo dpkg -r uraam
+          test ! -e /usr/bin/uraam
+          test ! -e /usr/bin/uraam-gui
+          test ! -e /usr/share/uraam
+          test ! -e /usr/share/applications/uraam.desktop
+          test ! -e /usr/share/icons/hicolor/scalable/apps/uraam.svg
+
       - name: Test read-only JSON API
         run: bash tests/test-json-api.sh
 
