@@ -107,8 +107,8 @@ The Connections page is separate from the read-only JSON API. Its host-side work
 
 - Wireless ADB pairing validates a host/port endpoint and a six-digit temporary code before invoking `adb pair`. The code is held only in the password field / worker call, redacted from captured output, and cleared after success. The user then enters the distinct connection endpoint for `adb connect`.
 - Device discovery parses `adb devices -l` and allows only devices in the authorized `device` state to be selected. The selected serial is passed to the existing read-only API through `ANDROID_SERIAL`.
-- Shizuku on Android 11+ is paired and started inside the Shizuku app using Android Wireless debugging. This is intentionally separate from pairing the desktop host with ADB; URAAM never asks the user to paste Shizuku's notification code into the desktop.
-- When an ADB device is selected, the assistant can check whether the Shizuku package is installed and open the app. The legacy computer-start script is offered only as an explicit action and only when the device reports Android SDK 29 or lower.
+- Shizuku on Android 11+ is paired and started inside the Shizuku app using Android Wireless debugging. The user enters its pairing code in the Shizuku notification. This is intentionally separate from pairing the desktop host with ADB; URAAM never asks for Shizuku's notification code.
+- When an ADB device is selected, the assistant can check whether the Shizuku package is installed and open the app. The legacy computer-start script (documented for Shizuku 11.2.0+) is offered only as an explicit action and only when the device reports Android SDK 29 or lower.
 - The desktop dashboard continues to use the ADB backend. The existing `rish` backend remains a Termux workflow and is not silently substituted by the desktop connection wizard.
 
 The assistant does not expose arbitrary Android shell input, package changes, or the destructive CLI workflows.
