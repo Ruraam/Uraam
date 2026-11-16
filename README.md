@@ -85,7 +85,7 @@ curl -fsSL https://raw.githubusercontent.com/Ruraam/debup/main/installer.sh | ba
 ```
 Search Uraam (on APT repo and Github Release)
 ```bash
-dbp -s Ruraam/Uraam
+dbp -s Uraam
 ```
 Select option 1 for APT repository installation or 2 directly from Github Releases page.
 
