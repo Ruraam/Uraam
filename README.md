@@ -75,7 +75,9 @@ If curl is unavailable, download `installer.sh` from this repository and run it 
 
 ### Debian / Ubuntu / Termux
 
-**Install and update Uraam via APT or Github Releases with [Debup](https://github.com/Uraam/debup)**
+Via **[Debup](https://github.com/Uraam/debup)**
+
+Install and update Uraam via APT or Github Releases. 
 
 install Debup via interactive menu:
 ```bash
