@@ -73,8 +73,20 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Ruraam/Uraam/main/installer.
 
 If curl is unavailable, download `installer.sh` from this repository and run it locally with Bash. On Linux desktops, the installer asks whether to install the optional GTK4 desktop frontend. Choosing No keeps the Bash-only installation unchanged. Termux remains CLI-only.
 
-### Debian / Ubuntu
+### Debian / Ubuntu / Termux
 
+**Install and update Uraam via APT or Github Releases with [Debup](https://github.com/Uraam/debup)**
+install Debup via interactive menu:
+```bash
+curl -fsSL https://raw.githubusercontent.com/Ruraam/debup/main/installer.sh | bash
+```
+Search Uraam (on APT repo and Github Release)
+```bash
+dbp -s Ruraam/Uraam
+```
+Select option 1 for APT repository installation or 2 directly from Github Releases page.
+
+**Manual Installation:**
 Use the latest `.deb` asset from the [GitHub Releases](https://github.com/Ruraam/Uraam/releases) page:
 
 ```bash
