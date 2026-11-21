@@ -4,14 +4,15 @@ URAAM Desktop is an optional GTK4 frontend. It does not replace the Bash CLI and
 
 ## Current scope
 
-The first foundation milestone is deliberately read-only:
+The JSON bridge remains deliberately read-only:
 
 - `uraam-api.sh device-info` reports the selected backend and device identity.
 - `uraam-api.sh list-packages` returns the installed package inventory for Android user 0, plus best-effort system / third-party classification from Android Package Manager.
 - `uraam-api.sh package-info:<package.id>` returns the APK path(s) and version metadata reported by Android for one validated package identifier.
 - The GUI provides All / System / User / Unclassified filters and a read-only package inspector. Classification is informational only; it does not imply that an app is safe to remove.
 - `uraam-gui` launches the optional Python / GTK4 desktop interface.
-- The GUI can display connection information, the package inventory and per-package details.
+- The GUI displays connection information, the package inventory and per-package details.
+- The Connections assistant provides a bounded wireless ADB pairing / connection wizard and a separate Shizuku setup guide.
 
 The API emits one JSON object on standard output. Diagnostic messages from the existing terminal-oriented engine are suppressed by the adapter. Errors are returned as JSON and a non-zero exit status. Device output is streamed through API-specific byte ceilings before being retained: package inventories default to 1 MiB, `dumpsys package` metadata to 2 MiB, and APK path output to 64 KiB. These limits can be lowered or raised with `URAAM_API_MAX_INVENTORY_BYTES`, `URAAM_API_MAX_DUMPSYS_BYTES`, and `URAAM_API_MAX_PATHS_BYTES`, with hard maxima of 8 MiB, 8 MiB and 1 MiB respectively. Oversized inventories fail closed and never return a truncated package list. Oversized `dumpsys` output preserves already validated APK paths but marks metadata as limited and returns version, permission and component metadata as unknown. The GTK protocol decoder independently rejects JSON responses larger than 8 MiB.
 
@@ -100,9 +101,21 @@ For a source checkout, the launcher and API remain beside `uraam.sh`. Debian pac
 
 The package inspector uses bounded, read-only `pm path --user 0` and `dumpsys package` queries through the existing Bash device-execution layer. APK paths are accepted only from strict `package:/absolute/path` responses whose path contains no whitespace, control characters, or `.` / `..` traversal segments; raw absolute paths and relative paths are rejected. Split APK installations retain every accepted path in the order reported by Package Manager. If `dumpsys package` fails or returns no usable metadata, package inspection can still report the validated APK paths, but version, permission and component metadata remain `null` rather than being inferred. Version name and version code are displayed only when the device output contains the expected fields; otherwise the GUI reports that the metadata was not provided. Requested permission names are parsed only from the dedicated `requested permissions:` section. They are explicitly not presented as granted permissions: install/runtime grant sections are not used to infer access. If the section is absent, the API returns null and the GUI says the metadata was not reported. Activities, services, receivers and providers are read only from their matching explicit `dumpsys package` sections. Each component category is returned as an array when its section is present (including an empty array when no entries are parsed), or `null` when the Android build does not expose that section. Entries are restricted to component names prefixed by the inspected package ID; unrelated resolver-table references are ignored. This is a best-effort view of the Package Manager dump, not a guarantee of runtime reachability or launchability. Signing-certificate identity and safety verdicts are not inferred. The inspector offers no install, disable, uninstall, or restore controls.
 
+## Connection assistant
+
+The Connections page is separate from the read-only JSON API. Its host-side worker invokes only fixed ADB argument vectors with a 20-second timeout; it never interpolates user input into a shell command.
+
+- Wireless ADB pairing validates a host/port endpoint and a six-digit temporary code before invoking `adb pair`. The code is held only in the password field / worker call, redacted from captured output, and cleared after success. The user then enters the distinct connection endpoint for `adb connect`.
+- Device discovery parses `adb devices -l` and allows only devices in the authorized `device` state to be selected. The selected serial is passed to the existing read-only API through `ANDROID_SERIAL`.
+- Shizuku on Android 11+ is paired and started inside the Shizuku app using Android Wireless debugging. The user enters its pairing code in the Shizuku notification. This is intentionally separate from pairing the desktop host with ADB; URAAM never asks for Shizuku's notification code.
+- When an ADB device is selected, the assistant can check whether the Shizuku package is installed and open the app. The legacy computer-start script (documented for Shizuku 11.2.0+) is offered only as an explicit action and only when the device reports Android SDK 29 or lower.
+- The desktop dashboard continues to use the ADB backend. The existing `rish` backend remains a Termux workflow and is not silently substituted by the desktop connection wizard. See the [official Shizuku setup guide](https://shizuku.rikka.app/guide/setup/) for device-specific pairing instructions.
+
+The assistant does not expose arbitrary Android shell input, package changes, or the destructive CLI workflows.
+
 ## Safety boundary
 
-This milestone does not expose debloat preview, Apply, package disable/uninstall, APK installation, restoration, wireless pairing or journal reconciliation through the GUI. Continue to use the existing Bash interface for those workflows.
+The GUI still does not expose debloat preview, Apply, package disable/uninstall, APK installation, restoration, or journal reconciliation. Continue to use the existing Bash interface for those workflows.
 
 A future mutating API must call the existing engine's validated operation paths. It must not duplicate safety checks, bypass the apply lock, skip fresh device/inventory validation, omit the private operation journal, or weaken exact user confirmation. No GUI action may directly construct an arbitrary Android shell command.
 

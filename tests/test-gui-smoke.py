@@ -21,7 +21,51 @@ from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
 import bridge_process  # noqa: E402
 from bridge_process import BridgeProcessCancelled, communicate_process  # noqa: E402
-from main import UraamApplication, UraamWindow  # noqa: E402
+from main import (
+    UraamApplication,
+    UraamWindow,
+    parse_adb_devices_output,
+    validate_adb_endpoint,
+)  # noqa: E402
+
+
+def test_connection_assistant_input_validation() -> None:
+    for endpoint in ("192.168.1.10:37123", "phone.local:5555", "[2001:db8::1]:5555"):
+        if validate_adb_endpoint(endpoint) != endpoint:
+            raise AssertionError("A valid ADB endpoint was changed")
+    for endpoint in ("", "host", "host:0", "host:65536", "host:abc", "host;id:5555",
+                     "[not-ipv6]:5555", "host name:5555"):
+        try:
+            validate_adb_endpoint(endpoint)
+        except ValueError:
+            continue
+        raise AssertionError(f"An invalid ADB endpoint was accepted: {endpoint!r}")
+
+    parsed = parse_adb_devices_output(
+        """* daemon started successfully *
+List of devices attached
+SERIAL-ONE device product:test
+SERIAL-TWO unauthorized usb:1-2
+192.168.1.4:5555 offline
+not-a-device-row
+"""
+    )
+    expected = [
+        ("SERIAL-ONE", "device"),
+        ("SERIAL-TWO", "unauthorized"),
+        ("192.168.1.4:5555", "offline"),
+    ]
+    if parsed != expected:
+        raise AssertionError(f"ADB device parser returned {parsed!r}")
+
+    # Device discovery must retain entries beyond the former 2,000-character
+    # UI display limit; structured parsing is not allowed to use a display slice.
+    long_device_output = "List of devices attached\n" + "".join(
+        f"SERIAL-{index:04d} device product:test\n" for index in range(300)
+    )
+    long_devices = parse_adb_devices_output(long_device_output)
+    if len(long_devices) != 300 or long_devices[-1][0] != "SERIAL-0299":
+        raise AssertionError("ADB device parsing dropped entries from long command output")
 
 
 def drain_main_context() -> None:
@@ -175,10 +219,12 @@ def test_shutdown_closes_pipes_with_pending_output() -> None:
             sys.executable,
             "-c",
             (
-                "import os, time; "
+                "import os; "
                 "os.write(2, b'READY\\n'); "
-                "chunk = b'x' * 65536; "
-                "exec('while True:\\n os.write(1, chunk)\\n os.write(2, chunk)')"
+                "chunk = b'x' * 65536\n"
+                "while True:\n"
+                "    os.write(1, chunk)\n"
+                "    os.write(2, chunk)"
             ),
         ],
         stdout=subprocess.PIPE,
@@ -334,6 +380,7 @@ def test_natural_leader_exit_kills_descendant_process_group() -> None:
 
 
 def main() -> int:
+    test_connection_assistant_input_validation()
     test_natural_leader_exit_kills_descendant_process_group()
     test_reader_failure_kills_and_reaps_bridge()
     test_shutdown_closes_pipes_with_pending_output()
@@ -360,6 +407,10 @@ def main() -> int:
             raise AssertionError("The applications view was not constructed")
         if window.package_detail_name.get_text() != "Select an application":
             raise AssertionError("The package inspector was not initialized")
+        if window.connection_stack.get_child_by_name("pair") is None:
+            raise AssertionError("The wireless pairing wizard page was not constructed")
+        if window.connection_stack.get_child_by_name("shizuku") is None:
+            raise AssertionError("The Shizuku assistant page was not constructed")
 
         # Stress the current metadata rendering path with the protocol's
         # maximum component count. This checks GTK construction/layout work
@@ -423,6 +474,9 @@ def main() -> int:
         if window.package_count_label.get_text() != "Showing 1 of 2 package(s)":
             raise AssertionError("The GTK package count is inconsistent")
 
+        window._show_view("connections")
+        if window.stack.get_visible_child_name() != "connections":
+            raise AssertionError("Connection assistant navigation failed")
         window._show_view("packages")
         if window.stack.get_visible_child_name() != "packages":
             raise AssertionError("Applications navigation failed")
@@ -437,6 +491,7 @@ def main() -> int:
             window.refresh_button,
             window.dashboard_button,
             window.packages_button,
+            window.connections_button,
             window.package_detail_back_button,
         ):
             control.grab_focus()
@@ -598,7 +653,6 @@ def main() -> int:
                 (Gdk.KEY_1, Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.ALT_MASK),
                 (Gdk.KEY_Escape, Gdk.ModifierType.SHIFT_MASK),
                 (Gdk.KEY_Escape, Gdk.ModifierType.ALT_MASK),
-                (Gdk.KEY_3, Gdk.ModifierType.CONTROL_MASK),
             )
             for keyval, modifiers in invalid_shortcuts:
                 if window._on_key_pressed(None, keyval, 0, modifiers):
@@ -607,6 +661,17 @@ def main() -> int:
                     )
                 if window.stack.get_visible_child_name() != "dashboard":
                     raise AssertionError("An unsupported shortcut changed the active page")
+
+            if not window._on_key_pressed(
+                None, Gdk.KEY_3, 0, Gdk.ModifierType.CONTROL_MASK
+            ):
+                raise AssertionError("Ctrl+3 did not open the connection assistant")
+            if window.stack.get_visible_child_name() != "connections":
+                raise AssertionError("Ctrl+3 selected the wrong page")
+            if not window._on_key_pressed(
+                None, Gdk.KEY_1, 0, Gdk.ModifierType.CONTROL_MASK
+            ):
+                raise AssertionError("Ctrl+1 did not return to the dashboard")
         finally:
             window._run_async = original_run_async
             window._show_device = original_show_device
